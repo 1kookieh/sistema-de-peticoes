@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Artefatos gerados
+output/
+*.docx
+!prompts/*.docx
+
+# Dados de runtime (MCP Gmail)
+mcp_inbox.json
+mcp_outbox.json
+
+# Configurações locais do orquestrador (mantidas fora do repositório público)
+.claude/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
