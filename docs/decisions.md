@@ -1,79 +1,87 @@
-# Decisões técnicas
+# Decisões Técnicas
 
-Registro leve de decisões (ADR light). Cada entrada descreve o contexto, a decisão e as consequências aceitas.
+Registro leve de decisões do projeto.
 
----
+## 1. Uso supervisionado, não automação jurídica plena
 
-## 1. Usar `python-docx` em vez de templating (Jinja + Word)
+**Contexto.** O projeto lida com peças jurídicas, dados sensíveis e responsabilidade profissional.
 
-**Contexto.** Precisamos aplicar negrito seletivo, recuos de primeira linha, alinhamentos mistos e margens exatas em centímetros — regras difíceis de expressar via substituição textual em template.
-
-**Decisão.** Construir os `.docx` programaticamente com `python-docx`, manipulando parágrafos e runs.
+**Decisão.** O sistema valida forma e contrato de entrada, mas não afirma conformidade jurídica de mérito. Toda saída exige revisão humana.
 
 **Consequências.**
-- (+) Controle total sobre o OOXML gerado.
-- (+) Fácil de testar — o "documento" é uma estrutura Python antes de virar arquivo.
-- (−) Mais código de formatação que um template simples.
+- Reduz falsa sensação de segurança.
+- Mantém o core simples.
+- Exige documentação clara para operadores jurídicos.
 
----
+## 2. Bloquear outbox quando há violação
 
-## 2. Filas JSON em disco (`mcp_inbox.json` / `mcp_outbox.json`)
+**Contexto.** A versão inicial enfileirava a resposta mesmo quando o validador apontava problemas.
 
-**Contexto.** O pipeline precisa ser integrável com Gmail, APIs REST ou qualquer outra fonte, sem acoplar o código Python a um SDK específico.
-
-**Decisão.** Entrada e saída são arquivos JSON em disco. Integradores externos populam a inbox e consomem a outbox.
+**Decisão.** Qualquer violação formal bloqueia a outbox. O status do item é registrado em `mcp_status.json`.
 
 **Consequências.**
-- (+) Código principal fica testável offline e desacoplado do canal.
-- (+) Fácil de inspecionar manualmente (`cat mcp_outbox.json`).
-- (−) Não há throughput ou concorrência — mas isso não é requisito deste escopo.
+- Evita envio acidental de documento formalmente inválido.
+- Permite auditoria local do motivo do bloqueio.
 
----
+## 3. Filas JSON locais
 
-## 3. Validador separado do formatador
+**Contexto.** O pipeline precisa continuar integrável com Gmail, MCP ou outras pontes externas sem acoplar SDKs no core.
 
-**Contexto.** O formatador pode evoluir e introduzir bugs sutis (ex.: esquecer o recuo em um tipo de parágrafo novo).
-
-**Decisão.** Um módulo separado (`validar_docx.py`) relê o `.docx` do disco e verifica as regras de forma independente.
+**Decisão.** Manter `mcp_inbox.json` e `mcp_outbox.json`, agora com validação de contrato, limite de tamanho e escrita atômica da outbox.
 
 **Consequências.**
-- (+) Rede de segurança: bug no formatador é detectado em vez de propagado.
-- (+) Permite loops de autocorreção e métricas de qualidade.
-- (−) Duplicação parcial das regras (tanto o formatador quanto o validador conhecem "margens 3/3/2/2") — aceitamos em troca do desacoplamento.
+- Integração segue simples.
+- Os arquivos devem ser tratados como sensíveis.
+- Concorrência pesada continua fora do escopo.
 
----
+## 4. Validador separado do formatador
 
-## 4. Loader de `.env` caseiro, sem `python-dotenv`
+**Contexto.** O formatador pode introduzir bugs visuais sutis.
 
-**Contexto.** Queremos manter o requirements.txt mínimo.
-
-**Decisão.** `config.py` parseia o `.env` com `str.partition("=")` — 10 linhas de código.
+**Decisão.** O validador reabre o `.docx` e verifica página, margens, fontes, endereçamento, OAB, local/data, recuo e assinatura gráfica.
 
 **Consequências.**
-- (+) Uma única dependência de runtime (`python-docx`).
-- (−) Não suporta expansão de variáveis ou quoting avançado — aceitável para este projeto.
+- Aumenta confiança formal.
+- Ainda não substitui revisão visual nem jurídica.
 
----
+## 5. `pytest` como dependência de desenvolvimento
 
-## 5. Prompts em Markdown versionado
+**Contexto.** Smoke tests não bastam para um pipeline jurídico supervisionado.
 
-**Contexto.** As regras jurídicas e de formatação mudam — e quem altera nem sempre é desenvolvedor.
-
-**Decisão.** Manter `prompts/prompt_peticao.md` e `prompts/prompt_formatacao_word.md` sob versionamento, editáveis sem tocar no código Python.
+**Decisão.** Adicionar `requirements-dev.txt` com `pytest` e rodar testes no CI.
 
 **Consequências.**
-- (+) Mudança de regra = PR, com histórico e revisão.
-- (+) Integradores que usem LLM podem consumir o mesmo arquivo.
-- (−) Regras "executáveis" (validação) continuam em Python — o Markdown é a fonte de verdade humana.
+- Instalação runtime continua mínima.
+- Desenvolvimento passa a ter uma suíte objetiva de regressão.
 
----
+## 6. Perfis de validação
 
-## 6. Exit codes semânticos no `main.py`
+**Contexto.** “Padrão forense brasileiro” não é universal; JEF, Justiça Estadual, INSS e tabelionatos têm expectativas diferentes.
 
-**Contexto.** O pipeline pode rodar em CI/CD.
-
-**Decisão.** `0` OK, `1` falha, `2` configuração ausente, `3` gerado com violações.
+**Decisão.** Criar perfis explícitos em `src/profiles.py`, selecionáveis por `VALIDATION_PROFILE` ou `--profile`.
 
 **Consequências.**
-- (+) Scripts de automação podem tratar cada caso.
-- (+) `3` permite publicar um artefato "quase pronto" para revisão humana.
+- Regras por contexto ficam auditáveis.
+- Novos tribunais ou ritos podem ser adicionados sem alterar o validador inteiro.
+- Perfil não substitui regra local de cartório, tribunal ou sistema de protocolo.
+
+## 7. Relatório JSON e golden estrutural
+
+**Contexto.** Comparar `.docx` byte a byte é frágil; o que importa são propriedades formais.
+
+**Decisão.** Extrair estrutura do documento para JSON e usar golden files estruturais em testes.
+
+**Consequências.**
+- Regressões de layout ficam mais visíveis.
+- O relatório também serve como evidência de revisão formal.
+- O relatório pode conter dados sensíveis e não deve ser versionado quando vier de casos reais.
+
+## 8. Retenção desligada por padrão
+
+**Contexto.** Expurgo automático pode apagar trabalho jurídico se mal configurado.
+
+**Decisão.** A política existe, mas a CLI só apaga com `--apply-retention`; sem essa flag, lista candidatos.
+
+**Consequências.**
+- Operador mantém controle explícito sobre exclusão.
+- O projeto ganha um caminho seguro para reduzir acúmulo de dados sensíveis.

@@ -46,7 +46,6 @@ ENV/
 # ---------- Variáveis de ambiente e segredos ----------
 .env
 .env.*
-!.env.example
 
 # ---------- Artefatos gerados pelo pipeline ----------
 output/
@@ -56,6 +55,10 @@ output/
 # ---------- Dados de runtime (filas MCP) ----------
 mcp_inbox.json
 mcp_outbox.json
+mcp_status.json
+*.tmp
+reports/
+*_report.json
 
 # ---------- Configurações locais do orquestrador ----------
 .claude/

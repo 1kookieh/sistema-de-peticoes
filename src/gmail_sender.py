@@ -14,8 +14,54 @@ import base64
 import json
 from pathlib import Path
 
+from config import OUTPUT_DIR
+
 ROOT = Path(__file__).parent.parent
 OUTBOX = ROOT / "mcp_outbox.json"
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+
+class OutboxError(ValueError):
+    """Erro ao gravar a fila de saída."""
+
+
+def _dentro_de(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _carregar_outbox() -> list[dict]:
+    if not OUTBOX.exists():
+        return []
+
+    raw = json.loads(OUTBOX.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise OutboxError(f"fila de saída inválida: {OUTBOX}")
+    return raw
+
+
+def _salvar_outbox(dados: list[dict]) -> None:
+    tmp = OUTBOX.with_suffix(OUTBOX.suffix + ".tmp")
+    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(OUTBOX)
+
+
+def _validar_anexo(anexo_path: Path) -> Path:
+    anexo = anexo_path.resolve()
+    if not anexo.exists() or not anexo.is_file():
+        raise OutboxError(f"anexo não encontrado: {anexo_path}")
+    if anexo.suffix.lower() != ".docx":
+        raise OutboxError("apenas anexos .docx são permitidos na outbox")
+    if not _dentro_de(anexo, OUTPUT_DIR):
+        raise OutboxError("anexo deve estar dentro do diretório output/")
+    if anexo.stat().st_size > MAX_ATTACHMENT_BYTES:
+        raise OutboxError(
+            f"anexo excede {MAX_ATTACHMENT_BYTES} bytes e não será serializado"
+        )
+    return anexo
 
 
 def enfileirar_resposta(para: str, assunto: str, corpo: str,
@@ -25,18 +71,19 @@ def enfileirar_resposta(para: str, assunto: str, corpo: str,
     O integrador externo é responsável por ler a fila e despachar a
     mensagem pelo canal de e-mail configurado.
     """
-    existentes = []
-    if OUTBOX.exists():
-        existentes = json.loads(OUTBOX.read_text(encoding="utf-8"))
+    if "@" not in para:
+        raise OutboxError("destinatário inválido para outbox")
 
-    anexo_b64 = base64.b64encode(anexo_path.read_bytes()).decode("ascii")
+    existentes = _carregar_outbox()
+    anexo = _validar_anexo(anexo_path)
+    anexo_b64 = base64.b64encode(anexo.read_bytes()).decode("ascii")
     existentes.append({
         "to": para,
         "subject": assunto,
         "body": corpo,
         "thread_id": thread_id,
         "attachment": {
-            "filename": anexo_path.name,
+            "filename": anexo.name,
             "mime_type": (
                 "application/vnd.openxmlformats-officedocument"
                 ".wordprocessingml.document"
@@ -44,5 +91,4 @@ def enfileirar_resposta(para: str, assunto: str, corpo: str,
             "content_base64": anexo_b64,
         },
     })
-    OUTBOX.write_text(json.dumps(existentes, ensure_ascii=False, indent=2),
-                      encoding="utf-8")
+    _salvar_outbox(existentes)

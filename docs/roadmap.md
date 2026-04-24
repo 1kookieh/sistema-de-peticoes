@@ -1,30 +1,36 @@
 # Roadmap
 
-Ideias priorizadas para a evolução do `Sistema de Petições`. A ordem reflete intenção, não compromisso de prazo.
+## Curto Prazo
 
-## Curto prazo
+- [x] Suíte inicial de testes com `pytest`.
+- [x] Bloqueio de outbox quando há violação formal.
+- [x] Validação de contrato da inbox JSON.
+- [x] Avisos de LGPD e revisão humana na documentação.
+- [x] Perfis iniciais de validação por contexto.
+- [x] Relatório JSON de conformidade formal.
+- [x] CLI dedicada com `--strict`, `--report` e `--no-outbox`.
+- [x] Política configurável de retenção/expurgo.
+- [x] Golden file estrutural para `.docx`.
+- [x] Documentação de histórico Git profissional em `docs/git-history.md`.
+- [ ] Mensagens de violação com mais contexto por parágrafo/seção.
+- [ ] Validação de múltiplos advogados no fechamento.
 
-- [ ] **Suíte de testes (`pytest`)**
-  - Golden files de `.docx` para o formatador.
-  - Testes de contrato para o validador (cada regra tem pelo menos um caso positivo e um negativo).
-- [ ] **Lint/format automatizado** (`ruff` + `black`) no CI.
-- [ ] **Mensagens de violação com contexto** — hoje dizem "margem esquerda incorreta"; queremos "margem esquerda 2,8 cm, esperado 3,0 cm no parágrafo 4".
+## Médio Prazo
 
-## Médio prazo
+- [ ] Expandir perfis por tribunal, rito e escritório.
+- [ ] Exportação PDF por ferramenta local, com aviso de dependência externa.
+- [ ] Relatório HTML local para revisão humana.
 
-- [ ] **Export em `.pdf`** diretamente do pipeline (via `docx2pdf` ou LibreOffice headless).
-- [ ] **Anexos embarcados** — receber documentos do processo junto com o texto da peça e incorporá-los ao envio.
-- [ ] **API REST** (FastAPI) — expor `/peticoes` aceitando o JSON do inbox e retornando o `.docx` gerado + relatório de validação.
-- [ ] **Interface CLI enxuta** (`python -m src peticao ./entrada.txt --saida ./peticao.docx`).
+## Longo Prazo
 
-## Longo prazo
+- [ ] Biblioteca de templates por classe processual.
+- [ ] Relatório de conformidade formal em JSON.
+- [ ] Dashboard local de qualidade.
+- [ ] Integração segura com armazenamento criptografado.
 
-- [ ] **Dashboard de qualidade** — histórico de quantas peças passam em todas as validações na primeira tentativa, violações mais comuns.
-- [ ] **Biblioteca de templates** por tipo de ação (trabalhista, previdenciária, cível), carregáveis via flag.
-- [ ] **Verificação ortográfica** opcional (LanguageTool local).
-- [ ] **Internacionalização** do padrão de formatação para outros sistemas jurídicos (pt-PT, es).
+## Fora Do Escopo Atual
 
-## Ideias descartadas (e por quê)
-
-- **Editor WYSIWYG próprio** — fora do escopo; o Word já cumpre esse papel.
-- **Persistência em banco de dados** — as filas JSON atendem o volume previsto.
+- Geração automática de mérito jurídico definitivo.
+- Substituição de advogado responsável.
+- Consulta paga a APIs externas.
+- Garantia universal de aceitação por todos os tribunais brasileiros.

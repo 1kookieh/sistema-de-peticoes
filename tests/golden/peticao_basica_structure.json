@@ -1,0 +1,30 @@
+{
+  "profile_id": "judicial-inicial-jef",
+  "page": {
+    "width_cm": 21.0,
+    "height_cm": 29.7
+  },
+  "margins_cm": {
+    "top": 3.0,
+    "left": 3.0,
+    "bottom": 2.0,
+    "right": 2.0
+  },
+  "paragraph_count": 24,
+  "first_non_empty": "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL DA VARA DO JUIZADO ESPECIAL FEDERAL DA SUBSEÇÃO JUDICIÁRIA DE GOIÂNIA/GO",
+  "blank_lines_after_header": 7,
+  "font_names": [
+    "Times New Roman"
+  ],
+  "font_sizes": [
+    12.0
+  ],
+  "contains_oab": true,
+  "contains_local_data_hint": true,
+  "required_sections_found": [
+    "DOS FATOS",
+    "DO DIREITO",
+    "DOS PEDIDOS",
+    "DO VALOR DA CAUSA"
+  ]
+}

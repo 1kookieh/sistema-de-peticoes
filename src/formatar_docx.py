@@ -63,6 +63,8 @@ OAB_RE = re.compile(r"^\s*OAB\s*/?\s*[A-Z]{2}\s*[\d.]+\s*$", re.IGNORECASE)
 
 def _setup_page(doc: Document) -> None:
     for section in doc.sections:
+        section.page_width = Cm(21)
+        section.page_height = Cm(29.7)
         section.top_margin = Cm(3)
         section.left_margin = Cm(3)
         section.bottom_margin = Cm(2)

@@ -1,317 +1,310 @@
 # Sistema de Petições
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-ativo-brightgreen.svg)]()
+[![Status](https://img.shields.io/badge/status-supervisionado-yellow.svg)]()
 [![CI](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml/badge.svg)](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml)
 
-Pipeline em Python que gera peças jurídicas em `.docx` no **padrão forense brasileiro** a partir de texto simples. O sistema formata, valida automaticamente e entrega o documento pronto para protocolo — sem dependência de APIs pagas, usando apenas `python-docx`.
+Pipeline em Python para transformar texto de peças jurídicas em `.docx` com formatação forense padronizada, validação determinística e filas JSON locais. O sistema ajuda a reduzir retrabalho mecânico de Word, mas não substitui advogado, não valida mérito jurídico complexo e não deve ser usado para protocolo sem revisão humana.
 
-> **Destaques técnicos:** pipeline autossuficiente (formata → valida → autocorrige), validador determinístico de regras ABNT/forenses, arquitetura modular orientada a filas (inbox/outbox JSON) e integração opcional com e-mail via orquestrador externo.
+## O Que Faz
 
----
+- Formata texto em `.docx` com A4, margens 3/3/2/2 cm, Times New Roman 12, corpo justificado, espaçamento 1,5, recuo de 2,5 cm e 7 linhas após o endereçamento.
+- Valida o `.docx` gerado quanto a regras formais: página, margens, fonte, endereçamento, OAB, local/data, assinatura gráfica e placeholders.
+- Bloqueia o enfileiramento quando encontra violação formal ou entrada com dados de exemplo.
+- Lê uma fila local `mcp_inbox.json` ou `INBOX_MOCK_PATH` e grava respostas em `mcp_outbox.json`.
+- Mantém estado local em `mcp_status.json` para evitar reprocessamento acidental de itens já concluídos.
+- Permite perfis formais por contexto, relatório JSON de conformidade e execução sem outbox.
+- Possui política configurável de retenção para arquivos locais sensíveis.
+- Inclui testes automatizados com `pytest`.
 
-## Sumário
+## Demonstração Segura
 
-- [Objetivo](#objetivo)
-- [Contexto](#contexto)
-- [Visão geral do fluxo](#visão-geral-do-fluxo)
-- [Funcionalidades](#funcionalidades)
-- [Tecnologias](#tecnologias)
-- [Instalação](#instalação)
-- [Como executar](#como-executar)
-- [Estrutura do projeto](#estrutura-do-projeto)
-- [Arquitetura](#arquitetura)
-- [Decisões técnicas](#decisões-técnicas)
-- [Desafios](#desafios)
-- [Aprendizados](#aprendizados)
-- [Melhorias futuras](#melhorias-futuras)
-- [Como contribuir](#como-contribuir)
-- [Licença](#licença)
-- [Contato](#contato)
+Este repositório não deve expor peças reais, dados de clientes ou documentos sensíveis. Para avaliar o fluxo sem risco, use apenas `teste_inbox.json` e dados fictícios.
 
----
+- Roteiro de demonstração: [docs/demo.md](docs/demo.md)
+- Estudo de caso técnico: [docs/case-study.md](docs/case-study.md)
 
-## Objetivo
+## O Que Não Faz
 
-Automatizar a etapa mecânica da produção de peças jurídicas — formatação em padrão forense, conferência de margens, fontes, alinhamentos e elementos obrigatórios — para que o advogado dedique 100% do tempo ao conteúdo jurídico. A meta é eliminar o retrabalho com Word, garantir uniformidade visual em todo o escritório e produzir documentos prontos para protocolo em qualquer tribunal brasileiro.
+- Não declara que uma peça está juridicamente pronta para protocolo.
+- Não substitui conferência de advogado com OAB ativa e poderes nos autos.
+- Não verifica automaticamente competência, rito, prazo, tese, jurisprudência atualizada ou regras locais de tribunal.
+- Não consulta APIs pagas nem gera mérito jurídico definitivo.
+- Não elimina a necessidade de revisar dados pessoais, documentos, cálculo, valor da causa e pedidos.
 
-## Contexto
+## Aviso Jurídico e LGPD
 
-O projeto nasceu de uma dor real observada em escritórios de advocacia de pequeno/médio porte: cada advogado acaba aplicando manualmente regras de formatação (margens 3/3/2/2 cm, Times New Roman 12, recuo 2,5 cm, 7 linhas após o endereçamento, negrito restrito a elementos específicos) e erros sutis passam despercebidos até a devolução pela secretaria ou pelo próprio juízo. O `Sistema de Petições` codifica essas regras em Python puro, transformando uma checklist informal em pipeline determinístico.
+Peças jurídicas podem conter dados pessoais, dados sensíveis, informações médicas, dados previdenciários e elementos protegidos por sigilo profissional. Os arquivos abaixo são dados de runtime e devem ser tratados como sensíveis:
 
-## Visão geral do fluxo
+- `output/*.docx`
+- `mcp_inbox.json`
+- `mcp_outbox.json`
+- `mcp_status.json`
 
-```
-   Texto da peça (stdin / JSON / e-mail)
-                  │
-                  ▼
-   ┌──────────────────────────────┐
-   │ src/formatar_docx.py         │  Aplica padrão forense:
-   │  A4 · TNR 12 · 3/3/2/2cm     │  margens, fonte, recuo,
-   │  justificado · 1,5 entre     │  negrito, centralizações,
-   │  linhas · recuo 2,5 cm       │  7 linhas após vara.
-   └──────────────┬───────────────┘
-                  ▼
-   ┌──────────────────────────────┐
-   │ src/validar_docx.py          │  Verificação determinística:
-   │  margens · fontes · OAB      │  margens, fontes, alinhamento,
-   │  7 linhas · alinhamentos     │  vara centralizada, OAB, etc.
-   └──────────────┬───────────────┘
-                  ▼
-   .docx pronto em `output/` + relatório de conformidade
-```
-
----
-
-## Funcionalidades
-
-- **Formatação forense/ABNT automática** — `src/formatar_docx.py` aplica:
-  A4, margens 3/3/2/2 cm, Times New Roman 12, justificado, 1,5 entre linhas, recuo 2,5 cm, 7 linhas em branco após o endereçamento, negrito restrito aos elementos autorizados, nome e OAB centralizados sem linha de assinatura.
-- **Validador determinístico** — `src/validar_docx.py` relê o `.docx` gerado e verifica margens, fontes, alinhamentos, presença da OAB no fechamento e ausência de linhas de assinatura. Retorna lista de violações por item, permitindo loops de autocorreção.
-- **Arquitetura orientada a filas** — `mcp_inbox.json` de entrada e `mcp_outbox.json` de saída desacoplam a produção do texto (humano ou integrador externo) da formatação, permitindo integrar qualquer fonte de dados.
-- **Prompts customizáveis** — `prompts/prompt_peticao.md` (regras jurídicas) e `prompts/prompt_formatacao_word.md` (regras de formatação) ficam versionados e são editáveis sem tocar no código.
-- **Zero dependências pagas** — apenas `python-docx`. Sem chamadas a APIs de LLM pagas.
-- **Exit codes semânticos** — `0` sucesso, `1` falha, `2` configuração ausente, `3` gerado com violações (ideal para pipelines de CI/CD).
-
----
-
-## Tecnologias
-
-| Camada | Tecnologia |
-|---|---|
-| Linguagem | Python 3.11+ |
-| Geração de Word | [`python-docx`](https://python-docx.readthedocs.io/) |
-| Validação | Módulo próprio sobre `python-docx` (regras determinísticas) |
-| Configuração | `.env` (loader nativo, sem `python-dotenv`) |
-| Entrega | Filas JSON locais (`mcp_inbox.json` / `mcp_outbox.json`) |
-| CI | GitHub Actions (lint + compile) |
-
----
+Esses arquivos são ignorados pelo Git, mas continuam existindo localmente. Em ambiente real, use diretório protegido, controle de acesso, retenção curta, backups seguros e revisão humana obrigatória antes de envio ou protocolo.
 
 ## Instalação
-
-### Pré-requisitos
-
-- **Python 3.11 ou superior**
-- **Git**
-
-### 1. Clone o repositório
 
 ```bash
 git clone https://github.com/1kookieh/sistema-de-peticoes.git
 cd sistema-de-peticoes
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2. Crie um ambiente virtual e instale dependências
+No Windows PowerShell:
 
-**Windows (PowerShell):**
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-**Windows (bash / Git Bash):**
-```bash
-py -m venv .venv
-source .venv/Scripts/activate
-pip install -r requirements.txt
-```
-
-**Linux / macOS:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 3. Configure variáveis de ambiente
+Para desenvolvimento e testes:
 
 ```bash
-cp .env.example .env
+pip install -r requirements-dev.txt
 ```
 
-Edite `.env` com o e-mail do advogado responsável pelas peças:
+## Configuração
 
-```
-EMAIL_ADVOGADO=seu-email@exemplo.com
-```
+O projeto usa um arquivo `.env` local para configuração de execução. Esse arquivo não deve ser versionado, porque pode conter e-mails, caminhos e políticas internas de uso.
 
-### 4. Configure os advogados do escritório
+Configuração mínima:
 
-Em `prompts/prompt_peticao.md`, substitua os placeholders:
-
-```
-[NOME COMPLETO DO ADVOGADO 1] — OAB/UF 00.000
-[NOME COMPLETO DO ADVOGADO 2] — OAB/UF 00.000
+```env
+EMAIL_ADVOGADO=advogado-responsavel@example.com
 ```
 
-pelos nomes e números da OAB reais. Esses advogados assinarão as peças geradas.
+Neste ambiente local, o `.env` já foi criado para facilitar o uso imediato. Em outro computador, crie manualmente um `.env` com as variáveis acima.
 
----
+Configurações opcionais:
 
-## Como executar
+```env
+REMETENTES_AUTORIZADOS=cliente1@example.com,cliente2@example.com
+MAX_JSON_BYTES=2097152
+GMAIL_LABEL_PROCESSADO=peticao-gerada
+VALIDATION_PROFILE=judicial-inicial-jef
+RETENTION_ENABLED=false
+RETENTION_OUTPUT_DAYS=30
+RETENTION_QUEUE_DAYS=7
+RETENTION_STATUS_DAYS=30
+```
 
-### Teste local
+`EMAIL_ADVOGADO` identifica o responsável pela revisão humana. `REMETENTES_AUTORIZADOS`, quando definido, filtra a inbox por e-mails exatos de remetentes permitidos.
 
-O arquivo `teste_inbox.json` acompanha o projeto. Basta apontar o pipeline para ele:
+## Perfis de Validação
 
-**bash:**
+Liste os perfis disponíveis:
+
+```bash
+python -m src --list-profiles
+```
+
+Perfis atuais:
+
+| Perfil | Uso |
+|---|---|
+| `judicial-inicial-jef` | Petição inicial judicial no JEF ou Justiça Federal |
+| `judicial-inicial-estadual` | Petição inicial judicial na Justiça Estadual |
+| `administrativo-inss` | Requerimento, recurso ou manifestação administrativa |
+| `extrajudicial-tabelionato` | Requerimento ou minuta extrajudicial |
+| `forense-basico` | Validação formal mínima |
+
+O perfil padrão vem de `VALIDATION_PROFILE`. Também é possível informar por CLI com `--profile`.
+
+## Como Executar
+
+### Fluxo de exemplo
+
 ```bash
 export INBOX_MOCK_PATH=./teste_inbox.json
 python -m src.main
 ```
 
-**PowerShell:**
+Também é possível usar a CLI dedicada:
+
+```bash
+python -m src --inbox ./teste_inbox.json --profile judicial-inicial-jef
+```
+
+PowerShell:
+
 ```powershell
 $env:INBOX_MOCK_PATH = ".\teste_inbox.json"
 python -m src.main
 ```
 
 Saída esperada:
-```
+
+```text
 1 e-mail(s) pendente(s).
-[+] teste_001 - 'Petição inicial - ...'
-    docx -> peticao_YYYYMMDD_HHMMSS_teste_00.docx
+[+] Processando thread teste_001
+    docx -> peticao_YYYYMMDD_HHMMSS_xxxxxx_teste_001.docx
     [VALIDACAO] OK
 
-Concluido. Sucessos: 1 | Falhas: 0 | Violacoes: 0
+Concluido. Enfileirados: 1 | Bloqueados: 0 | Falhas: 0 | Violacoes: 0 | Ignorados: 0 | Validos: 1
 ```
 
-O `.docx` aparece em `output/` e o envio fica enfileirado em `mcp_outbox.json`.
-
-### Formatação direta a partir de um arquivo de texto
+### Formatar um texto diretamente
 
 ```bash
 python -m src.formatar_docx peticao.txt output/peticao.docx
 python -m src.formatar_docx - output/peticao.docx < texto.txt
 ```
 
-### Validação de um `.docx` existente
+### Validar um `.docx`
 
 ```bash
 python -m src.validar_docx output/peticao.docx
+python -m src.validar_docx output/peticao.docx --profile judicial-inicial-jef
 ```
 
-Retorna `OK` ou a lista de violações encontradas (margens, fontes, alinhamentos, OAB, etc.).
+O validador retorna `OK` ou uma lista de violações formais. Essa validação não equivale a revisão jurídica de mérito.
 
-### Exit codes
+## Contrato da Inbox
+
+`mcp_inbox.json` deve ser uma lista JSON. Cada item precisa conter:
+
+```json
+{
+  "thread_id": "thread_001",
+  "message_id": "msg_001",
+  "remetente": "cliente@example.com",
+  "assunto": "Pedido de petição",
+  "peticao_texto": "Texto final da peça..."
+}
+```
+
+O pipeline rejeita JSON inválido, campos obrigatórios ausentes, campos vazios, `message_id` duplicado e arquivos acima de `MAX_JSON_BYTES`.
+
+## Validações e Bloqueios
+
+Antes de gerar/enfileirar, o sistema bloqueia entradas com:
+
+- texto vazio;
+- placeholders como `[DADO FALTANTE]`, `[CIDADE]`, `[UF]` ou `NOME DO REQUERENTE`;
+- OAB em formato fictício como `OAB/UF 00.000`;
+- CPF/NIT zerado;
+- ausência de endereçamento, fechamento ou OAB reconhecida;
+- petição inicial sem seções mínimas como `DOS FATOS`, `DO DIREITO`, `DOS PEDIDOS` e `DO VALOR DA CAUSA`.
+
+Depois da geração, o `.docx` é reaberto e validado. Se houver violação, o documento não é enfileirado para envio.
+
+## CLI Dedicada
+
+```bash
+python -m src --inbox ./teste_inbox.json --strict --report reports/conformidade_report.json --no-outbox
+```
+
+Flags principais:
+
+| Flag | Efeito |
+|---|---|
+| `--profile` | Seleciona o perfil formal de validação |
+| `--strict` | Retorna falha quando nenhum documento novo válido é produzido |
+| `--report` | Grava relatório JSON com resumo, itens e estrutura do `.docx` |
+| `--no-outbox` | Gera e valida sem escrever `mcp_outbox.json` |
+| `--apply-retention` | Remove arquivos que excedem a política de retenção |
+| `--cleanup-only` | Executa apenas a política de retenção |
+
+Relatórios podem conter identificadores de threads e caminhos de documentos. Trate `reports/` e `*_report.json` como dados sensíveis.
+
+## Retenção e Expurgo
+
+A retenção fica desligada por padrão. Para ver candidatos sem apagar:
+
+```bash
+python -m src --cleanup-only
+```
+
+Para aplicar a política configurada:
+
+```bash
+python -m src --cleanup-only --apply-retention
+```
+
+Variáveis:
+
+| Variável | Padrão | Efeito |
+|---|---:|---|
+| `RETENTION_OUTPUT_DAYS` | `30` | Remove `.docx` antigos em `output/` |
+| `RETENTION_QUEUE_DAYS` | `7` | Remove inbox/outbox antigas |
+| `RETENTION_STATUS_DAYS` | `30` | Remove `mcp_status.json` antigo |
+
+## Exit Codes
 
 | Código | Significado |
 |---|---|
-| 0 | Tudo OK |
-| 1 | Falha em um ou mais itens |
-| 2 | Configuração ausente (`EMAIL_ADVOGADO`) |
-| 3 | Gerado, mas com violações de formatação |
+| 0 | Execução concluída sem falhas bloqueantes |
+| 1 | Falha técnica ou erro de leitura/processamento |
+| 2 | Configuração obrigatória ausente |
+| 3 | Uma ou mais peças foram bloqueadas por violações formais |
 
----
+## Testes
 
-## Estrutura do projeto
-
+```bash
+pip install -r requirements-dev.txt
+python -m compileall config.py src tests
+pytest -q
 ```
+
+A suíte cobre `.env`, contrato JSON, formatador `.docx`, validador, entradas inválidas, acentos, assinatura indevida e bloqueio de outbox.
+
+Também há golden file estrutural em `tests/golden/`. Ele compara propriedades do documento, como A4, margens, fontes, quantidade de linhas após endereçamento e seções obrigatórias, sem depender de comparação binária do `.docx`.
+
+## Fluxo Recomendado Para Uso Supervisionado
+
+1. Redigir ou revisar o texto base fora do pipeline.
+2. Garantir que não existam placeholders, dados fictícios ou lacunas críticas.
+3. Rodar `python -m src.main` ou `python -m src.formatar_docx`.
+4. Rodar `python -m src.validar_docx output/arquivo.docx`.
+5. Abrir o `.docx` no Word/LibreOffice e conferir visualmente.
+6. Revisar mérito jurídico, competência, rito, prazo, documentos, pedidos, valor da causa, assinatura e procuração.
+7. Só protocolar após aprovação expressa do advogado responsável.
+
+## Estrutura
+
+```text
 .
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md
-│   │   └── feature_request.md
-│   ├── workflows/
-│   │   ├── ci.yml                     # Lint + compile em cada push/PR
-│   │   └── processar_peticoes.yml     # Execução manual do pipeline
-│   └── pull_request_template.md
-├── docs/
-│   ├── architecture.md                # Visão técnica detalhada
-│   ├── decisions.md                   # Registro de decisões (ADR light)
-│   ├── roadmap.md                     # Próximos passos
-│   └── recruiter-notes.md             # Notas curtas para recrutadores/techs
+├── config.py
+├── requirements.txt
+├── requirements-dev.txt
+├── teste_inbox.json
 ├── prompts/
-│   ├── prompt_peticao.md              # Regras jurídicas (23 seções) + advogados
-│   └── prompt_formatacao_word.md      # Regras de formatação Word
+├── docs/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                        # Orquestrador: lê inbox → formata → valida → enfileira
-│   ├── gmail_reader.py                # Desserializa mcp_inbox.json
-│   ├── gmail_sender.py                # Grava mcp_outbox.json
-│   ├── formatar_docx.py               # Texto → .docx padrão forense
-│   └── validar_docx.py                # Valida o .docx gerado
-├── output/                            # .docx gerados (gitignored)
-├── config.py                          # Loader de .env + paths
-├── requirements.txt                   # python-docx
-├── teste_inbox.json                   # Exemplo para testes locais
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── .env.example
-├── .gitignore
-├── LICENSE                            # MIT
-└── README.md
+│   ├── formatar_docx.py
+│   ├── gmail_reader.py
+│   ├── gmail_sender.py
+│   ├── main.py
+│   ├── pipeline_state.py
+│   ├── profiles.py
+│   ├── reporting.py
+│   ├── retention.py
+│   ├── cli.py
+│   └── validar_docx.py
+├── tests/
+└── .github/
 ```
 
----
+## O que este projeto demonstra
 
-## Arquitetura
+- Capacidade de transformar um problema real de escritório jurídico em pipeline simples, testável e auditável.
+- Separação clara entre geração mecânica, validação formal e revisão jurídica humana.
+- Uso de contratos JSON, exit codes, CI, testes automatizados e documentação técnica para reduzir risco operacional.
+- Atenção a LGPD, dados sensíveis, versionamento profissional e experiência de avaliação por recrutadores.
 
-Três camadas independentes, comunicando-se por JSON em disco:
+## Limitações Conhecidas
 
-1. **Ingestão** (`gmail_reader.py`): lê `mcp_inbox.json` (ou `INBOX_MOCK_PATH` para testes). Cada item é uma `Email` dataclass com `peticao_texto` já redigido.
-2. **Processamento** (`formatar_docx.py` + `validar_docx.py`): o formatador transforma texto plano em `.docx` aplicando o padrão forense; o validador relê o arquivo e retorna violações determinísticas.
-3. **Entrega** (`gmail_sender.py`): serializa a resposta (com o `.docx` em base64) em `mcp_outbox.json`. Um integrador externo consome essa fila para o envio real.
-
-O orquestrador (`main.py`) costura os três estágios e produz um relatório no stdout. Para detalhes ver [`docs/architecture.md`](docs/architecture.md).
-
----
-
-## Decisões técnicas
-
-- **`python-docx` em vez de templating Word/Jinja** — controle granular sobre runs, parágrafos e estilos; essencial para negrito seletivo e recuos de parágrafo.
-- **Filas JSON em vez de chamar Gmail direto** — o módulo Python fica testável offline e agnóstico ao canal de entrega.
-- **Validador separado do formatador** — o formatador pode ter bugs; o validador é a rede de segurança independente. Dois processos reduzem acoplamento e permitem loops de autocorreção.
-- **Loader `.env` caseiro, sem `python-dotenv`** — mantém o projeto com uma única dependência (`python-docx`).
-- **Prompts em Markdown versionado** — mudança de regra jurídica = diff no repo, sem deploy.
-
-Detalhes em [`docs/decisions.md`](docs/decisions.md).
-
----
-
-## Desafios
-
-- Traduzir regras tácitas de formatação forense ("negrito só em elementos autorizados") em verificações determinísticas sem falso-positivos.
-- Lidar com heterogeneidade do texto de entrada (quebra de linha, acentos, parágrafos colados) e ainda produzir estrutura fiel ao padrão.
-- Manter a API do `python-docx` sob controle — a biblioteca expõe muita complexidade XML abaixo da camada de objetos.
-
-## Aprendizados
-
-- Como funciona internamente um `.docx` (OOXML, `w:pPr`, `w:rPr`) e como regras visuais mapeiam para propriedades de parágrafo/run.
-- Desenho de pipelines idempotentes com exit codes acionáveis por CI.
-- Valor de separar geração e validação como processos distintos — espelha o conceito de "oráculo" em testes.
-
----
-
-## Melhorias futuras
-
-- Suporte a anexos embarcados (documentos do processo)
-- Export em `.pdf` direto (mantendo o mesmo pipeline)
-- Plugin para ingestão via API REST (FastAPI)
-- Cobertura de testes automatizada (pytest + golden files)
-- Métricas de qualidade (quantas peças passam em todas as validações na primeira tentativa)
-
-Roadmap completo em [`docs/roadmap.md`](docs/roadmap.md).
-
----
-
-## Como contribuir
-
-Contribuições são muito bem-vindas! Veja [`CONTRIBUTING.md`](CONTRIBUTING.md) para o fluxo de branches, padrão de commits (Conventional Commits) e checklist de PR.
-
----
+- O padrão forense brasileiro não é universal; tribunais, ritos, classes processuais e sistemas de protocolo podem exigir ajustes.
+- A validação jurídica de mérito permanece humana.
+- O parser de texto usa heurísticas, não um modelo semântico completo de todos os tipos de peça.
+- `mcp_outbox.json` armazena anexo em base64 para compatibilidade com integradores externos; trate o arquivo como sensível.
 
 ## Licença
 
-Distribuído sob a licença [MIT](LICENSE). Use à vontade — atribuição é apreciada.
-
----
-
-## Contato
-
-**Kaká (1kookieh)**
-GitHub: [@1kookieh](https://github.com/1kookieh)
-Projeto: [github.com/1kookieh/sistema-de-peticoes](https://github.com/1kookieh/sistema-de-peticoes)
+Distribuído sob a licença [MIT](LICENSE).

@@ -28,16 +28,18 @@ jobs:
       - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Verificar sintaxe (py_compile)
         run: |
-          python -m py_compile config.py
-          python -m py_compile src/__init__.py src/main.py src/gmail_reader.py src/gmail_sender.py src/formatar_docx.py src/validar_docx.py
+          python -m compileall config.py src tests
+
+      - name: Rodar testes automatizados
+        run: pytest -q
 
       - name: Smoke test do pipeline
         env:
-          EMAIL_ADVOGADO: ci@example.com
+          EMAIL_ADVOGADO: advogado.ci@example.com
           INBOX_MOCK_PATH: ./teste_inbox.json
         run: |
           mkdir -p output

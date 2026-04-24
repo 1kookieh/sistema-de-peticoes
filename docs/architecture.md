@@ -1,84 +1,99 @@
 # Arquitetura
 
-Este documento aprofunda a visão técnica do `Sistema de Petições`. Para uma visão de alto nível e instruções de uso, consulte o [README](../README.md).
+O `Sistema de Petições` é um pipeline local para preparação formal supervisionada de documentos jurídicos em `.docx`. A arquitetura prioriza simplicidade, validação determinística e separação entre geração mecânica e revisão jurídica humana.
 
 ## Princípios
 
-1. **Simplicidade antes de tudo.** Uma única dependência de runtime (`python-docx`). Nenhuma API paga.
-2. **Pipeline determinístico.** A mesma entrada produz a mesma saída byte a byte (ignorando o timestamp no nome do arquivo).
-3. **Validação independente da geração.** O validador relê o `.docx` do disco como um oráculo externo — se o formatador tiver um bug, o validador pega.
-4. **Integração por contrato, não por código.** A comunicação com o mundo externo é feita por JSON em disco, não por chamadas a SDKs específicos.
+1. **Uso supervisionado.** O sistema nunca declara uma peça juridicamente pronta sem revisão de advogado.
+2. **Validação antes e depois da geração.** A entrada textual é bloqueada quando contém lacunas formais; o `.docx` gerado é reaberto e validado.
+3. **Filas locais explícitas.** Integrações externas conversam por JSON em disco.
+4. **Dados sensíveis por padrão.** Inbox, outbox, status e `.docx` gerados não devem ser versionados nem expostos como artifacts.
+5. **Sem dependências pagas.** O core usa `python-docx`; testes usam `pytest`.
+6. **Perfis explícitos.** Variações por rito ou destino ficam em perfis de validação, não em promessas genéricas.
 
 ## Componentes
 
 ### `config.py`
-Loader minimalista de `.env` (sem `python-dotenv`). Expõe `EMAIL_ADVOGADO`, `GMAIL_LABEL_PROCESSADO`, `OUTPUT_DIR` e `PROMPTS_DIR`. Valores do ambiente sobrescrevem os do arquivo.
+
+Carrega `.env` simples, expõe caminhos globais e configurações como `EMAIL_ADVOGADO`, `REMETENTES_AUTORIZADOS` e `MAX_JSON_BYTES`. O parser foi isolado para testes unitários.
 
 ### `src/gmail_reader.py`
-Lê `mcp_inbox.json` (ou `INBOX_MOCK_PATH` para testes) e devolve uma lista de `Email` (dataclass). Cada `Email` carrega `thread_id`, `message_id`, `remetente`, `assunto` e `peticao_texto` — o texto já redigido.
+
+Lê `mcp_inbox.json` ou `INBOX_MOCK_PATH`. Valida que a entrada é uma lista JSON, exige campos obrigatórios, rejeita duplicidade de `message_id` e aplica filtro opcional de remetentes autorizados.
 
 ### `src/formatar_docx.py`
-Transforma o texto plano em `.docx` aplicando:
 
-| Item | Valor |
-|---|---|
-| Papel | A4 |
-| Margens | 3 / 3 / 2 / 2 cm (sup / esq / inf / dir) |
-| Fonte | Times New Roman 12, preto |
-| Alinhamento | Justificado (corpo); centralizado (endereçamento, título, nome e OAB) |
-| Espaçamento | 1,5 entre linhas; 0 pt antes/depois |
-| Recuo 1ª linha | 2,5 cm nos parágrafos corridos |
-| Após endereçamento | 7 linhas em branco obrigatórias |
-| Negrito | Endereçamento, título, seções, marcadores `a) b) c)`, nome e OAB |
-
-Heurísticas usadas para identificar blocos:
-- **Endereçamento**: linhas iniciadas por `EXCELENTÍSSIMO`, `EXMO.`, etc.
-- **Título da ação**: linha totalmente em caixa alta seguida de linha em branco.
-- **Seções**: numeração romana + espaço + caixa alta (`I - DOS FATOS`).
-- **Marcadores de pedidos/quesitos**: `a)`, `b)`, `1)`, etc.
-- **Fechamento**: linhas finais contendo `OAB` são centralizadas sem recuo.
+Converte texto plano em `.docx`, aplicando A4, margens, fonte, alinhamentos, recuos, 7 linhas após endereçamento e formatação básica de seções, alíneas e assinatura.
 
 ### `src/validar_docx.py`
-Reabre o `.docx` e acumula uma lista de violações:
-- Margens fora de 3/3/2/2 cm.
-- Fonte diferente de Times New Roman 12 em qualquer run.
-- Endereçamento ou título não centralizados.
-- Ausência das 7 linhas em branco após o endereçamento.
-- Ausência de linha contendo `OAB` no fechamento.
-- Presença de linha de assinatura (ex.: sequências de `_______`).
 
-O retorno é uma lista de strings descritivas; lista vazia = documento em conformidade.
+Executa validações formais, separadas do formatador. Também expõe `validar_texto_protocolavel()`, usada antes da geração para bloquear placeholders, dados fictícios, OAB inválida e ausência de elementos mínimos.
+
+### `src/profiles.py`
+
+Define perfis formais como `judicial-inicial-jef`, `administrativo-inss` e `extrajudicial-tabelionato`. Cada perfil declara endereçamentos aceitos, seções obrigatórias e exigências formais como OAB, local/data e valor da causa.
 
 ### `src/gmail_sender.py`
-Serializa a resposta (com o `.docx` em base64) em `mcp_outbox.json`. Um integrador externo consome essa fila para o envio.
+
+Grava `mcp_outbox.json` com anexo `.docx` em base64. O módulo valida destinatário, extensão, localização do anexo em `output/`, tamanho máximo e salva a fila de forma atômica.
+
+### `src/pipeline_state.py`
+
+Mantém `mcp_status.json` com status por `message_id`. Itens concluídos com sucesso são ignorados em execuções futuras para reduzir risco de envio duplicado.
+
+### `src/reporting.py`
+
+Extrai estrutura do `.docx` e gera relatório JSON de conformidade formal. O relatório registra perfil, violações, página, margens, fontes, quantidade de parágrafos e seções mínimas encontradas.
+
+### `src/retention.py`
+
+Aplica política configurável de retenção para `output/`, inbox, outbox, status e arquivos temporários. Por segurança, a CLI pode listar candidatos em dry-run ou apagar somente com `--apply-retention`.
+
+### `src/cli.py`
+
+Fornece `python -m src` com `--profile`, `--strict`, `--report`, `--no-outbox`, `--cleanup-only` e `--apply-retention`.
 
 ### `src/main.py`
-Costura tudo: itera sobre `buscar_emails_pendentes`, chama `renderizar`, depois `validar`, enfileira via `enfileirar_resposta` e emite um relatório final. Exit codes:
 
-| Código | Significado |
-|---|---|
-| 0 | Tudo OK |
-| 1 | Falha em um ou mais itens |
-| 2 | `EMAIL_ADVOGADO` ausente |
-| 3 | Gerado, mas com violações |
+Orquestra o fluxo:
 
-## Fluxo de dados
-
-```
-mcp_inbox.json  ──▶  gmail_reader.py  ──▶  Email
-                                             │
-                                             ▼
-                                       formatar_docx.py  ──▶  output/*.docx
-                                             │
-                                             ▼
-                                       validar_docx.py   ──▶  list[str]
-                                             │
-                                             ▼
-                                       gmail_sender.py   ──▶  mcp_outbox.json
+```text
+inbox JSON
+  -> validação de contrato
+  -> pré-validação formal do texto
+  -> geração .docx
+  -> validação .docx
+  -> outbox somente se válido
+  -> relatório opcional
+  -> status por item
 ```
 
-## Extensibilidade
+## Fluxo De Falhas
 
-- **Nova fonte de entrada**: basta gravar `mcp_inbox.json` a partir de qualquer origem (API, webhook, planilha).
-- **Novo canal de saída**: leia `mcp_outbox.json` e dispare o envio pelo canal desejado.
-- **Nova regra de formatação/validação**: edite `prompts/prompt_formatacao_word.md` (regra humana) e adicione a verificação em `validar_docx.py`.
+- Falha de configuração: exit code `2`.
+- Falha técnica de leitura/processamento: exit code `1`.
+- Violação formal em uma ou mais peças: exit code `3`.
+- Itens inválidos não são enfileirados.
+- Falha em um item não derruba o lote inteiro; o status fica registrado por `message_id`.
+- `--strict` falha quando nenhum documento novo válido é produzido.
+
+## Segurança E LGPD
+
+Os arquivos `output/*.docx`, `mcp_inbox.json`, `mcp_outbox.json` e `mcp_status.json` são runtime local e podem conter dados pessoais ou sensíveis. Eles ficam no `.gitignore`, mas isso não substitui controle de acesso, retenção curta e revisão operacional.
+
+O repositório mantém apenas CI técnico em GitHub Actions. O processamento operacional de peças não roda por workflow manual para evitar exposição acidental de dados jurídicos, anexos `.docx` ou relatórios sensíveis em ambiente de terceiros.
+
+## Testabilidade
+
+A suíte em `tests/` cobre:
+
+- parser `.env`;
+- contrato da inbox;
+- geração e validação de `.docx`;
+- bloqueio de placeholders;
+- assinatura indevida;
+- bloqueio de outbox;
+- exit code de configuração ausente.
+- golden file estrutural do `.docx`;
+- CLI com relatório e `--no-outbox`;
+- retenção em dry-run e modo aplicado.

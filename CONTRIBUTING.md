@@ -26,8 +26,20 @@ Use o template de [feature request](https://github.com/1kookieh/sistema-de-petic
    - `test:` testes
 4. Rode localmente antes de abrir PR:
    ```bash
-   python -m py_compile src/*.py config.py
+   pip install -r requirements-dev.txt
+   python -m compileall config.py src tests
+   pytest -q
    INBOX_MOCK_PATH=./teste_inbox.json python -m src.main
+   python -m src --inbox ./teste_inbox.json --no-outbox --report reports/conformidade_report.json
+   ```
+   No PowerShell:
+   ```powershell
+   pip install -r requirements-dev.txt
+   python -m compileall config.py src tests
+   pytest -q
+   $env:INBOX_MOCK_PATH = ".\teste_inbox.json"
+   python -m src.main
+   python -m src --inbox .\teste_inbox.json --no-outbox --report reports\conformidade_report.json
    ```
 5. Abra o PR preenchendo o template. Vincule a issue quando houver.
 
@@ -38,6 +50,8 @@ Use o template de [feature request](https://github.com/1kookieh/sistema-de-petic
 - **Docstrings** curtas em pt-BR em módulos, classes e funções públicas.
 - **Imports** organizados: stdlib → terceiros → locais.
 - **Sem dependências novas** sem discussão prévia na issue — mantemos a superfície mínima.
+- **Testes obrigatórios** para mudanças em validação, filas, exit codes ou formatação `.docx`.
+- **Golden estrutural** deve ser atualizado somente quando a mudança de layout for intencional e documentada.
 
 ## Regras específicas de domínio
 
@@ -45,10 +59,12 @@ Use o template de [feature request](https://github.com/1kookieh/sistema-de-petic
   1. Estar documentada em `prompts/prompt_formatacao_word.md` (fonte humana).
   2. Ter verificação correspondente em `src/validar_docx.py` (fonte executável).
 - **Nada de APIs pagas no core.** Integrações com LLMs ou serviços externos devem ficar em módulos ou projetos separados, consumindo as filas JSON.
+- **Nada de falsa prontidão jurídica.** Textos, README, mensagens e testes não devem afirmar que uma peça está pronta para protocolo sem revisão humana por advogado.
+- **LGPD por padrão.** Não versione `.docx`, inbox, outbox, status ou amostras com dados reais de clientes.
 
 ## Revisão
 
-Reviews focam em: clareza do código, aderência ao padrão forense, impacto nas regras de validação e qualidade da documentação. Testes automatizados ainda estão no [roadmap](docs/roadmap.md) — até lá, descreva o teste manual feito no PR.
+Reviews focam em: clareza do código, aderência ao padrão forense, impacto nas regras de validação, segurança de dados, qualidade dos testes e documentação.
 
 ## Conduta
 

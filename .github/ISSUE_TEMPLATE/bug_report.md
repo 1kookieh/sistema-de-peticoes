@@ -36,7 +36,7 @@ O que deveria acontecer.
   ```
   ...
   ```
-- Se possível, anexe o `.docx` gerado (ou um trecho dele).
+- Se precisar compartilhar um `.docx`, remova dados pessoais, dados sensíveis, nomes reais, números de processo e documentos antes de anexar.
 
 ## Ambiente
 

@@ -6,6 +6,31 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ## [Unreleased]
 
+### Adicionado
+- Suíte inicial de testes automatizados com `pytest`.
+- `requirements-dev.txt` para dependências de desenvolvimento.
+- Pré-validação formal do texto antes da geração do `.docx`.
+- Estado local `mcp_status.json` para reduzir reprocessamento acidental por `message_id`.
+- Validação de contrato da inbox JSON, incluindo campos obrigatórios, tamanho máximo e `message_id` duplicado.
+- Validações adicionais de `.docx`: A4 explícito, OAB formatada, local/data, recuo e placeholders.
+- Perfis de validação formal por contexto (`judicial-inicial-jef`, `administrativo-inss`, etc.).
+- CLI dedicada via `python -m src` com `--strict`, `--report`, `--no-outbox` e retenção.
+- Relatório JSON de conformidade formal com estrutura do `.docx`.
+- Golden file estrutural para regressão de documentos `.docx`.
+- Política configurável de retenção/expurgo para runtime local.
+
+### Alterado
+- O pipeline agora bloqueia a outbox quando encontra qualquer violação formal.
+- O CI roda `compileall` e `pytest`.
+- A documentação foi reescrita para deixar claro que o uso é jurídico supervisionado.
+- O workflow manual de processamento foi removido para manter o repositório público focado em CI e evitar execução operacional com dados jurídicos em GitHub Actions.
+- A configuração local passou a usar `.env` ignorado pelo Git, sem manter `.env.example` no repositório.
+
+### Segurança
+- Escrita atômica da outbox.
+- Validação de anexo `.docx` dentro de `output/`.
+- Avisos de LGPD e sigilo profissional no README e arquitetura.
+
 ## [1.0.0] - 2026-04-24
 
 ### Adicionado
@@ -21,5 +46,4 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - `CHANGELOG.md` e `CONTRIBUTING.md` em pt-BR.
 - Templates de issue e pull request em `.github/`.
 - Workflow de CI (`.github/workflows/ci.yml`) com instalação de dependências e `py_compile` dos módulos.
-- Workflow operacional `.github/workflows/processar_peticoes.yml` para disparo manual do pipeline.
 - Licença MIT.
