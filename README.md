@@ -19,12 +19,33 @@ Pipeline em Python para transformar texto de peças jurídicas em `.docx` com fo
 - Possui política configurável de retenção para arquivos locais sensíveis.
 - Inclui testes automatizados com `pytest`.
 
+## Primeiro Uso
+
+Prepare as pastas locais e verifique recursos essenciais:
+
+```bash
+python -m src --setup
+```
+
+O comando cria `output/` e `reports/` com `.gitkeep`, confere arquivos básicos do projeto e mostra próximos passos. Os documentos e relatórios reais continuam ignorados pelo Git.
+
+Se preferir avaliar sem linha de comando, rode a API local e abra o front-end no navegador:
+
+```bash
+uvicorn src.api:app --reload
+```
+
+Depois acesse `http://127.0.0.1:8000`. A interface web usa HTML, CSS e JavaScript puro para evitar build obrigatório, dependências de Node e complexidade desnecessária para um projeto local.
+
 ## Demonstração Segura
 
-Este repositório não deve expor peças reais, dados de clientes ou documentos sensíveis. Para avaliar o fluxo sem risco, use apenas `teste_inbox.json` e dados fictícios.
+Este repositório não deve expor peças reais, dados de clientes ou documentos sensíveis. Para avaliar o fluxo sem risco, use `examples/inbox_valid.json` ou `teste_inbox.json`, sempre com dados fictícios.
 
 - Roteiro de demonstração: [docs/demo.md](docs/demo.md)
+- API REST e interfaces locais: [docs/api.md](docs/api.md)
 - Estudo de caso técnico: [docs/case-study.md](docs/case-study.md)
+- Limitações jurídicas e LGPD: [docs/legal-limitations.md](docs/legal-limitations.md)
+- Documento fictício já gerado: `examples/generated-docx/peticao_exemplo.docx`
 
 ## O Que Não Faz
 
@@ -39,6 +60,8 @@ Este repositório não deve expor peças reais, dados de clientes ou documentos 
 Peças jurídicas podem conter dados pessoais, dados sensíveis, informações médicas, dados previdenciários e elementos protegidos por sigilo profissional. Os arquivos abaixo são dados de runtime e devem ser tratados como sensíveis:
 
 - `output/*.docx`
+- `reports/*.json`
+- `reports/*.html`
 - `mcp_inbox.json`
 - `mcp_outbox.json`
 - `mcp_status.json`
@@ -79,7 +102,7 @@ Configuração mínima:
 EMAIL_ADVOGADO=advogado-responsavel@example.com
 ```
 
-Neste ambiente local, o `.env` já foi criado para facilitar o uso imediato. Em outro computador, crie manualmente um `.env` com as variáveis acima.
+Crie um `.env` local apenas na sua máquina quando necessário. Esse arquivo é ignorado pelo Git e não deve conter dados reais em exemplos públicos.
 
 Configurações opcionais:
 
@@ -121,20 +144,20 @@ O perfil padrão vem de `VALIDATION_PROFILE`. Também é possível informar por 
 ### Fluxo de exemplo
 
 ```bash
-export INBOX_MOCK_PATH=./teste_inbox.json
+export INBOX_MOCK_PATH=./examples/inbox_valid.json
 python -m src.main
 ```
 
 Também é possível usar a CLI dedicada:
 
 ```bash
-python -m src --inbox ./teste_inbox.json --profile judicial-inicial-jef
+python -m src --inbox ./examples/inbox_valid.json --profile judicial-inicial-jef
 ```
 
 PowerShell:
 
 ```powershell
-$env:INBOX_MOCK_PATH = ".\teste_inbox.json"
+$env:INBOX_MOCK_PATH = ".\examples\inbox_valid.json"
 python -m src.main
 ```
 
@@ -164,6 +187,43 @@ python -m src.validar_docx output/peticao.docx --profile judicial-inicial-jef
 ```
 
 O validador retorna `OK` ou uma lista de violações formais. Essa validação não equivale a revisão jurídica de mérito.
+
+### API REST e front-end local
+
+```bash
+uvicorn src.api:app --reload
+```
+
+Endpoints principais:
+
+| Método | Rota | Uso |
+|---|---|---|
+| `GET` | `/` | Abre o front-end local |
+| `GET` | `/api/health` | Verifica se a API está ativa |
+| `GET` | `/api/profiles` | Lista perfis de validação |
+| `POST` | `/api/documents` | Gera e valida `.docx` a partir de texto |
+| `GET` | `/api/documents/{arquivo}/download` | Baixa documento gerado |
+| `GET` | `/api/reports` | Lista histórico local de relatórios |
+| `GET` | `/api/reports/{arquivo}` | Abre relatório JSON ou HTML |
+
+O front-end permite colar texto, carregar `.txt`, gerar o `.docx`, baixar o documento e abrir o relatório HTML. Ele é uma camada local de conveniência; a validação jurídica humana continua obrigatória.
+
+### Interface desktop
+
+```bash
+python -m src.desktop
+```
+
+A interface desktop usa Tkinter, disponível na biblioteca padrão do Python, e aciona o mesmo pipeline da CLI/API. É útil para demonstração local ou uso supervisionado sem navegador.
+
+### Docker
+
+```bash
+docker build -t sistema-peticoes .
+docker run --rm -p 8000:8000 sistema-peticoes
+```
+
+Depois abra `http://127.0.0.1:8000`. Em uso real, monte volumes protegidos para `output/` e `reports/`, porque esses diretórios podem conter dados sensíveis.
 
 ## Contrato da Inbox
 
@@ -197,7 +257,7 @@ Depois da geração, o `.docx` é reaberto e validado. Se houver violação, o d
 ## CLI Dedicada
 
 ```bash
-python -m src --inbox ./teste_inbox.json --strict --report reports/conformidade_report.json --no-outbox
+python -m src --inbox ./examples/inbox_valid.json --strict --report reports/conformidade_report.json --no-outbox
 ```
 
 Flags principais:
@@ -211,7 +271,7 @@ Flags principais:
 | `--apply-retention` | Remove arquivos que excedem a política de retenção |
 | `--cleanup-only` | Executa apenas a política de retenção |
 
-Relatórios podem conter identificadores de threads e caminhos de documentos. Trate `reports/` e `*_report.json` como dados sensíveis.
+Relatórios podem conter identificadores de threads e caminhos de documentos. Trate `reports/`, `*_report.json` e `*.html` gerados em runtime como dados sensíveis.
 
 ## Retenção e Expurgo
 
@@ -252,7 +312,7 @@ python -m compileall config.py src tests
 pytest -q
 ```
 
-A suíte cobre `.env`, contrato JSON, formatador `.docx`, validador, entradas inválidas, acentos, assinatura indevida e bloqueio de outbox.
+A suíte cobre `.env`, contrato JSON, formatador `.docx`, validador, entradas inválidas, acentos, assinatura indevida, bloqueio de outbox, API local, relatório HTML e setup de runtime.
 
 Também há golden file estrutural em `tests/golden/`. Ele compara propriedades do documento, como A4, margens, fontes, quantidade de linhas após endereçamento e seções obrigatórias, sem depender de comparação binária do `.docx`.
 
@@ -274,9 +334,16 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── teste_inbox.json
+├── Dockerfile
+├── examples/
+│   └── generated-docx/
 ├── prompts/
 ├── docs/
 ├── src/
+│   ├── api.py
+│   ├── cli.py
+│   ├── desktop.py
+│   ├── domain.py
 │   ├── formatar_docx.py
 │   ├── gmail_reader.py
 │   ├── gmail_sender.py
@@ -285,9 +352,10 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 │   ├── profiles.py
 │   ├── reporting.py
 │   ├── retention.py
-│   ├── cli.py
+│   ├── setup_runtime.py
 │   └── validar_docx.py
 ├── tests/
+├── web/
 └── .github/
 ```
 
@@ -304,6 +372,7 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 - A validação jurídica de mérito permanece humana.
 - O parser de texto usa heurísticas, não um modelo semântico completo de todos os tipos de peça.
 - `mcp_outbox.json` armazena anexo em base64 para compatibilidade com integradores externos; trate o arquivo como sensível.
+- Veja também [docs/legal-limitations.md](docs/legal-limitations.md).
 
 ## Licença
 

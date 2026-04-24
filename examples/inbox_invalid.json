@@ -1,0 +1,9 @@
+[
+  {
+    "thread_id": "exemplo-invalido-001",
+    "message_id": "msg-exemplo-invalido-001",
+    "remetente": "cliente.demo@example.com",
+    "assunto": "Pedido com lacunas demonstrativas",
+    "peticao_texto": "EXCELENTISSIMO SENHOR DOUTOR JUIZ FEDERAL DA VARA DO JUIZADO ESPECIAL FEDERAL DA SUBSECAO JUDICIARIA DE [CIDADE]/[UF]\n\nACAO DE CONCESSAO DE BENEFICIO\n\nNOME DO REQUERENTE, brasileiro, residente em [CIDADE]/[UF], vem propor a presente acao.\n\nI - DOS FATOS\n\n[DADO FALTANTE]\n\nII - DO DIREITO\n\nFundamentos pendentes de revisao.\n\nIII - DOS PEDIDOS\n\na) pedido pendente.\n\nIV - DO VALOR DA CAUSA\n\nDa-se a causa o valor de R$ 0,00.\n\nTermos em que, pede deferimento.\n\n[CIDADE]/[UF], 6 de abril de 2026.\n\nADVOGADO DE EXEMPLO\nOAB/UF 00.000"
+  }
+]

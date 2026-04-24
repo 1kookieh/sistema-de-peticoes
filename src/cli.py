@@ -6,12 +6,13 @@ import os
 import sys
 from pathlib import Path
 
-from config import EMAIL_ADVOGADO, REMETENTES_AUTORIZADOS, RETENTION_ENABLED
+from config import EMAIL_ADVOGADO, OUTPUT_DIR, REMETENTES_AUTORIZADOS, REPORTS_DIR, RETENTION_ENABLED, ROOT
 from src.gmail_reader import buscar_emails_pendentes
 from src.main import executar_pipeline
 from src.profiles import get_profile, list_profile_ids
 from src.reporting import build_run_report, write_json_report
 from src.retention import RetentionPolicy, cleanup_runtime
+from src.setup_runtime import setup_runtime
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strict", action="store_true", help="Falha se não houver documento novo válido.")
     parser.add_argument("--report", type=Path, help="Grava relatório JSON de conformidade.")
     parser.add_argument("--no-outbox", action="store_true", help="Gera e valida sem gravar mcp_outbox.json.")
+    parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
     parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
     return parser
@@ -38,6 +40,18 @@ def main(argv: list[str] | None = None) -> int:
             profile = get_profile(profile_id)
             print(f"{profile.id}: {profile.descricao}")
         return 0
+
+    if args.setup:
+        checks = setup_runtime(root=ROOT, output_dir=OUTPUT_DIR, reports_dir=REPORTS_DIR)
+        print("[SETUP] Verificacao do ambiente local:")
+        for check in checks:
+            status = "OK" if check.ok else "FALTA"
+            print(f"  [{status}] {check.name}: {check.path}")
+        print("\nProximos passos:")
+        print("  1. Defina EMAIL_ADVOGADO em variavel de ambiente ou .env local.")
+        print("  2. Rode: python -m src --inbox examples/inbox_valid.json --no-outbox --report reports/demo_report.json")
+        print("  3. Abra o .docx gerado em output/ e revise manualmente antes de qualquer uso real.")
+        return 0 if all(check.ok for check in checks) else 1
 
     if args.inbox:
         os.environ["INBOX_MOCK_PATH"] = str(args.inbox)

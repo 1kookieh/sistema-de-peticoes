@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__/
+.pytest_cache/
+output/*.docx
+reports/*.json
+reports/*.html
+mcp_inbox.json
+mcp_outbox.json
+mcp_status.json
+.env
+.env.*

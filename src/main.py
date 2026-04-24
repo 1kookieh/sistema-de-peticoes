@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 import sys
 import traceback
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -21,39 +20,13 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from config import EMAIL_ADVOGADO, OUTPUT_DIR, REMETENTES_AUTORIZADOS
+from src.domain import PipelineSummary, ProcessResult
 from src.gmail_reader import Email, buscar_emails_pendentes
 from src.formatar_docx import renderizar
 from src.gmail_sender import enfileirar_resposta
 from src.pipeline_state import ja_processado_ok, registrar_item
 from src.profiles import get_profile
 from src.validar_docx import validar, validar_texto_protocolavel
-
-
-@dataclass
-class ProcessResult:
-    thread_id: str
-    message_id: str
-    status: str
-    destino: Path | None
-    problemas: list[str]
-    profile_id: str
-    enfileirado: bool = False
-
-    def to_report_item(self) -> dict:
-        item = {
-            "thread_id": self.thread_id,
-            "message_id": self.message_id,
-            "status": self.status,
-            "docx": self.destino.name if self.destino else None,
-            "problems": self.problemas,
-            "profile_id": self.profile_id,
-            "enqueued": self.enfileirado,
-        }
-        if self.destino and self.destino.exists():
-            from src.reporting import build_docx_report
-
-            item["docx_report"] = build_docx_report(self.destino, self.profile_id)
-        return item
 
 
 def _timestamp() -> str:
@@ -177,17 +150,10 @@ def executar_pipeline(
     profile = get_profile(profile_id)
     if not emails:
         print("Nenhum e-mail pendente.")
+        summary = PipelineSummary()
         return {
             "exit_code": 3 if strict else 0,
-            "summary": {
-                "total": 0,
-                "enfileirados": 0,
-                "bloqueados": 0,
-                "falhas": 0,
-                "violacoes": 0,
-                "ignorados": 0,
-                "validos": 0,
-            },
+            "summary": summary.to_dict(),
             "items": [],
         }
 
@@ -241,15 +207,15 @@ def executar_pipeline(
         f"Violacoes: {violacoes_totais} | Ignorados: {ignorados} | "
         f"Validos: {validos}"
     )
-    summary = {
-        "total": len(emails),
-        "enfileirados": enfileirados,
-        "bloqueados": bloqueados,
-        "falhas": erros,
-        "violacoes": violacoes_totais,
-        "ignorados": ignorados,
-        "validos": validos,
-    }
+    summary = PipelineSummary(
+        total=len(emails),
+        enfileirados=enfileirados,
+        bloqueados=bloqueados,
+        falhas=erros,
+        violacoes=violacoes_totais,
+        ignorados=ignorados,
+        validos=validos,
+    )
     exit_code = 0
     if erros:
         exit_code = 1
@@ -258,7 +224,7 @@ def executar_pipeline(
     elif strict and validos == 0:
         exit_code = 3
 
-    return {"exit_code": exit_code, "summary": summary, "items": items}
+    return {"exit_code": exit_code, "summary": summary.to_dict(), "items": items}
 
 
 def main() -> int:

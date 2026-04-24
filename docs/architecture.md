@@ -8,7 +8,7 @@ O `Sistema de Petições` é um pipeline local para preparação formal supervis
 2. **Validação antes e depois da geração.** A entrada textual é bloqueada quando contém lacunas formais; o `.docx` gerado é reaberto e validado.
 3. **Filas locais explícitas.** Integrações externas conversam por JSON em disco.
 4. **Dados sensíveis por padrão.** Inbox, outbox, status e `.docx` gerados não devem ser versionados nem expostos como artifacts.
-5. **Sem dependências pagas.** O core usa `python-docx`; testes usam `pytest`.
+5. **Sem dependências pagas.** O core usa `python-docx`; a API usa FastAPI; testes usam `pytest`.
 6. **Perfis explícitos.** Variações por rito ou destino ficam em perfis de validação, não em promessas genéricas.
 
 ## Componentes
@@ -43,7 +43,23 @@ Mantém `mcp_status.json` com status por `message_id`. Itens concluídos com suc
 
 ### `src/reporting.py`
 
-Extrai estrutura do `.docx` e gera relatório JSON de conformidade formal. O relatório registra perfil, violações, página, margens, fontes, quantidade de parágrafos e seções mínimas encontradas.
+Extrai estrutura do `.docx` e gera relatórios JSON e HTML de conformidade formal. O relatório registra perfil, violações, página, margens, fontes, quantidade de parágrafos e seções mínimas encontradas.
+
+### `src/api.py`
+
+Expõe uma API REST local com FastAPI para setup, listagem de perfis, geração de documentos, download de `.docx` e consulta de relatórios. A API usa `--no-outbox` por padrão no fluxo web para evitar envio automático ou falsa sensação de protocolo.
+
+### `web/`
+
+Front-end local em HTML, CSS e JavaScript puro. Essa escolha evita build com Node, reduz superfície de manutenção e mantém o projeto fácil de demonstrar em ambiente limpo.
+
+### `src/history.py`
+
+Lê relatórios JSON e estado local para alimentar o painel de histórico. O módulo ignora JSON corrompido em vez de quebrar o painel inteiro.
+
+### `src/desktop.py`
+
+Interface desktop com Tkinter para colar/carregar texto e gerar `.docx` usando o mesmo pipeline supervisionado. Não adiciona dependência externa de GUI.
 
 ### `src/retention.py`
 
@@ -51,7 +67,15 @@ Aplica política configurável de retenção para `output/`, inbox, outbox, stat
 
 ### `src/cli.py`
 
-Fornece `python -m src` com `--profile`, `--strict`, `--report`, `--no-outbox`, `--cleanup-only` e `--apply-retention`.
+Fornece `python -m src` com `--setup`, `--profile`, `--strict`, `--report`, `--no-outbox`, `--cleanup-only` e `--apply-retention`.
+
+### `src/domain.py`
+
+Centraliza tipos compartilhados do domínio, como resultado por item, resumo do pipeline e verificações de setup. Isso reduz acoplamento entre CLI, orquestrador e relatórios.
+
+### `src/setup_runtime.py`
+
+Cria `output/` e `reports/` com `.gitkeep` e verifica recursos essenciais para o primeiro uso local.
 
 ### `src/main.py`
 
@@ -63,9 +87,20 @@ inbox JSON
   -> pré-validação formal do texto
   -> geração .docx
   -> validação .docx
-  -> outbox somente se válido
+  -> outbox somente se válido e solicitado
   -> relatório opcional
   -> status por item
+```
+
+Fluxo API/web:
+
+```text
+front-end local
+  -> POST /api/documents
+  -> processar_email(no_outbox=True)
+  -> output/*.docx
+  -> reports/*.json + reports/*.html
+  -> download local + painel de histórico
 ```
 
 ## Fluxo De Falhas
@@ -79,7 +114,7 @@ inbox JSON
 
 ## Segurança E LGPD
 
-Os arquivos `output/*.docx`, `mcp_inbox.json`, `mcp_outbox.json` e `mcp_status.json` são runtime local e podem conter dados pessoais ou sensíveis. Eles ficam no `.gitignore`, mas isso não substitui controle de acesso, retenção curta e revisão operacional.
+Os arquivos `output/*.docx`, `reports/*.json`, `reports/*.html`, `mcp_inbox.json`, `mcp_outbox.json` e `mcp_status.json` são runtime local e podem conter dados pessoais ou sensíveis. Eles ficam no `.gitignore`, mas isso não substitui controle de acesso, retenção curta e revisão operacional.
 
 O repositório mantém apenas CI técnico em GitHub Actions. O processamento operacional de peças não roda por workflow manual para evitar exposição acidental de dados jurídicos, anexos `.docx` ou relatórios sensíveis em ambiente de terceiros.
 
@@ -96,4 +131,5 @@ A suíte em `tests/` cobre:
 - exit code de configuração ausente.
 - golden file estrutural do `.docx`;
 - CLI com relatório e `--no-outbox`;
-- retenção em dry-run e modo aplicado.
+- retenção em dry-run e modo aplicado;
+- API local, painel de histórico e relatório HTML.

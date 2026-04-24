@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistema de Petições</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Uso jurídico supervisionado</p>
+      <h1>Gerador local de peças em DOCX</h1>
+      <p>Envie texto ou carregue um `.txt`, escolha um perfil formal e gere um documento para revisão humana obrigatória.</p>
+    </section>
+
+    <section class="card">
+      <div class="grid">
+        <label>
+          Perfil
+          <select id="profile"></select>
+        </label>
+        <label>
+          Arquivo .txt opcional
+          <input id="file" type="file" accept=".txt,text/plain">
+        </label>
+      </div>
+      <label>
+        Texto da peça
+        <textarea id="text" rows="16" placeholder="Cole aqui o texto da peça com dados fictícios ou revisados..."></textarea>
+      </label>
+      <button id="generate">Gerar DOCX</button>
+      <p class="warning">A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.</p>
+      <div id="result" class="result"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Histórico local</h2>
+        <button id="refresh" class="secondary">Atualizar</button>
+      </div>
+      <div id="history"></div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

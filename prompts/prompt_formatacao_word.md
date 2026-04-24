@@ -1,7 +1,7 @@
 ## Objetivo
-Esta skill define o padrão obrigatório de formatação e estrutura para documentos jurídicos em Word/DOCX, com foco em petições, requerimentos, recursos, manifestações, contrarrazões, memoriais, pareceres, quesitos periciais e documentos correlatos destinados a protocolo ou uso profissional.
+Esta skill define o padrão obrigatório de formatação e estrutura para documentos jurídicos em Word/DOCX, com foco em petições, requerimentos, recursos, manifestações, contrarrazões, memoriais, pareceres, quesitos periciais e documentos correlatos destinados a revisão profissional e eventual protocolo após conferência humana.
 
-O resultado deve parecer documento jurídico real, limpo, formal, protocolável e visualmente compatível com a prática forense brasileira.
+O resultado deve parecer documento jurídico real, limpo, formal, formalmente preparado para revisão e visualmente compatível com a prática forense brasileira. Esta formatação não substitui revisão jurídica, conferência de dados, assinatura por advogado nem validação de regras locais de tribunal ou sistema de protocolo.
 
 ---
 
@@ -437,7 +437,7 @@ O documento final deve ter aparência de peça produzida por profissional do Dir
 - corpo justificado;
 - endereçamento e nome da peça bem posicionados;
 - **7 linhas após a vara respeitadas**;
-- assinatura pronta para protocolo;
+- fechamento formalmente preparado para revisão humana;
 - ausência de erros de ortografia, acentuação ou formatação.
 
 ---
@@ -507,7 +507,7 @@ Antes de considerar o documento pronto, verificar se:
 - [ ] a **OAB está em linha abaixo, centralizada**
 - [ ] não existe linha de assinatura
 - [ ] não há negrito em parágrafos inteiros ou em blocos longos
-- [ ] o documento está protocolável e com aparência profissional
+- [ ] o documento está formalmente preparado para revisão e com aparência profissional
 
 ---
 

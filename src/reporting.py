@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -108,3 +109,65 @@ def build_run_report(
 def write_json_report(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def render_report_html(report: dict[str, Any]) -> str:
+    """Converte um relatório JSON em HTML local para revisão humana."""
+    profile = report.get("profile", {})
+    summary = report.get("summary", {})
+    items = report.get("items", [])
+    rows = []
+    for item in items:
+        problems = item.get("problems") or []
+        rows.append(
+            "<tr>"
+            f"<td>{escape(str(item.get('status', '')))}</td>"
+            f"<td>{escape(str(item.get('docx') or ''))}</td>"
+            f"<td>{escape(str(item.get('profile_id') or profile.get('id', '')))}</td>"
+            f"<td>{escape('; '.join(map(str, problems)) or 'Sem violações formais')}</td>"
+            "</tr>"
+        )
+
+    return f"""<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório de conformidade formal</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 32px; color: #1f2933; }}
+    h1 {{ margin-bottom: 4px; }}
+    .muted {{ color: #667085; }}
+    .warning {{ border-left: 4px solid #b54708; background: #fffaeb; padding: 12px; }}
+    table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+    th, td {{ border: 1px solid #d0d5dd; padding: 8px; text-align: left; vertical-align: top; }}
+    th {{ background: #f2f4f7; }}
+    code {{ background: #f2f4f7; padding: 2px 4px; border-radius: 4px; }}
+  </style>
+</head>
+<body>
+  <h1>Relatório de conformidade formal</h1>
+  <p class="muted">Gerado em {escape(str(report.get('generated_at', '')))}</p>
+  <p><strong>Perfil:</strong> {escape(str(profile.get('id', '')))} — {escape(str(profile.get('descricao', '')))}</p>
+  <p><strong>Total:</strong> {escape(str(summary.get('total', 0)))} |
+     <strong>Válidos:</strong> {escape(str(summary.get('validos', 0)))} |
+     <strong>Bloqueados:</strong> {escape(str(summary.get('bloqueados', 0)))} |
+     <strong>Falhas:</strong> {escape(str(summary.get('falhas', 0)))}</p>
+  <div class="warning">
+    Este relatório verifica conformidade formal automatizada. Ele não substitui revisão jurídica humana, conferência de documentos, assinatura, procuração ou regras locais de protocolo.
+  </div>
+  <table>
+    <thead>
+      <tr><th>Status</th><th>Documento</th><th>Perfil</th><th>Problemas</th></tr>
+    </thead>
+    <tbody>
+      {''.join(rows) if rows else '<tr><td colspan="4">Nenhum item registrado.</td></tr>'}
+    </tbody>
+  </table>
+</body>
+</html>"""
+
+
+def write_html_report(path: Path, report: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_report_html(report), encoding="utf-8")

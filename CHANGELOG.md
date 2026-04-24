@@ -18,11 +18,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Relatório JSON de conformidade formal com estrutura do `.docx`.
 - Golden file estrutural para regressão de documentos `.docx`.
 - Política configurável de retenção/expurgo para runtime local.
+- Comando `--setup` para criar `output/` e `reports/` e verificar recursos essenciais.
+- Exemplos seguros em `examples/inbox_valid.json` e `examples/inbox_invalid.json`.
+- Documento `docs/legal-limitations.md` com limites jurídicos, LGPD e revisão humana obrigatória.
+- Tipos compartilhados em `src/domain.py`.
+- API REST local com FastAPI em `src/api.py`.
+- Front-end local em `web/` para upload de `.txt`, geração, download e painel de histórico.
+- Relatório HTML de conformidade formal.
+- Interface desktop local com Tkinter em `src/desktop.py`.
+- `Dockerfile` e `.dockerignore` para execução reprodutível da API local.
+- Pasta `examples/generated-docx/` para `.docx` fictícios de demonstração.
 
 ### Alterado
 - O pipeline agora bloqueia a outbox quando encontra qualquer violação formal.
 - O CI roda `compileall` e `pytest`.
 - A documentação foi reescrita para deixar claro que o uso é jurídico supervisionado.
+- O README passou a documentar CLI, API REST, front-end local, Docker e interface desktop.
 - O workflow manual de processamento foi removido para manter o repositório público focado em CI e evitar execução operacional com dados jurídicos em GitHub Actions.
 - A configuração local passou a usar `.env` ignorado pelo Git, sem manter `.env.example` no repositório.
 

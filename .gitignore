@@ -48,9 +48,12 @@ ENV/
 .env.*
 
 # ---------- Artefatos gerados pelo pipeline ----------
-output/
+output/*
+!output/.gitkeep
 *.docx
 !prompts/*.docx
+!examples/generated-docx/
+!examples/generated-docx/*.docx
 
 # ---------- Dados de runtime (filas MCP) ----------
 mcp_inbox.json
@@ -58,7 +61,13 @@ mcp_outbox.json
 mcp_status.json
 *.tmp
 reports/
+!reports/
+reports/*
+!reports/.gitkeep
 *_report.json
+*.html
+!web/*.html
+!web/**/*.html
 
 # ---------- Configurações locais do orquestrador ----------
 .claude/

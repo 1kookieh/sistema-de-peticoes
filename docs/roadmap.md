@@ -12,6 +12,16 @@
 - [x] Política configurável de retenção/expurgo.
 - [x] Golden file estrutural para `.docx`.
 - [x] Documentação de histórico Git profissional em `docs/git-history.md`.
+- [x] Comando `--setup` para primeiro uso.
+- [x] Exemplos seguros em `examples/`.
+- [x] Documento dedicado de limitações jurídicas e LGPD.
+- [x] API REST local com FastAPI.
+- [x] Front-end local simples para upload/geração/download.
+- [x] Painel local de histórico e relatórios.
+- [x] Relatório HTML local para revisão humana.
+- [x] Dockerfile para ambiente reprodutível.
+- [x] Interface desktop com Tkinter.
+- [x] Pasta de `.docx` fictício gerado para demonstração.
 - [ ] Mensagens de violação com mais contexto por parágrafo/seção.
 - [ ] Validação de múltiplos advogados no fechamento.
 
@@ -19,13 +29,12 @@
 
 - [ ] Expandir perfis por tribunal, rito e escritório.
 - [ ] Exportação PDF por ferramenta local, com aviso de dependência externa.
-- [ ] Relatório HTML local para revisão humana.
+- [ ] Autenticação local opcional para uso em rede interna.
 
 ## Longo Prazo
 
 - [ ] Biblioteca de templates por classe processual.
-- [ ] Relatório de conformidade formal em JSON.
-- [ ] Dashboard local de qualidade.
+- [ ] Dashboard avançado de qualidade e métricas operacionais.
 - [ ] Integração segura com armazenamento criptografado.
 
 ## Fora Do Escopo Atual

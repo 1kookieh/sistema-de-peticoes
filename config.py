@@ -1,7 +1,7 @@
 """Configurações globais do sistema.
 
-Todas as variáveis podem ser definidas em um arquivo `.env` na raiz do projeto
-(ver `.env.example`). Valores fornecidos via ambiente sobrescrevem defaults.
+Todas as variáveis podem ser definidas em um arquivo `.env` local na raiz do
+projeto. Valores fornecidos via ambiente sobrescrevem defaults.
 """
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT / "output"
+REPORTS_DIR = ROOT / "reports"
+FRONTEND_DIR = ROOT / "web"
+EXAMPLE_DOCX_DIR = ROOT / "examples" / "generated-docx"
 PROMPTS_DIR = ROOT / "prompts"
 
 

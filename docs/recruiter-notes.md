@@ -20,7 +20,7 @@ Pipeline Python (3.11+) que transforma texto plano em peças jurídicas `.docx` 
 2. Veja o contraste entre `src/formatar_docx.py` (gera) e `src/validar_docx.py` (verifica).
 3. Leia `docs/decisions.md` para entender trade-offs explícitos.
 4. Rode `pytest -q`.
-5. Rode `INBOX_MOCK_PATH=./teste_inbox.json python -m src.main` depois de configurar o `.env` local.
+5. Rode `python -m src --inbox ./examples/inbox_valid.json --no-outbox --report reports/demo_report.json` depois de configurar `EMAIL_ADVOGADO`.
 6. Consulte `docs/git-history.md` para ver uma sugestão de histórico profissional com Conventional Commits.
 
 ## Skills demonstradas
