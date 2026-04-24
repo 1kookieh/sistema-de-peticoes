@@ -2,8 +2,8 @@
 
 Após gerar o .docx, o validador em `src.validar_docx` verifica margens, fonte,
 alinhamentos obrigatórios, 7 linhas após o endereçamento e presença da OAB no
-fechamento. Violações são reportadas por thread; o Claude Code pode refazer a
-redação e re-executar este pipeline.
+fechamento. Violações são reportadas por thread, permitindo que o redator
+(humano ou integrador externo) refaça a peça e re-execute o pipeline.
 """
 from __future__ import annotations
 

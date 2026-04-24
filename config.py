@@ -27,4 +27,4 @@ EMAIL_ADVOGADO = os.environ.get("EMAIL_ADVOGADO", "").strip()
 """E-mail monitorado (remetente dos pedidos e destinatário das respostas)."""
 
 GMAIL_LABEL_PROCESSADO = os.environ.get("GMAIL_LABEL_PROCESSADO", "peticao-gerada")
-"""Label aplicado pelo Claude Code a threads já processadas."""
+"""Label aplicado pelo orquestrador externo a threads já processadas."""

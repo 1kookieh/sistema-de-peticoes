@@ -1,36 +1,71 @@
-# Python
+# ---------- Python ----------
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
-.pytest_cache/
+*.egg
+MANIFEST
 
-# Ambientes virtuais
+# ---------- Testes / cobertura ----------
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.cache
+
+# ---------- Tipagem / lint ----------
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# ---------- Ambientes virtuais ----------
 .venv/
 venv/
 env/
+ENV/
 
-# Variáveis de ambiente e segredos
+# ---------- Variáveis de ambiente e segredos ----------
 .env
 .env.*
 !.env.example
 
-# Artefatos gerados
+# ---------- Artefatos gerados pelo pipeline ----------
 output/
 *.docx
 !prompts/*.docx
 
-# Dados de runtime (MCP Gmail)
+# ---------- Dados de runtime (filas MCP) ----------
 mcp_inbox.json
 mcp_outbox.json
 
-# Configurações locais do orquestrador (mantidas fora do repositório público)
+# ---------- Configurações locais do orquestrador ----------
 .claude/
 
-# SO / editores
+# ---------- SO / editores ----------
 .DS_Store
 Thumbs.db
+desktop.ini
 .vscode/
 .idea/
+*.swp
+*.swo
+*~

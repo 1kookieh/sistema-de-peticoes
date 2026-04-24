@@ -4,8 +4,9 @@ Retorna lista de violações (strings). Uma lista vazia significa que o document
 passou em todas as verificações determinísticas (margens, fonte, alinhamentos,
 negrito nos lugares certos, 7 linhas após o endereçamento, OAB no fechamento).
 
-Não valida semântica jurídica — isso é responsabilidade do Claude Code ao
-comparar o texto final contra o `prompt_peticao.md`.
+Não valida semântica jurídica — essa responsabilidade fica com o redator
+(humano ou integrador externo) ao comparar o texto final contra o
+`prompt_peticao.md`.
 """
 from __future__ import annotations
 
