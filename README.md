@@ -8,6 +8,8 @@
 
 Pipeline em Python para transformar texto de peças jurídicas em `.docx` com formatação forense padronizada, validação determinística e filas JSON locais. O sistema ajuda a reduzir retrabalho mecânico de Word, mas não substitui advogado, não valida mérito jurídico complexo e não deve ser usado para protocolo sem revisão humana.
 
+**Stack principal:** Python 3.11+, FastAPI, Uvicorn, python-docx, Pytest, HTML, CSS, JavaScript, Tkinter e Docker.
+
 ## O Que Faz
 
 - Formata texto em `.docx` com A4, margens 3/3/2/2 cm, Times New Roman 12, corpo justificado, espaçamento 1,5, recuo de 2,5 cm e 7 linhas após o endereçamento.
@@ -16,8 +18,28 @@ Pipeline em Python para transformar texto de peças jurídicas em `.docx` com fo
 - Lê uma fila local `mcp_inbox.json` ou `INBOX_MOCK_PATH` e grava respostas em `mcp_outbox.json`.
 - Mantém estado local em `mcp_status.json` para evitar reprocessamento acidental de itens já concluídos.
 - Permite perfis formais por contexto, relatório JSON de conformidade e execução sem outbox.
+- Expõe API REST local com FastAPI para setup, geração, download e consulta de relatórios.
+- Inclui front-end local em HTML, CSS e JavaScript puro para upload de `.txt`, geração de `.docx`, download e histórico.
+- Oferece interface desktop em Tkinter para uso local sem navegador.
+- Gera relatórios JSON e HTML de conformidade formal para revisão humana.
+- Inclui `Dockerfile` para executar a API/front-end em ambiente reprodutível.
 - Possui política configurável de retenção para arquivos locais sensíveis.
 - Inclui testes automatizados com `pytest`.
+
+## Tecnologias Utilizadas
+
+| Área | Tecnologia | Onde aparece |
+|---|---|---|
+| Linguagem principal | Python 3.11+ | `src/`, CLI, API, validações e geração `.docx` |
+| Documentos Word | `python-docx` | `src/formatar_docx.py`, `src/validar_docx.py`, `src/reporting.py` |
+| API REST | FastAPI | `src/api.py` |
+| Servidor local | Uvicorn | execução de `uvicorn src.api:app --reload` |
+| Front-end | HTML, CSS e JavaScript puro | `web/index.html`, `web/styles.css`, `web/app.js` |
+| Interface desktop | Tkinter | `src/desktop.py` |
+| Testes | Pytest e FastAPI TestClient | `tests/` |
+| Container | Docker | `Dockerfile`, `.dockerignore` |
+
+O front-end foi mantido sem React/Vite/Next.js de propósito: para este escopo, HTML/CSS/JS puro entrega upload, geração, download e histórico sem exigir Node.js, build ou dependências extras.
 
 ## Primeiro Uso
 
@@ -194,6 +216,12 @@ O validador retorna `OK` ou uma lista de violações formais. Essa validação n
 uvicorn src.api:app --reload
 ```
 
+Depois abra:
+
+```text
+http://127.0.0.1:8000
+```
+
 Endpoints principais:
 
 | Método | Rota | Uso |
@@ -207,6 +235,16 @@ Endpoints principais:
 | `GET` | `/api/reports/{arquivo}` | Abre relatório JSON ou HTML |
 
 O front-end permite colar texto, carregar `.txt`, gerar o `.docx`, baixar o documento e abrir o relatório HTML. Ele é uma camada local de conveniência; a validação jurídica humana continua obrigatória.
+
+Arquivos da interface web:
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `web/index.html` | Estrutura visual do formulário, resultado e painel de histórico |
+| `web/styles.css` | Layout responsivo, identidade visual e estados de aviso |
+| `web/app.js` | Carrega perfis, lê `.txt`, chama a API, exibe downloads e atualiza histórico |
+
+O JavaScript escapa conteúdo retornado pela API antes de renderizar informações dinâmicas, reduzindo risco de injeção HTML mesmo em uso local.
 
 ### Interface desktop
 
@@ -224,6 +262,15 @@ docker run --rm -p 8000:8000 sistema-peticoes
 ```
 
 Depois abra `http://127.0.0.1:8000`. Em uso real, monte volumes protegidos para `output/` e `reports/`, porque esses diretórios podem conter dados sensíveis.
+
+Exemplo com volumes locais:
+
+```bash
+docker run --rm -p 8000:8000 \
+  -v ./output:/app/output \
+  -v ./reports:/app/reports \
+  sistema-peticoes
+```
 
 ## Contrato da Inbox
 
@@ -272,6 +319,17 @@ Flags principais:
 | `--cleanup-only` | Executa apenas a política de retenção |
 
 Relatórios podem conter identificadores de threads e caminhos de documentos. Trate `reports/`, `*_report.json` e `*.html` gerados em runtime como dados sensíveis.
+
+## Relatórios e Histórico Local
+
+O sistema pode produzir dois formatos de relatório:
+
+| Formato | Saída | Uso recomendado |
+|---|---|---|
+| JSON | `reports/*.json` | Auditoria técnica, integração e testes automatizados |
+| HTML | `reports/*.html` | Leitura humana rápida pelo front-end ou navegador |
+
+O painel local em `GET /api/reports` lista relatórios existentes e itens do status local. Esse histórico é útil para demonstração e conferência operacional, mas não deve ser publicado quando houver dados reais.
 
 ## Retenção e Expurgo
 
@@ -336,9 +394,16 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 ├── teste_inbox.json
 ├── Dockerfile
 ├── examples/
+│   ├── inbox_invalid.json
+│   ├── inbox_valid.json
 │   └── generated-docx/
+│       └── peticao_exemplo.docx
 ├── prompts/
 ├── docs/
+│   ├── api.md
+│   ├── architecture.md
+│   ├── demo.md
+│   └── legal-limitations.md
 ├── src/
 │   ├── api.py
 │   ├── cli.py
@@ -356,6 +421,9 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 │   └── validar_docx.py
 ├── tests/
 ├── web/
+│   ├── app.js
+│   ├── index.html
+│   └── styles.css
 └── .github/
 ```
 
