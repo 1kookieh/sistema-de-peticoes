@@ -2,7 +2,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from src import api, gmail_sender, main, pipeline_state
+from src import api, file_extractors, gmail_sender, main, pipeline_state
 from src.history import list_reports
 from src.reporting import render_report_html
 
@@ -29,8 +29,18 @@ def test_api_health_and_profiles():
     client = TestClient(api.app)
 
     assert client.get("/api/health").json() == {"status": "ok"}
-    profiles = client.get("/api/profiles").json()
+    profiles_payload = client.get("/api/profiles").json()
+    assert profiles_payload["default"] == "judicial-inicial-jef"
+    profiles = profiles_payload["items"]
     assert any(profile["id"] == "judicial-inicial-jef" for profile in profiles)
+    jef = next(profile for profile in profiles if profile["id"] == "judicial-inicial-jef")
+    assert jef["is_default"] is True
+    assert jef["label"]
+    assert jef["require_oab"] is True
+    piece_types = client.get("/api/piece-types").json()
+    assert any(item["id"] == "auxilio-incapacidade-temporaria" for item in piece_types["items"])
+    assert any(item["id"] == "procuracao-ad-judicia" for item in piece_types["items"])
+    assert any(item["id"] == "substabelecimento-com-reserva" for item in piece_types["items"])
 
 
 def test_api_setup_returns_runtime_checks():
@@ -42,6 +52,29 @@ def test_api_setup_returns_runtime_checks():
     payload = response.json()
     assert "ok" in payload
     assert any(check["name"] == "output" for check in payload["checks"])
+
+
+def test_api_token_protects_sensitive_routes(monkeypatch):
+    monkeypatch.setattr(api, "API_TOKEN", "segredo")
+    client = TestClient(api.app)
+
+    unauthorized = client.get("/api/reports")
+    authorized = client.get("/api/reports", headers={"X-API-Token": "segredo"})
+
+    assert unauthorized.status_code == 401
+    assert authorized.status_code == 200
+
+
+def test_api_invalid_profile_returns_422(tmp_path, monkeypatch):
+    _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/documents",
+        json={"text": _texto_valido(), "profile_id": "perfil-inexistente"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
@@ -63,6 +96,86 @@ def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     assert download.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument"
     )
+
+
+def test_api_generates_docx_from_txt_upload(tmp_path, monkeypatch):
+    output_dir, reports_dir = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/documents/upload",
+        data={
+            "profile_id": "judicial-inicial-jef",
+            "piece_type_id": "auxilio-incapacidade-temporaria",
+        },
+        files={"file": ("peticao.txt", _texto_valido().encode("utf-8"), "text/plain")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok_no_outbox"
+    assert payload["piece_type"]["id"] == "auxilio-incapacidade-temporaria"
+    assert payload["source_filename"] == "peticao.txt"
+    assert (output_dir / payload["document"]).exists()
+    assert any(reports_dir.glob("*.json"))
+
+
+def test_api_generates_docx_from_multiple_uploads(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/documents/upload",
+        data={
+            "profile_id": "judicial-inicial-jef",
+            "piece_type_id": "auxilio-incapacidade-temporaria",
+        },
+        files=[
+            ("files", ("parte1.txt", _texto_valido().encode("utf-8"), "text/plain")),
+            ("files", ("parte2.md", b"\n\nObservacoes complementares", "text/markdown")),
+        ],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok_no_outbox"
+    assert payload["source_filename"] == "parte1.txt, parte2.md"
+    assert (output_dir / payload["document"]).exists()
+
+
+def test_api_image_upload_uses_ocr_text(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(file_extractors, "_extract_image", lambda data: _texto_valido())
+    client = TestClient(api.app)
+    png_header = b"\x89PNG\r\n\x1a\n"
+
+    response = client.post(
+        "/api/documents/upload",
+        data={
+            "profile_id": "judicial-inicial-jef",
+            "piece_type_id": "auxilio-incapacidade-temporaria",
+        },
+        files={"file": ("print.png", png_header + b"fake", "image/png")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok_no_outbox"
+    assert payload["source_filename"] == "print.png"
+    assert (output_dir / payload["document"]).exists()
+
+
+def test_api_rejects_unsupported_upload(tmp_path, monkeypatch):
+    _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/documents/upload",
+        data={"profile_id": "judicial-inicial-jef"},
+        files={"file": ("peticao.exe", b"conteudo", "application/octet-stream")},
+    )
+
+    assert response.status_code == 422
 
 
 def test_api_blocks_invalid_text_and_keeps_report(tmp_path, monkeypatch):

@@ -10,38 +10,95 @@
   <main class="shell">
     <section class="hero">
       <p class="eyebrow">Uso jurídico supervisionado</p>
-      <h1>Gerador local de peças em DOCX</h1>
-      <p>Envie texto ou carregue um `.txt`, escolha um perfil formal e gere um documento para revisão humana obrigatória.</p>
+      <h1>Gere DOCX a partir de texto, PDF, Word ou imagem</h1>
+      <p>Escolha o tipo de peça, envie arquivos ou cole o texto, gere o documento e revise tudo antes de qualquer uso real.</p>
     </section>
 
-    <section class="card">
-      <div class="grid">
-        <label>
-          Perfil
-          <select id="profile"></select>
-        </label>
-        <label>
-          Arquivo .txt opcional
-          <input id="file" type="file" accept=".txt,text/plain">
-        </label>
-      </div>
-      <label>
-        Texto da peça
-        <textarea id="text" rows="16" placeholder="Cole aqui o texto da peça com dados fictícios ou revisados..."></textarea>
-      </label>
-      <button id="generate">Gerar DOCX</button>
-      <p class="warning">A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.</p>
-      <div id="result" class="result"></div>
-    </section>
+    <section class="layout">
+      <form id="generator-form" class="card stack">
+        <div class="step">
+          <span>1</span>
+          <div>
+            <h2>Tipo de peça e perfil formal</h2>
+            <p class="muted">Tudo opcional. Se você não escolher, o sistema detecta a peça pelo texto e aplica o perfil <strong>Inicial JEF/Federal</strong> (PJE/Projudi) por padrão.</p>
+          </div>
+        </div>
 
-    <section class="card">
-      <div class="section-title">
-        <h2>Histórico local</h2>
-        <button id="refresh" class="secondary">Atualizar</button>
-      </div>
-      <div id="history"></div>
+        <label>
+          Peça desejada <span class="optional-tag">opcional</span>
+          <select id="piece-type"></select>
+          <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> e o sistema reconhece a peça pelo conteúdo do texto.</span>
+        </label>
+
+        <div class="grid">
+          <label>
+            Perfil formal <span class="optional-tag">opcional</span>
+            <select id="profile"></select>
+            <span class="field-hint muted">Padrão: Inicial JEF/Federal — usado em PJE e Projudi.</span>
+          </label>
+          <label>
+            Token da API <span class="optional-tag">opcional</span>
+            <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado">
+          </label>
+        </div>
+
+        <div id="profile-details" class="profile-details" aria-live="polite"></div>
+        <div id="piece-hint" class="hint"></div>
+
+        <div class="step">
+          <span>2</span>
+          <div>
+            <h2>Entrada</h2>
+            <p class="muted">Arquivos aceitos: .txt, .md, .docx, .pdf e imagens. Imagens são lidas por OCR para extrair texto.</p>
+          </div>
+        </div>
+
+        <label class="upload-box">
+          <input id="file" type="file" multiple accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp">
+          <strong>Adicionar arquivos</strong>
+          <span>Selecione PDF, DOCX, TXT, MD ou imagens. Imagens entram como fonte para OCR, não como anexo no DOCX.</span>
+        </label>
+        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usará o texto colado abaixo.</div>
+        <button id="clear-file" class="secondary small" type="button" hidden>Remover arquivos e usar texto colado</button>
+
+        <label>
+          Texto da peça ou conteúdo base
+          <textarea id="text" rows="14" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
+        </label>
+
+        <div class="actions">
+          <button id="generate" type="submit">Gerar e validar DOCX</button>
+          <span class="muted">Nada é enviado para serviços externos por esta interface.</span>
+        </div>
+
+        <p class="warning">A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.</p>
+      </form>
+
+      <aside class="panel">
+        <section class="card">
+          <div class="step compact">
+            <span>3</span>
+            <div>
+              <h2>Resultado</h2>
+              <p class="muted">Links aparecem após a geração.</p>
+            </div>
+          </div>
+          <div id="result" class="result" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-title">
+            <div>
+              <h2>Histórico local</h2>
+              <p class="muted">Relatórios e documentos salvos nesta máquina.</p>
+            </div>
+            <button id="refresh" class="secondary small" type="button">Atualizar</button>
+          </div>
+          <div id="history" aria-live="polite"></div>
+        </section>
+      </aside>
     </section>
   </main>
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>
