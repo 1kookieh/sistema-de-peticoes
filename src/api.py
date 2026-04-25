@@ -46,7 +46,7 @@ if FRONTEND_DIR.exists():
 class DocumentRequest(BaseModel):
     text: str = Field(
         min_length=1,
-        max_length=200_000,
+        max_length=500_000,
         description="Texto da peça a ser formatada.",
     )
     profile_id: str | None = Field(

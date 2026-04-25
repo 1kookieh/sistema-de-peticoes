@@ -13,9 +13,10 @@ const result = document.querySelector("#result");
 const history = document.querySelector("#history");
 const refresh = document.querySelector("#refresh");
 
-const MAX_TEXT_CHARS = 200000;
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const MAX_TOTAL_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_TEXT_CHARS = 500000;
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_UPLOAD_BYTES = 200 * 1024 * 1024;
+const MAX_FILES = 20;
 const AUTO_VALUE = "auto";
 
 let pieceTypes = [];
@@ -250,6 +251,11 @@ async function loadTextPreviewFromFile(upload) {
 file.addEventListener("change", async () => {
   const uploads = selectedFiles();
   if (!uploads.length) return;
+  if (uploads.length > MAX_FILES) {
+    setMessage(result, `Selecione no máximo ${MAX_FILES} arquivos por vez.`, "warning");
+    file.value = "";
+    return;
+  }
   const oversized = uploads.find((upload) => upload.size > MAX_FILE_BYTES);
   if (oversized) {
     setMessage(result, `${oversized.name} está acima do limite de ${formatBytes(MAX_FILE_BYTES)}.`, "warning");

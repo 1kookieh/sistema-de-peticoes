@@ -135,6 +135,55 @@ def test_inferencia_retorna_none_para_texto_irrelevante() -> None:
     assert infer_piece_type_id("texto solto sem cabeçalho jurídico nem palavra-chave reconhecível") is None
 
 
+def test_inferencia_priorizando_titulo_sobre_corpo() -> None:
+    """Texto da peça pode citar outras peças no corpo; título deve vencer."""
+    # Petição de aposentadoria rural que cita acórdão de agravo de instrumento
+    # no fundamento. O detector antigo pegava "agravo-instrumento" pelo corpo.
+    texto = (
+        "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
+        "PETIÇÃO INICIAL — AÇÃO DE APOSENTADORIA POR IDADE RURAL\n\n"
+        "MARIA DA SILVA, qualificada nos autos, vem propor a presente ação. "
+        "Cita-se, por oportuno, acórdão proferido em agravo de instrumento "
+        "(TRF-1, AI 1234) e em recurso especial do STJ que confirmaram tese "
+        "semelhante. Pleiteia-se aposentadoria por idade rural com base em "
+        "início de prova material e prova testemunhal..."
+    )
+    assert infer_piece_type_id(texto) == "aposentadoria-idade-rural"
+
+
+def test_inferencia_titulo_prefere_acao_principal() -> None:
+    """Petição que menciona BPC/LOAS no fundamento mas é aposentadoria."""
+    texto = (
+        "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
+        "AÇÃO DE APOSENTADORIA POR INVALIDEZ\n\n"
+        "Cumpre observar que o autor já recebeu BPC/LOAS no passado, mas "
+        "agora pleiteia aposentadoria por incapacidade permanente..."
+    )
+    # Título "APOSENTADORIA POR INVALIDEZ" deve vencer "BPC/LOAS" no corpo
+    assert infer_piece_type_id(texto) == "aposentadoria-incapacidade-permanente"
+
+
+def test_inferencia_admin_inss_vence_bpc_judicial() -> None:
+    """Cabeçalho administrativo deve impedir classificação judicial."""
+    texto = (
+        "AO INSTITUTO NACIONAL DO SEGURO SOCIAL\n\n"
+        "REQUERIMENTO DE BPC/LOAS — pessoa idosa de 67 anos..."
+    )
+    # Sem o fix de ordem, o head_norm tinha "BPC" e disparava bpc-idoso-judicial
+    assert infer_piece_type_id(texto) == "requerimento-bpc-idoso"
+
+
+def test_inferencia_recurso_inominado_com_aposentadoria_no_corpo() -> None:
+    """Recurso inominado contra sentença de aposentadoria deve permanecer recurso."""
+    texto = (
+        "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
+        "RECURSO INOMINADO\n\n"
+        "Trata-se de recurso em face da sentença que indeferiu aposentadoria "
+        "por idade rural ao recorrente. A sentença merece reforma..."
+    )
+    assert infer_piece_type_id(texto) == "recurso-inominado"
+
+
 def test_inferencia_consistente_com_catalogo() -> None:
     """Todo id retornado pela inferência precisa existir no catálogo."""
     catalog_ids = {item.id for item in list_piece_types()}

@@ -121,254 +121,374 @@ def get_piece_type(piece_type_id: str | None) -> PieceType | None:
     raise ValueError(f"tipo de peça desconhecido: {piece_type_id}")
 
 
-def infer_piece_type_id(texto: str) -> str | None:
-    """Tenta identificar a peça a partir do texto.
+# Linhas iniciais consideradas "cabeçalho/título" para a inferência.
+_HEAD_LINES_FOR_TITLE = 30
+_MAX_TITLE_LINE_CHARS = 140
+_MIN_UPPER_RATIO_FOR_TITLE = 0.7
 
-    Heurística determinística baseada em (1) primeira linha (cabeçalho) e
-    (2) palavras-chave do corpo. Retorna o `id` da peça mais provável ou
-    ``None`` quando o texto não traz sinais suficientes — nesse caso o
-    caller deve cair em um perfil padrão e seguir sem `piece_type`.
 
-    Heurística manual em vez de NLP por dois motivos:
+def _title_candidates(linhas: list[str]) -> list[str]:
+    """Filtra linhas que parecem **títulos de ação**.
 
-    - Não introduz dependência externa nem peso de modelo.
-    - Mantém comportamento auditável — cada decisão é uma regra explícita
-      revisável por quem opera o sistema.
+    Critérios cumulativos para considerar uma linha um título:
+
+    - vem entre as primeiras ``_HEAD_LINES_FOR_TITLE`` não vazias;
+    - tem no máximo ``_MAX_TITLE_LINE_CHARS`` caracteres;
+    - pelo menos ``_MIN_UPPER_RATIO_FOR_TITLE`` das letras estão em caixa
+      alta (o nome da ação no padrão forense brasileiro vem em CAIXA ALTA).
+
+    Esse filtro elimina o ruído mais comum do detector anterior: linhas do
+    corpo que citam jurisprudência ("...em agravo de instrumento (TRF-1...)")
+    deixavam a inferência confusa porque a busca varria todo o cabeçalho.
     """
-    if not texto or not texto.strip():
-        return None
+    candidates: list[str] = []
+    for linha in linhas[:_HEAD_LINES_FOR_TITLE]:
+        s = linha.strip()
+        if not s or len(s) > _MAX_TITLE_LINE_CHARS:
+            continue
+        letras = [c for c in s if c.isalpha()]
+        if not letras:
+            # mantém linhas só com números/pontuação para não perder marcadores
+            candidates.append(s)
+            continue
+        upper_ratio = sum(1 for c in letras if c.isupper()) / len(letras)
+        if upper_ratio >= _MIN_UPPER_RATIO_FOR_TITLE:
+            candidates.append(s)
+    return candidates
 
-    t = texto.lower()
-    primeira = next(
-        (linha.strip() for linha in texto.splitlines() if linha.strip()),
-        "",
-    ).upper()
 
-    # --- Instrumentos de mandato e declarações (prioridade alta: cabeçalho) ---
-    if primeira.startswith(("PROCURAÇÃO", "PROCURACAO", "INSTRUMENTO PARTICULAR DE PROCURAÇÃO")):
-        if "ad judicia et extra" in t or "judicia et extra" in t:
-            return "procuracao-ad-judicia-et-extra"
-        if any(k in t for k in ("inss", "previdenciári", "administrativ")):
-            return "procuracao-administrativa-inss"
-        return "procuracao-ad-judicia"
+def _normalize_for_match(value: str) -> str:
+    """Remove acentos e dobra para maiúsculas, simplificando comparações.
 
-    if primeira.startswith(("SUBSTABELECIMENTO", "SUBSTABELECEMENTO")):
-        if "sem reserva" in t:
-            return "substabelecimento-sem-reserva"
-        return "substabelecimento-com-reserva"
+    A normalização é feita só na detecção; o texto original do usuário
+    permanece intacto para a geração do .docx.
+    """
+    import unicodedata
 
-    if primeira.startswith(("DECLARAÇÃO", "DECLARACAO")):
-        if "hipossufic" in t:
-            return "declaracao-hipossuficiencia"
-        if "atividade rural" in t or "rurícola" in t or "ruricola" in t:
-            return "declaracao-atividade-rural"
-        if "residênci" in t or "residenci" in t or "resido" in t:
-            return "declaracao-residencia"
+    nfkd = unicodedata.normalize("NFD", value)
+    sem_acentos = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return sem_acentos.upper()
 
-    # --- Recursos (palavras-chave fortes) ---
-    if "recurso inominado" in t:
+
+def _detect_from_title(head_norm: str) -> str | None:
+    """Detector que olha apenas o cabeçalho/título nas primeiras linhas.
+
+    Aqui ficam as regras com **alta especificidade**: só dispara quando o
+    rótulo da ação está claramente no topo do documento. Isso evita falsos
+    positivos quando palavras-chave aparecem no corpo, em jurisprudência
+    citada ou em fundamentação.
+    """
+    H = head_norm  # alias curto para legibilidade
+
+    # --- Recursos (título no topo) ---
+    if "RECURSO INOMINADO" in H:
         return "recurso-inominado"
-    if "agravo de instrumento" in t:
+    if "AGRAVO DE INSTRUMENTO" in H:
         return "agravo-instrumento"
-    if "agravo interno" in t:
+    if "AGRAVO INTERNO" in H:
         return "agravo-interno"
-    if "embargos de declaração" in t or "embargos de declaracao" in t:
+    if "EMBARGOS DE DECLARACAO" in H:
         return "embargos-declaracao"
-    if "contrarrazões" in t or "contrarrazoes" in t:
+    if "CONTRARRAZOES" in H:
         return "contrarrazoes"
-    if "apelação" in t and ("cível" in t or "civel" in t):
+    if "APELACAO" in H and ("CIVEL" in H or "RECURSO DE APELACAO" in H):
         return "apelacao-civel"
-    if "pedilef" in t or ("uniformização" in t and "tnu" in t):
+    if "PEDILEF" in H or ("UNIFORMIZACAO" in H and "TNU" in H):
         return "pedilef-tnu"
-    if "recurso especial" in t and ("stj" in t or "tribunal superior" in t):
+    if "RECURSO ESPECIAL" in H and ("STJ" in H or "TRIBUNAL SUPERIOR" in H):
         return "recurso-especial-stj"
-    if "recurso extraordinário" in t or "recurso extraordinario" in t:
+    if "RECURSO EXTRAORDINARIO" in H:
         return "recurso-extraordinario-stf"
-    if "juízo de retratação" in t or "juizo de retratacao" in t:
+    if "JUIZO DE RETRATACAO" in H:
         return "juizo-retratacao"
-    if "recurso ordinário" in t and "crps" in t:
+    if "RECURSO ORDINARIO" in H and "CRPS" in H:
         return "recurso-ordinario-crps"
-    if "recurso especial" in t and "crps" in t:
+    if "RECURSO ESPECIAL" in H and "CRPS" in H:
         return "recurso-especial-crps"
-    if "reconsideração" in t or "reconsideracao" in t:
+    if "PEDIDO DE RECONSIDERACAO" in H:
         return "pedido-reconsideracao-administrativa"
 
     # --- Cumprimento de sentença ---
-    if "cumprimento de sentença" in t or "cumprimento da sentença" in t or "cumprimento de sentenca" in t:
-        if "rpv" in t or "requisição de pequeno valor" in t:
+    if "CUMPRIMENTO DE SENTENCA" in H or "CUMPRIMENTO DA SENTENCA" in H:
+        if "RPV" in H or "REQUISICAO DE PEQUENO VALOR" in H:
             return "cumprimento-sentenca-rpv"
-        if "precatório" in t or "precatorio" in t:
+        if "PRECATORIO" in H:
             return "cumprimento-sentenca-precatorio"
-        if "astreintes" in t or "multa diária" in t or "multa diaria" in t:
+        if "ASTREINTES" in H or "MULTA DIARIA" in H:
             return "cumprimento-sentenca-astreintes"
         return "cumprimento-sentenca-implantacao"
-    if "impugnação ao cumprimento" in t or "impugnacao ao cumprimento" in t:
+    if "IMPUGNACAO AO CUMPRIMENTO" in H:
         return "impugnacao-cumprimento-sentenca"
-    if "impugnação aos cálculos" in t or "impugnacao aos calculos" in t or "impugnação dos cálculos" in t:
+    if "IMPUGNACAO AOS CALCULOS" in H or "IMPUGNACAO DOS CALCULOS" in H:
         return "impugnacao-calculos"
 
     # --- Mandado de segurança ---
-    if "mandado de segurança" in t or "mandado de seguranca" in t:
-        if "bpc" in t or "loas" in t:
+    if "MANDADO DE SEGURANCA" in H:
+        if "BPC" in H or "LOAS" in H:
             return "ms-bpc-mora"
         return "mandado-seguranca-previdenciario"
 
     # --- Sucessório / extrajudicial ---
-    if "inventário extrajudicial" in t or "inventario extrajudicial" in t:
+    if "INVENTARIO EXTRAJUDICIAL" in H:
         return "inventario-extrajudicial"
-    if "arrolamento sumário" in t or "arrolamento sumario" in t:
+    if "ARROLAMENTO SUMARIO" in H:
         return "arrolamento-sumario"
-    if "arrolamento" in t and "simples" in t:
+    if "ARROLAMENTO" in H and "SIMPLES" in H:
         return "arrolamento-simples"
-    if "sobrepartilha" in t and "extrajudicial" in t:
+    if "SOBREPARTILHA" in H and "EXTRAJUDICIAL" in H:
         return "sobrepartilha-extrajudicial"
-    if "sobrepartilha" in t:
+    if "SOBREPARTILHA" in H:
         return "sobrepartilha-judicial"
-    if "usucapião" in t or "usucapiao" in t:
+    if "USUCAPIAO" in H:
         return "usucapiao"
-    if "alvará" in t and ("judicial" in t or "juízo" in t):
+    if "ALVARA" in H and ("JUDICIAL" in H or "JUIZO" in H):
         return "alvara-judicial"
-    if "cessão de direitos hereditários" in t or "cessao de direitos hereditarios" in t:
+    if "CESSAO DE DIREITOS HEREDITARIOS" in H:
         return "cessao-direitos-hereditarios"
-    if "renúncia à herança" in t or "renuncia a heranca" in t or "repúdio à herança" in t:
+    if "RENUNCIA A HERANCA" in H or "REPUDIO A HERANCA" in H:
         return "renuncia-heranca"
-    if "habilitação sucessória" in t or "habilitacao sucessoria" in t:
+    if "HABILITACAO SUCESSORIA" in H:
         return "habilitacao-sucessoria-processo"
-    if "habilitação" in t and "herdeiros" in t:
+    if "HABILITACAO" in H and "HERDEIROS" in H:
         return "habilitacao-herdeiros"
-    if "primeiras declarações" in t or "primeiras declaracoes" in t:
+    if "PRIMEIRAS DECLARACOES" in H:
         return "primeiras-declaracoes"
-    if "últimas declarações" in t or "ultimas declaracoes" in t:
+    if "ULTIMAS DECLARACOES" in H:
         return "ultimas-declaracoes"
-    if "inventariante" in t and any(k in t for k in ("nomeação", "nomeacao", "remoção", "remocao", "substituição", "substituicao")):
-        return "nomeacao-inventariante"
-    if "formal de partilha" in t or "carta de adjudicação" in t:
+    if "FORMAL DE PARTILHA" in H or "CARTA DE ADJUDICACAO" in H:
         return "formal-partilha"
-    if "inventário" in t or "inventario" in t:
+    if "INVENTARIO JUDICIAL" in H or ("INVENTARIO" in H and ("JUIZO" in H or "VARA" in H)):
+        return "inventario-judicial"
+    if "INVENTARIO" in H:
         return "inventario-judicial"
 
     # --- Petições intermediárias ---
-    if "impugnação ao laudo" in t or "impugnacao ao laudo" in t:
+    if "IMPUGNACAO AO LAUDO" in H:
         return "impugnacao-laudo-pericial"
-    if "quesitos periciais" in t or "apresentação de quesitos" in t:
+    if "QUESITOS PERICIAIS" in H or "APRESENTACAO DE QUESITOS" in H:
         return "quesitos-periciais"
-    if "especificação de provas" in t or "especificacao de provas" in t:
+    if "ESPECIFICACAO DE PROVAS" in H:
         return "especificacao-provas"
-    if "tutela de urgência" in t or "tutela antecipada" in t or "tutela de urgencia" in t:
-        if primeira.startswith(("EXCELENT", "AO JUÍZO", "AO JUIZO")):
-            # Inicial pode ter pedido de tutela; só classifica como incidental
-            # se claramente for petição intermediária (sem início do tipo "Excelentíssimo... [x] vem propor a presente ação")
-            if "vem propor" not in t and "vem ajuizar" not in t and "petição inicial" not in t:
-                return "tutela-urgencia-incidental"
-    if "réplica" in t or "replica" in t or "impugnação à contestação" in t:
+    if "REPLICA" in H or "IMPUGNACAO A CONTESTACAO" in H:
         return "replica-contestacao"
-    if "manifestação sobre documentos" in t or "manifestacao sobre documentos" in t:
+    if "MANIFESTACAO SOBRE DOCUMENTOS" in H:
         return "manifestacao-documentos"
-    if "juntada de documentos" in t or "juntada documental" in t:
+    if "JUNTADA DE DOCUMENTOS" in H:
         return "juntada-documentos"
+    if "TUTELA DE URGENCIA" in H or "TUTELA ANTECIPADA" in H:
+        # Inicial pode pedir tutela; só classifica como incidental quando o
+        # título principal é "TUTELA..." e não há "PETICAO INICIAL" antes.
+        if "PETICAO INICIAL" not in H and "ACAO" not in H:
+            return "tutela-urgencia-incidental"
 
-    # --- Administrativo INSS / CRPS ---
-    is_admin = primeira.startswith((
+    # --- Benefícios previdenciários (título da ação) ---
+    if "APOSENTADORIA ESPECIAL" in H:
+        return "aposentadoria-especial"
+    if "APOSENTADORIA POR IDADE RURAL" in H or (
+        "APOSENTADORIA" in H and ("RURAL" in H or "RURICOLA" in H or "TRABALHADOR RURAL" in H)
+    ):
+        return "aposentadoria-idade-rural"
+    if "APOSENTADORIA HIBRIDA" in H:
+        return "aposentadoria-hibrida"
+    if "APOSENTADORIA" in H and "TEMPO DE CONTRIBUICAO" in H and ("DEFICIENCIA" in H or "PCD" in H):
+        return "aposentadoria-pcd-tempo"
+    if "APOSENTADORIA" in H and "TEMPO DE CONTRIBUICAO" in H:
+        return "aposentadoria-tempo-contribuicao"
+    if "APOSENTADORIA" in H and "POR IDADE" in H and ("DEFICIENCIA" in H or "PCD" in H):
+        return "aposentadoria-pcd-idade"
+    if "APOSENTADORIA" in H and "POR IDADE" in H:
+        return "aposentadoria-idade-urbana"
+    if "APOSENTADORIA POR INVALIDEZ ACIDENTARIA" in H or "B-92" in H or "B92" in H:
+        return "aposentadoria-invalidez-acidentaria"
+    if "APOSENTADORIA POR INCAPACIDADE PERMANENTE" in H or "APOSENTADORIA POR INVALIDEZ" in H:
+        return "aposentadoria-incapacidade-permanente"
+    if "REVISAO DE APOSENTADORIA" in H or ("APOSENTADORIA" in H and "REVISAO" in H):
+        return "revisao-aposentadoria"
+
+    if ("AUXILIO-ACIDENTE" in H or "AUXILIO ACIDENTE" in H or "B-36" in H or "B36" in H):
+        if "REVISAO" in H:
+            return "revisao-auxilio-acidente"
+        return "auxilio-acidente"
+    if (
+        "AUXILIO-DOENCA" in H
+        or "AUXILIO DOENCA" in H
+        or "AUXILIO POR INCAPACIDADE TEMPORARIA" in H
+        or "INCAPACIDADE TEMPORARIA" in H
+    ):
+        if "REVISAO" in H:
+            return "revisao-auxilio-incapacidade-temporaria"
+        if "RESTABELEC" in H:
+            return "restabelecimento-beneficio-incapacidade"
+        return "auxilio-incapacidade-temporaria"
+    if "AUXILIO-RECLUSAO" in H or "AUXILIO RECLUSAO" in H:
+        return "auxilio-reclusao"
+    if "PENSAO POR MORTE" in H:
+        if "REVISAO" in H:
+            return "revisao-pensao-por-morte"
+        return "pensao-por-morte"
+    if "SALARIO-MATERNIDADE" in H or "SALARIO MATERNIDADE" in H:
+        return "salario-maternidade"
+    if "RECONHECIMENTO" in H and "TEMPO DE CONTRIBUICAO" in H:
+        return "reconhecimento-tempo-contribuicao"
+    if "RECONHECIMENTO" in H and "ATIVIDADE ESPECIAL" in H:
+        return "reconhecimento-atividade-especial"
+
+    # --- BPC/LOAS (título) ---
+    if "BPC" in H or "LOAS" in H:
+        if "REVISAO" in H or "RESTABELEC" in H:
+            return "bpc-revisao-restabelecimento"
+        if "DEFICIENCIA" in H:
+            return "bpc-deficiencia-judicial"
+        if "IDOSO" in H or "65 ANOS" in H:
+            return "bpc-idoso-judicial"
+
+    return None
+
+
+def _detect_admin(head_norm: str) -> str | None:
+    """Detector específico para fluxo administrativo (INSS/CRPS).
+
+    Só dispara quando a primeira linha indica destinatário administrativo.
+    """
+    H = head_norm
+    if "BPC" in H or "LOAS" in H:
+        if "RECURSO" in H:
+            return "recurso-bpc"
+        if "DEFICIENCIA" in H:
+            return "requerimento-bpc-deficiencia"
+        return "requerimento-bpc-idoso"
+    if "CTC" in H or "CERTIDAO DE TEMPO" in H:
+        return "ctc"
+    if "COPIA INTEGRAL" in H or "COPIA DO PROCESSO" in H:
+        return "copia-processo-administrativo"
+    if "RETIFICACAO" in H and "CNIS" in H:
+        return "retificacao-cnis"
+    if "ACERTO" in H and "CNIS" in H:
+        return "acerto-vinculos-remuneracoes"
+    if "JUSTIFICACAO ADMINISTRATIVA" in H:
+        return "justificacao-administrativa"
+    if "REGULARIZACAO" in H and ("REPRESENTANTE" in H or "PROCURADOR" in H):
+        return "regularizacao-representante"
+    if "PRIORIDADE" in H and "TRAMITACAO" in H:
+        return "pedido-prioridade"
+    if "CUMPRIMENTO DE EXIGENCIA" in H:
+        return "cumprimento-exigencia"
+    if "RECURSO" in H and "CRPS" in H:
+        if "ORDINARIO" in H:
+            return "recurso-ordinario-crps"
+        if "ESPECIAL" in H:
+            return "recurso-especial-crps"
+        return "recurso-crps"
+    if "RECONSIDERACAO" in H:
+        return "pedido-reconsideracao-administrativa"
+    return None
+
+
+def infer_piece_type_id(texto: str) -> str | None:
+    """Tenta identificar a peça a partir do texto.
+
+    Estratégia em camadas, **da mais específica para a mais genérica**:
+
+    1. **Cabeçalho explícito** de instrumentos privados (procurações,
+       substabelecimentos, declarações). Quando a primeira linha é o nome
+       do instrumento, a decisão é praticamente inequívoca.
+    2. **Título da ação nas primeiras linhas** (até 30 não vazias). Aqui
+       ficam recursos, cumprimento de sentença, mandado de segurança,
+       sucessório, intermediárias e benefícios previdenciários.
+    3. **Cabeçalho administrativo** (AO INSTITUTO, AO INSS, AO CRPS, etc.)
+       com sub-classificação por palavra-chave do título.
+    4. **Cabeçalho judicial genérico** (EXCELENTÍSSIMO, AO JUÍZO) sem
+       título reconhecido → fallback ``peticao-simples``.
+    5. Texto sem qualquer cabeçalho jurídico → ``None`` (caller aplica
+       perfil padrão e segue sem rótulo de peça).
+
+    Por que título antes de palavras-chave do corpo: textos jurídicos
+    citam jurisprudência, doutrina e termos relacionados que produziam
+    falsos positivos no detector anterior (ex.: petição de aposentadoria
+    rural era classificada como "agravo de instrumento" porque citava um
+    acórdão de agravo). Limitar a inferência ao topo do documento elimina
+    quase todos esses ruídos.
+    """
+    if not texto or not texto.strip():
+        return None
+
+    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
+    if not linhas:
+        return None
+
+    primeira_norm = _normalize_for_match(linhas[0])
+    # Duas visões do cabeçalho:
+    #   - estrita: apenas linhas curtas em CAIXA ALTA (títulos reais);
+    #   - frouxa: primeiras linhas em qualquer caso, como rede de segurança
+    #     para textos coloquiais que não seguem a tradição forense.
+    titulos = _title_candidates(linhas)
+    head_norm_strict = _normalize_for_match("\n".join(titulos))
+    head_norm_loose = _normalize_for_match("\n".join(linhas[:10]))
+    body_lower = texto.lower()
+
+    # === 1. Instrumentos privados pelo cabeçalho ===
+    if primeira_norm.startswith((
+        "PROCURACAO",
+        "INSTRUMENTO PARTICULAR DE PROCURACAO",
+        "INSTRUMENTO PUBLICO DE PROCURACAO",
+    )):
+        if "ad judicia et extra" in body_lower or "judicia et extra" in body_lower:
+            return "procuracao-ad-judicia-et-extra"
+        if any(k in body_lower for k in ("inss", "previdenciári", "previdenciari", "administrativ")):
+            return "procuracao-administrativa-inss"
+        return "procuracao-ad-judicia"
+
+    if primeira_norm.startswith(("SUBSTABELECIMENTO", "SUBSTABELECEMENTO")):
+        if "sem reserva" in body_lower:
+            return "substabelecimento-sem-reserva"
+        return "substabelecimento-com-reserva"
+
+    if primeira_norm.startswith("DECLARACAO"):
+        if "hipossufic" in body_lower:
+            return "declaracao-hipossuficiencia"
+        if "atividade rural" in body_lower or "rurícola" in body_lower or "ruricola" in body_lower:
+            return "declaracao-atividade-rural"
+        if "residênci" in body_lower or "residenci" in body_lower or "resido " in body_lower:
+            return "declaracao-residencia"
+        # DECLARAÇÃO genérica não reconhecida — não força fallback aqui
+        # para que o caller aplique perfil judicial padrão.
+        return None
+
+    # === 2. Cabeçalho administrativo INSS/CRPS (precede title-detect
+    #        para evitar que BPC/LOAS no head dispare a regra judicial) ===
+    is_admin = primeira_norm.startswith((
         "AO INSTITUTO",
         "AO INSS",
         "AO CRPS",
-        "À AGÊNCIA",
-        "AGÊNCIA",
-        "À GERÊNCIA",
+        "A AGENCIA",
+        "AGENCIA",
+        "A GERENCIA",
         "AO PRESIDENTE DO INSS",
     ))
     if is_admin:
-        if "bpc" in t or "loas" in t:
-            if "recurso" in t:
-                return "recurso-bpc"
-            if "deficiência" in t or "deficiencia" in t:
-                return "requerimento-bpc-deficiencia"
-            return "requerimento-bpc-idoso"
-        if "ctc" in t or "certidão de tempo" in t or "certidao de tempo" in t:
-            return "ctc"
-        if "cópia integral" in t or "copia integral" in t or "cópia do processo" in t:
-            return "copia-processo-administrativo"
-        if "retificação" in t and "cnis" in t:
-            return "retificacao-cnis"
-        if "acerto" in t and "cnis" in t:
-            return "acerto-vinculos-remuneracoes"
-        if "justificação administrativa" in t or "justificacao administrativa" in t:
-            return "justificacao-administrativa"
-        if "regularização" in t and ("representante" in t or "procurador" in t):
-            return "regularizacao-representante"
-        if "prioridade" in t and ("tramitação" in t or "tramitacao" in t):
-            return "pedido-prioridade"
-        if "cumprimento de exigência" in t or "cumprimento de exigencia" in t:
-            return "cumprimento-exigencia"
-        if "recurso" in t and "crps" in t:
-            return "recurso-crps"
-        return "requerimento-inss-geral"
+        admin = _detect_admin(head_norm_strict) or _detect_admin(head_norm_loose)
+        # Cabeçalho administrativo sem subtipo específico cai em
+        # "requerimento-inss-geral" como fallback útil.
+        return admin or "requerimento-inss-geral"
 
-    # --- BPC/LOAS judicial ---
-    if "bpc" in t or "loas" in t:
-        if "revisão" in t or "revisao" in t or "restabelec" in t:
-            return "bpc-revisao-restabelecimento"
-        if "deficiência" in t or "deficiencia" in t:
-            return "bpc-deficiencia-judicial"
-        if "idoso" in t or "65 anos" in t:
-            return "bpc-idoso-judicial"
+    # === 3. Título da ação nas primeiras linhas (judicial) ===
+    # Primeiro a varredura estrita (só CAIXA ALTA), que elimina ruído de
+    # citação de jurisprudência. Se nada bater, repetimos com cabeçalho
+    # frouxo para acomodar textos coloquiais.
+    titulo = _detect_from_title(head_norm_strict)
+    if titulo:
+        return titulo
+    titulo = _detect_from_title(head_norm_loose)
+    if titulo:
+        return titulo
 
-    # --- Aposentadorias ---
-    if "aposentadoria especial" in t or ("aposentadoria" in t and any(k in t for k in ("ppp", "ltcat", "agentes nocivos"))):
-        return "aposentadoria-especial"
-    if "aposentadoria" in t:
-        if "rural" in t or "rurícola" in t or "ruricola" in t or "trabalhador rural" in t:
-            return "aposentadoria-idade-rural"
-        if "híbrida" in t or "hibrida" in t:
-            return "aposentadoria-hibrida"
-        if ("tempo de contribuição" in t or "tempo de contribuicao" in t) and ("deficiência" in t or "deficiencia" in t):
-            return "aposentadoria-pcd-tempo"
-        if "tempo de contribuição" in t or "tempo de contribuicao" in t:
-            return "aposentadoria-tempo-contribuicao"
-        if "idade" in t and ("deficiência" in t or "deficiencia" in t):
-            return "aposentadoria-pcd-idade"
-        if "idade" in t:
-            return "aposentadoria-idade-urbana"
-        if "invalidez" in t and ("acidentária" in t or "acidentaria" in t or "b-92" in t or "b92" in t):
-            return "aposentadoria-invalidez-acidentaria"
-        if "incapacidade permanente" in t or "invalidez" in t:
-            return "aposentadoria-incapacidade-permanente"
-        if "revisão" in t or "revisao" in t:
-            return "revisao-aposentadoria"
-
-    # --- Auxílios e demais benefícios ---
-    if "auxílio-acidente" in t or "auxílio acidente" in t or "auxilio-acidente" in t or "b-36" in t or "b36" in t:
-        if "revisão" in t or "revisao" in t:
-            return "revisao-auxilio-acidente"
-        return "auxilio-acidente"
-    if any(k in t for k in (
-        "auxílio-doença",
-        "auxilio-doenca",
-        "auxílio por incapacidade temporária",
-        "auxilio por incapacidade temporaria",
-        "incapacidade temporária",
-        "incapacidade temporaria",
+    # === 4. Cabeçalho judicial sem título → petição simples ===
+    if primeira_norm.startswith((
+        "EXCELENT",
+        "AO JUIZO",
+        "MERITISSIMO",
     )):
-        if "revisão" in t or "revisao" in t:
-            return "revisao-auxilio-incapacidade-temporaria"
-        if "restabelec" in t:
-            return "restabelecimento-beneficio-incapacidade"
-        return "auxilio-incapacidade-temporaria"
-    if "auxílio-reclusão" in t or "auxilio-reclusao" in t or "auxílio reclusão" in t:
-        return "auxilio-reclusao"
-    if "pensão por morte" in t or "pensao por morte" in t:
-        if "revisão" in t or "revisao" in t:
-            return "revisao-pensao-por-morte"
-        return "pensao-por-morte"
-    if "salário-maternidade" in t or "salario-maternidade" in t or "salário maternidade" in t:
-        return "salario-maternidade"
-    if ("tempo de contribuição" in t or "tempo de contribuicao" in t) and "reconhecimento" in t:
-        return "reconhecimento-tempo-contribuicao"
-    if "atividade especial" in t and "reconhecimento" in t:
-        return "reconhecimento-atividade-especial"
-
-    # --- Cabeçalho judicial genérico → petição simples ---
-    if primeira.startswith(("EXCELENT", "AO JUÍZO", "AO JUIZO", "MERITÍSSIMO", "MERITISSIMO")):
         return "peticao-simples"
 
     return None
+
