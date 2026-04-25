@@ -31,7 +31,17 @@ Executa validações formais, separadas do formatador. Também expõe `validar_t
 
 ### `src/profiles.py`
 
-Define perfis formais como `judicial-inicial-jef`, `administrativo-inss` e `extrajudicial-tabelionato`. Cada perfil declara endereçamentos aceitos, seções obrigatórias e exigências formais como OAB, local/data e valor da causa.
+Define perfis formais como `judicial-inicial-jef`, `administrativo-inss`, `extrajudicial-tabelionato` e `instrumento-mandato`. Cada perfil declara cabeçalhos aceitos, seções obrigatórias e exigências formais como OAB, local/data e valor da causa.
+
+### `src/piece_types.py`
+
+Centraliza o catálogo de tipos de peça exibido no front-end, alinhado à seção de peças contempladas do prompt jurídico. Cada tipo sugere um perfil formal e registra pontos que exigem revisão humana, incluindo procurações, substabelecimentos e declarações.
+
+Também expõe `infer_piece_type_id(texto)`, um detector determinístico baseado em (1) primeira linha (cabeçalho) e (2) palavras-chave do corpo. Quando o usuário não escolhe a peça, a API delega para essa função; o resultado é auditável (cada decisão é uma regra explícita) e cai em `peticao-simples` para cabeçalhos judiciais sem palavra-chave reconhecida, ou `None` para texto irrelevante.
+
+### `src/file_extractors.py`
+
+Extrai texto de uploads `.txt`, `.md`, `.docx`, `.pdf` e imagens. Imagens são fonte para OCR via Tesseract e não são anexadas ao `.docx` final. O módulo bloqueia formatos não suportados, limita tamanho do arquivo e falha quando não há texto extraível.
 
 ### `src/gmail_sender.py`
 
@@ -47,7 +57,11 @@ Extrai estrutura do `.docx` e gera relatórios JSON e HTML de conformidade forma
 
 ### `src/api.py`
 
-Expõe uma API REST local com FastAPI para setup, listagem de perfis, geração de documentos, download de `.docx` e consulta de relatórios. A API usa `--no-outbox` por padrão no fluxo web para evitar envio automático ou falsa sensação de protocolo.
+Expõe uma API REST local com FastAPI para setup, listagem de perfis, listagem de tipos de peça, geração por texto/upload, download de `.docx` e consulta de relatórios. A API usa `--no-outbox` por padrão no fluxo web para evitar envio automático ou falsa sensação de protocolo.
+
+`piece_type_id` e `profile_id` são opcionais: ausentes ou `"auto"` disparam inferência automática (peça pelo texto; perfil pela peça detectada, com fallback `judicial-inicial-jef`). A resposta carrega `piece_type_inferred` e `profile_inferred` para o front-end mostrar o que foi escolhido automaticamente.
+
+`/api/profiles` retorna `{items, default}` em vez de lista crua: cada item traz `label` em PT-BR, `is_default`, exigências formais (`require_oab`, `require_local_data`, `require_value_cause`) e a lista `required_sections`.
 
 ### `web/`
 
@@ -96,7 +110,10 @@ Fluxo API/web:
 
 ```text
 front-end local
-  -> POST /api/documents
+  -> POST /api/documents (peça/perfil podem vir vazios)
+  -> infer_piece_type_id(texto) quando piece_type_id é vazio
+  -> resolução de perfil: peça detectada -> perfil sugerido
+                          sem peça        -> judicial-inicial-jef (PJE/Projudi)
   -> processar_email(no_outbox=True)
   -> output/*.docx
   -> reports/*.json + reports/*.html
@@ -132,4 +149,5 @@ A suíte em `tests/` cobre:
 - golden file estrutural do `.docx`;
 - CLI com relatório e `--no-outbox`;
 - retenção em dry-run e modo aplicado;
-- API local, painel de histórico e relatório HTML.
+- API local, painel de histórico e relatório HTML;
+- detector automático de peça (`infer_piece_type_id`) com cenários parametrizados cobrindo procurações, recursos, cumprimento, sucessório, administrativos e benefícios.

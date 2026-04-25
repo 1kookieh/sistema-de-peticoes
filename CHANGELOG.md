@@ -7,6 +7,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ## [Unreleased]
 
 ### Adicionado
+- Detecção automática de tipo de peça em `src/piece_types.py::infer_piece_type_id`, com regras determinísticas por cabeçalho e palavras-chave (procurações, recursos, cumprimento de sentença, sucessório, administrativos, benefícios e fallback `peticao-simples`).
+- Tipo de peça e perfil formal agora são **opcionais** na API e no front-end. Quando o usuário não escolhe, o sistema detecta a peça pelo texto e, se nada for reconhecido, aplica o perfil padrão `judicial-inicial-jef` (compatível com PJE/Projudi).
+- Resposta de `/api/documents` e `/api/documents/upload` inclui as flags `piece_type_inferred`, `profile_inferred` e o objeto `profile` com `label` em PT-BR.
+- 26 cenários parametrizados de inferência em `tests/test_piece_type_inference.py`.
 - Suíte inicial de testes automatizados com `pytest`.
 - `requirements-dev.txt` para dependências de desenvolvimento.
 - Pré-validação formal do texto antes da geração do `.docx`.
@@ -30,6 +34,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Pasta `examples/generated-docx/` para `.docx` fictícios de demonstração.
 
 ### Alterado
+- `/api/profiles` passou a retornar `{items, default}` em vez de lista crua. Cada item agora expõe `label` em PT-BR, `is_default`, `require_oab`, `require_local_data`, `require_value_cause`, `required_sections` e `min_blank_lines_after_header`.
+- Front-end recarregado com fluxo zero-fricção: peça e perfil partem em "Detectar automaticamente"; validação só exige texto ou arquivo.
 - O pipeline agora bloqueia a outbox quando encontra qualquer violação formal.
 - O CI roda `compileall` e `pytest`.
 - A documentação foi reescrita para deixar claro que o uso é jurídico supervisionado.
@@ -41,6 +47,14 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Escrita atômica da outbox.
 - Validação de anexo `.docx` dentro de `output/`.
 - Avisos de LGPD e sigilo profissional no README e arquitetura.
+- `API_TOKEN` opcional para proteger rotas sensíveis da API local.
+- Limite de tamanho no payload de geração pela API.
+- Retenção de relatórios JSON/HTML em `reports/`.
+- Docker executando com usuário não-root.
+- Lock de arquivo para reduzir risco de corrida em `mcp_status.json` e `mcp_outbox.json`.
+- Catálogo ampliado de tipos de peça alinhado ao prompt jurídico.
+- Upload pela API/front-end com extração de texto de `.txt`, `.md`, `.docx`, `.pdf` e imagens via OCR.
+- Front-end reorganizado em fluxo por etapas: tipo de peça, entrada, resultado e histórico.
 
 ## [1.0.0] - 2026-04-24
 

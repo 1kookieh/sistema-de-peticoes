@@ -18,8 +18,9 @@ Pipeline em Python para transformar texto de peças jurídicas em `.docx` com fo
 - Lê uma fila local `mcp_inbox.json` ou `INBOX_MOCK_PATH` e grava respostas em `mcp_outbox.json`.
 - Mantém estado local em `mcp_status.json` para evitar reprocessamento acidental de itens já concluídos.
 - Permite perfis formais por contexto, relatório JSON de conformidade e execução sem outbox.
+- **Detecta automaticamente** o tipo de peça pelo texto quando o usuário não escolhe (procurações, recursos, cumprimento, sucessório, administrativos, benefícios). Sem peça reconhecida, aplica o perfil padrão `judicial-inicial-jef` (PJE / Projudi).
 - Expõe API REST local com FastAPI para setup, geração, download e consulta de relatórios.
-- Inclui front-end local em HTML, CSS e JavaScript puro para upload de `.txt`, geração de `.docx`, download e histórico.
+- Inclui front-end local em HTML, CSS e JavaScript puro para upload de `.txt`, `.md`, `.docx`, `.pdf` e imagens para OCR, geração de `.docx`, download e histórico.
 - Oferece interface desktop em Tkinter para uso local sem navegador.
 - Gera relatórios JSON e HTML de conformidade formal para revisão humana.
 - Inclui `Dockerfile` para executar a API/front-end em ambiente reprodutível.
@@ -32,6 +33,7 @@ Pipeline em Python para transformar texto de peças jurídicas em `.docx` com fo
 |---|---|---|
 | Linguagem principal | Python 3.11+ | `src/`, CLI, API, validações e geração `.docx` |
 | Documentos Word | `python-docx` | `src/formatar_docx.py`, `src/validar_docx.py`, `src/reporting.py` |
+| Extração de PDF | `pypdf` | `src/file_extractors.py` |
 | API REST | FastAPI | `src/api.py` |
 | Servidor local | Uvicorn | execução de `uvicorn src.api:app --reload` |
 | Front-end | HTML, CSS e JavaScript puro | `web/index.html`, `web/styles.css`, `web/app.js` |
@@ -118,7 +120,19 @@ pip install -r requirements-dev.txt
 
 O projeto usa um arquivo `.env` local para configuração de execução. Esse arquivo não deve ser versionado, porque pode conter e-mails, caminhos e políticas internas de uso.
 
-Configuração mínima:
+Existe um arquivo seguro de referência:
+
+```bash
+cp .env.example .env
+```
+
+No Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configuração mínima para o fluxo CLI:
 
 ```env
 EMAIL_ADVOGADO=advogado-responsavel@example.com
@@ -130,16 +144,18 @@ Configurações opcionais:
 
 ```env
 REMETENTES_AUTORIZADOS=cliente1@example.com,cliente2@example.com
+API_TOKEN=troque-este-token-em-ambiente-real
 MAX_JSON_BYTES=2097152
 GMAIL_LABEL_PROCESSADO=peticao-gerada
 VALIDATION_PROFILE=judicial-inicial-jef
 RETENTION_ENABLED=false
 RETENTION_OUTPUT_DAYS=30
+RETENTION_REPORTS_DAYS=30
 RETENTION_QUEUE_DAYS=7
 RETENTION_STATUS_DAYS=30
 ```
 
-`EMAIL_ADVOGADO` identifica o responsável pela revisão humana. `REMETENTES_AUTORIZADOS`, quando definido, filtra a inbox por e-mails exatos de remetentes permitidos.
+`EMAIL_ADVOGADO` identifica o responsável pela revisão humana. `REMETENTES_AUTORIZADOS`, quando definido, filtra a inbox por e-mails exatos de remetentes permitidos. `API_TOKEN`, quando definido, protege rotas sensíveis da API como geração, download e relatórios via cabeçalho `X-API-Token`.
 
 ## Perfis de Validação
 
@@ -153,13 +169,14 @@ Perfis atuais:
 
 | Perfil | Uso |
 |---|---|
-| `judicial-inicial-jef` | Petição inicial judicial no JEF ou Justiça Federal |
+| `judicial-inicial-jef` | Petição inicial judicial no JEF ou Justiça Federal — **padrão (PJE / Projudi)** |
 | `judicial-inicial-estadual` | Petição inicial judicial na Justiça Estadual |
 | `administrativo-inss` | Requerimento, recurso ou manifestação administrativa |
 | `extrajudicial-tabelionato` | Requerimento ou minuta extrajudicial |
 | `forense-basico` | Validação formal mínima |
+| `instrumento-mandato` | Procurações, substabelecimentos e declarações |
 
-O perfil padrão vem de `VALIDATION_PROFILE`. Também é possível informar por CLI com `--profile`.
+Na API e no front-end, o perfil é **opcional**: deixe em "Detectar automaticamente" e o sistema escolhe pelo tipo de peça detectado, ou cai em `judicial-inicial-jef`. O fallback explícito também pode vir de `VALIDATION_PROFILE` no `.env` ou `--profile` na CLI.
 
 ## Como Executar
 
@@ -229,12 +246,16 @@ Endpoints principais:
 | `GET` | `/` | Abre o front-end local |
 | `GET` | `/api/health` | Verifica se a API está ativa |
 | `GET` | `/api/profiles` | Lista perfis de validação |
+| `GET` | `/api/piece-types` | Lista tipos de peça agrupados conforme o prompt |
 | `POST` | `/api/documents` | Gera e valida `.docx` a partir de texto |
+| `POST` | `/api/documents/upload` | Gera e valida `.docx` a partir de `.txt`, `.md`, `.docx`, `.pdf` ou imagens via OCR |
 | `GET` | `/api/documents/{arquivo}/download` | Baixa documento gerado |
 | `GET` | `/api/reports` | Lista histórico local de relatórios |
 | `GET` | `/api/reports/{arquivo}` | Abre relatório JSON ou HTML |
 
-O front-end permite colar texto, carregar `.txt`, gerar o `.docx`, baixar o documento e abrir o relatório HTML. Ele é uma camada local de conveniência; a validação jurídica humana continua obrigatória.
+O front-end permite **opcionalmente** escolher o tipo de peça e o perfil formal, ou deixar ambos em "Detectar automaticamente" — nesse caso o sistema infere a peça pelo texto e aplica o perfil sugerido (ou `judicial-inicial-jef` como fallback). O usuário pode colar texto, carregar `.txt`, `.md`, `.docx`, `.pdf` ou imagens, gerar o `.docx`, baixar o documento e abrir o relatório HTML. Imagens são usadas como fonte para extração de texto por OCR; elas não são anexadas ao documento final. A validação jurídica humana continua obrigatória.
+
+Se `API_TOKEN` estiver configurado, informe o token no campo da interface web ou envie o cabeçalho `X-API-Token` nas chamadas REST.
 
 Arquivos da interface web:
 
@@ -242,9 +263,20 @@ Arquivos da interface web:
 |---|---|
 | `web/index.html` | Estrutura visual do formulário, resultado e painel de histórico |
 | `web/styles.css` | Layout responsivo, identidade visual e estados de aviso |
-| `web/app.js` | Carrega perfis, lê `.txt`, chama a API, exibe downloads e atualiza histórico |
+| `web/app.js` | Carrega perfis/tipos de peça, envia texto ou arquivo, chama a API, exibe downloads e atualiza histórico |
 
 O JavaScript escapa conteúdo retornado pela API antes de renderizar informações dinâmicas, reduzindo risco de injeção HTML mesmo em uso local.
+
+Uploads aceitos:
+
+| Formato | Como é tratado |
+|---|---|
+| `.txt` / `.md` | Decodificado como texto |
+| `.docx` | Texto extraído com `python-docx` |
+| `.pdf` | Texto extraído com `pypdf`; PDFs escaneados sem OCR podem não funcionar |
+| `.png` / `.jpg` / `.jpeg` / `.webp` | Texto extraído via OCR com Tesseract; exige Tesseract instalado no sistema |
+
+Tipos de peça disponíveis vêm de `src/piece_types.py`, alinhado à seção de peças contempladas do prompt jurídico versionado. O catálogo inclui peças judiciais, administrativas, recursais, sucessórias, procurações, substabelecimentos e declarações.
 
 ### Interface desktop
 
@@ -329,7 +361,7 @@ O sistema pode produzir dois formatos de relatório:
 | JSON | `reports/*.json` | Auditoria técnica, integração e testes automatizados |
 | HTML | `reports/*.html` | Leitura humana rápida pelo front-end ou navegador |
 
-O painel local em `GET /api/reports` lista relatórios existentes e itens do status local. Esse histórico é útil para demonstração e conferência operacional, mas não deve ser publicado quando houver dados reais.
+O painel local em `GET /api/reports` lista relatórios existentes e itens do status local. Esse histórico é útil para demonstração e conferência operacional, mas não deve ser publicado quando houver dados reais. A política de retenção também cobre `reports/*.json` e `reports/*.html`.
 
 ## Retenção e Expurgo
 
@@ -350,6 +382,7 @@ Variáveis:
 | Variável | Padrão | Efeito |
 |---|---:|---|
 | `RETENTION_OUTPUT_DAYS` | `30` | Remove `.docx` antigos em `output/` |
+| `RETENTION_REPORTS_DAYS` | `30` | Remove relatórios antigos em `reports/` |
 | `RETENTION_QUEUE_DAYS` | `7` | Remove inbox/outbox antigas |
 | `RETENTION_STATUS_DAYS` | `30` | Remove `mcp_status.json` antigo |
 
@@ -409,10 +442,12 @@ Também há golden file estrutural em `tests/golden/`. Ele compara propriedades 
 │   ├── cli.py
 │   ├── desktop.py
 │   ├── domain.py
+│   ├── file_extractors.py
 │   ├── formatar_docx.py
 │   ├── gmail_reader.py
 │   ├── gmail_sender.py
 │   ├── main.py
+│   ├── piece_types.py
 │   ├── pipeline_state.py
 │   ├── profiles.py
 │   ├── reporting.py

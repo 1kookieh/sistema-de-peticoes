@@ -9,6 +9,7 @@ Este projeto automatiza preparação formal de documentos `.docx`, mas não subs
 - Não garante aceitação por tribunal, cartório, sistema de protocolo ou órgão administrativo.
 - Não valida procuração, poderes nos autos, documentos médicos, cálculos, valor da causa ou autenticidade documental.
 - Não deve ser usado para protocolo sem aprovação expressa de advogado responsável.
+- **A detecção automática de tipo de peça é heurística**: serve para reduzir fricção operacional, não substitui escolha consciente do operador. O advogado responsável deve conferir se o perfil de validação aplicado é o adequado para a peça e o destino, especialmente quando o sistema cair no fallback `judicial-inicial-jef`.
 
 ## Revisão humana obrigatória
 
@@ -46,6 +47,7 @@ python -m src --cleanup-only --apply-retention
 ```
 
 O operador continua responsável por backups, controle de acesso e política interna de armazenamento.
+Quando a API for usada em rede interna, configure `API_TOKEN` e trate o token como segredo operacional.
 
 ## Demonstrações
 
