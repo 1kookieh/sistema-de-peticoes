@@ -3,12 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.piece_types import (
-    PIECE_TYPES,
-    get_piece_type,
-    infer_piece_type_id,
-    list_piece_types,
-)
+from src.core.piece_inference import infer_piece_type_id
+from src.core.piece_types import PIECE_TYPES, get_piece_type, list_piece_types
 
 
 VALID_IDS = {item.id for item in PIECE_TYPES}
@@ -17,7 +13,6 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
 @pytest.mark.parametrize(
     "texto, esperado",
     [
-        # Procuração e instrumentos
         (
             "PROCURAÇÃO AD JUDICIA\n\nOutorgante: Fulano de Tal...",
             "procuracao-ad-judicia",
@@ -42,7 +37,6 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "DECLARAÇÃO DE HIPOSSUFICIÊNCIA\n\nDeclaro, sob as penas da lei...",
             "declaracao-hipossuficiencia",
         ),
-        # Recursos
         (
             "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ\n\nFulano interpõe RECURSO INOMINADO contra a sentença...",
             "recurso-inominado",
@@ -55,7 +49,6 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "EMBARGOS DE DECLARAÇÃO\n\nA sentença incorreu em omissão...",
             "embargos-declaracao",
         ),
-        # Cumprimento de sentença
         (
             "EXCELENTÍSSIMO\n\nCumprimento de sentença para expedição de RPV no valor de...",
             "cumprimento-sentenca-rpv",
@@ -64,12 +57,10 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "EXCELENTÍSSIMO\n\nCumprimento de sentença para implantação do benefício previdenciário...",
             "cumprimento-sentenca-implantacao",
         ),
-        # Mandado de segurança
         (
             "EXCELENTÍSSIMO\n\nMandado de segurança previdenciário em face do ato coator...",
             "mandado-seguranca-previdenciario",
         ),
-        # Sucessório
         (
             "AO TABELIONATO\n\nInventário extrajudicial com partilha consensual...",
             "inventario-extrajudicial",
@@ -78,13 +69,12 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "EXCELENTÍSSIMO\n\nUsucapião extraordinária do imóvel localizado em...",
             "usucapiao",
         ),
-        # Administrativos
         (
             "AO INSTITUTO NACIONAL DO SEGURO SOCIAL\n\nRequerimento de retificação do CNIS...",
             "retificacao-cnis",
         ),
         (
-            "AO INSTITUTO NACIONAL DO SEGURO SOCIAL\n\nRequerimento de BPC/LOAS — pessoa idosa de 67 anos...",
+            "AO INSTITUTO NACIONAL DO SEGURO SOCIAL\n\nRequerimento de BPC/LOAS - pessoa idosa de 67 anos...",
             "requerimento-bpc-idoso",
         ),
         (
@@ -95,7 +85,6 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "AO CRPS\n\nRecurso ordinário em face do indeferimento administrativo...",
             "recurso-ordinario-crps",
         ),
-        # Benefícios judiciais
         (
             "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\nVem propor a presente petição inicial buscando aposentadoria por idade rural...",
             "aposentadoria-idade-rural",
@@ -113,10 +102,9 @@ VALID_IDS = {item.id for item in PIECE_TYPES}
             "auxilio-incapacidade-temporaria",
         ),
         (
-            "EXCELENTÍSSIMO\n\nBPC/LOAS — pessoa com deficiência, impedimento de longo prazo...",
+            "EXCELENTÍSSIMO\n\nBPC/LOAS - pessoa com deficiência, impedimento de longo prazo...",
             "bpc-deficiencia-judicial",
         ),
-        # Petição genérica
         (
             "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ\n\nPetição genérica sem palavras-chave específicas.",
             "peticao-simples",
@@ -136,12 +124,9 @@ def test_inferencia_retorna_none_para_texto_irrelevante() -> None:
 
 
 def test_inferencia_priorizando_titulo_sobre_corpo() -> None:
-    """Texto da peça pode citar outras peças no corpo; título deve vencer."""
-    # Petição de aposentadoria rural que cita acórdão de agravo de instrumento
-    # no fundamento. O detector antigo pegava "agravo-instrumento" pelo corpo.
     texto = (
         "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
-        "PETIÇÃO INICIAL — AÇÃO DE APOSENTADORIA POR IDADE RURAL\n\n"
+        "PETIÇÃO INICIAL - AÇÃO DE APOSENTADORIA POR IDADE RURAL\n\n"
         "MARIA DA SILVA, qualificada nos autos, vem propor a presente ação. "
         "Cita-se, por oportuno, acórdão proferido em agravo de instrumento "
         "(TRF-1, AI 1234) e em recurso especial do STJ que confirmaram tese "
@@ -152,29 +137,24 @@ def test_inferencia_priorizando_titulo_sobre_corpo() -> None:
 
 
 def test_inferencia_titulo_prefere_acao_principal() -> None:
-    """Petição que menciona BPC/LOAS no fundamento mas é aposentadoria."""
     texto = (
         "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
         "AÇÃO DE APOSENTADORIA POR INVALIDEZ\n\n"
         "Cumpre observar que o autor já recebeu BPC/LOAS no passado, mas "
         "agora pleiteia aposentadoria por incapacidade permanente..."
     )
-    # Título "APOSENTADORIA POR INVALIDEZ" deve vencer "BPC/LOAS" no corpo
     assert infer_piece_type_id(texto) == "aposentadoria-incapacidade-permanente"
 
 
 def test_inferencia_admin_inss_vence_bpc_judicial() -> None:
-    """Cabeçalho administrativo deve impedir classificação judicial."""
     texto = (
         "AO INSTITUTO NACIONAL DO SEGURO SOCIAL\n\n"
-        "REQUERIMENTO DE BPC/LOAS — pessoa idosa de 67 anos..."
+        "REQUERIMENTO DE BPC/LOAS - pessoa idosa de 67 anos..."
     )
-    # Sem o fix de ordem, o head_norm tinha "BPC" e disparava bpc-idoso-judicial
     assert infer_piece_type_id(texto) == "requerimento-bpc-idoso"
 
 
 def test_inferencia_recurso_inominado_com_aposentadoria_no_corpo() -> None:
-    """Recurso inominado contra sentença de aposentadoria deve permanecer recurso."""
     texto = (
         "EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL\n\n"
         "RECURSO INOMINADO\n\n"
@@ -185,7 +165,6 @@ def test_inferencia_recurso_inominado_com_aposentadoria_no_corpo() -> None:
 
 
 def test_inferencia_consistente_com_catalogo() -> None:
-    """Todo id retornado pela inferência precisa existir no catálogo."""
     catalog_ids = {item.id for item in list_piece_types()}
     samples = [
         "PROCURAÇÃO AD JUDICIA",

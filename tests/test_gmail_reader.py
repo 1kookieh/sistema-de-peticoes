@@ -1,8 +1,8 @@
-import json
+﻿import json
 
 import pytest
 
-from src.gmail_reader import InboxValidationError, buscar_emails_pendentes
+from src.adapters.inbox.gmail_reader import InboxValidationError, buscar_emails_pendentes
 
 
 def test_buscar_emails_pendentes_valida_e_filtra_json(tmp_path, monkeypatch):
@@ -39,7 +39,7 @@ def test_buscar_emails_pendentes_rejeita_campo_obrigatorio_ausente(tmp_path, mon
     inbox.write_text(json.dumps([{"thread_id": "t1"}]), encoding="utf-8")
     monkeypatch.setenv("INBOX_MOCK_PATH", str(inbox))
 
-    with pytest.raises(InboxValidationError, match="campos obrigatórios ausentes"):
+    with pytest.raises(InboxValidationError, match="campos obrigatÃ³rios ausentes"):
         list(buscar_emails_pendentes())
 
 
@@ -50,3 +50,6 @@ def test_buscar_emails_pendentes_rejeita_json_fora_do_contrato(tmp_path, monkeyp
 
     with pytest.raises(InboxValidationError, match="lista JSON"):
         list(buscar_emails_pendentes())
+
+
+

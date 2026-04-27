@@ -6,18 +6,11 @@ Este documento mostra como demonstrar o `sistema-de-peticoes` sem usar dados rea
 
 - Python 3.11+.
 - Dependências instaladas com `pip install -r requirements-dev.txt`.
-- Arquivo `.env` local configurado.
+- Arquivo `.env` local configurado somente com valores fictícios.
 - Entrada fictícia em `examples/inbox_valid.json`.
 - Documento fictício de referência em `examples/generated-docx/peticao_exemplo.docx`.
 
-## Fluxo recomendado
-
-```powershell
-$env:INBOX_MOCK_PATH = ".\examples\inbox_valid.json"
-python -m src.main
-```
-
-Para gerar relatório sem escrever outbox:
+## Fluxo recomendado por CLI
 
 ```powershell
 python -m src --inbox .\examples\inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports\conformidade_report.json
@@ -26,36 +19,38 @@ python -m src --inbox .\examples\inbox_valid.json --profile judicial-inicial-jef
 Para validar o documento gerado:
 
 ```powershell
-python -m src.validar_docx output\arquivo.docx --profile judicial-inicial-jef
+python -m src.core.validation.docx output\arquivo.docx --profile judicial-inicial-jef
 ```
 
 ## Demonstração pela interface web
 
 ```powershell
-uvicorn src.api:app --reload
+uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Abra `http://127.0.0.1:8000`, cole o texto fictício de `examples/inbox_valid.json` ou carregue um `.txt` fictício. O front-end mostra links para download do `.docx` e para o relatório HTML local.
+Abra `http://127.0.0.1:8000`, cole o texto fictício de `examples/inbox_valid.json` ou carregue um arquivo fictício. O front-end mostra links para download do `.docx`, relatório JSON e relatório HTML local.
 
 ## Demonstração pela interface desktop
 
 ```powershell
-python -m src.desktop
+python -m src.interfaces.desktop
 ```
 
 Use apenas textos fictícios. A interface desktop gera o `.docx` em `output/` e relatórios em `reports/`, com o mesmo aviso de revisão humana obrigatória.
 
 ## O que demonstrar
 
+- API somente em `/api/v1`.
 - Leitura de uma inbox JSON local.
-- Validação de contrato da entrada.
+- Detecção automática de peça e perfil.
+- Upload de texto, `.docx`, `.pdf` e imagem para OCR.
 - Geração de `.docx`.
 - Validação formal do documento gerado.
 - Bloqueio de documentos com violações.
 - Relatório JSON de conformidade formal.
 - Relatório HTML local para revisão.
 - Download pelo front-end local.
-- Separação entre validação formal e revisão jurídica humana.
+- Tema claro/escuro e service worker cacheando apenas assets estáticos.
 
 ## Cuidados
 

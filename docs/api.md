@@ -4,53 +4,58 @@ Este projeto possui três formas de uso local sobre o mesmo pipeline supervision
 
 ## Escolha de front-end
 
-A interface web usa HTML, CSS e JavaScript puro em `web/`. Essa foi a opção escolhida porque:
+A interface web usa HTML, CSS e JavaScript puro em `web/`, agora modularizado em:
 
-- não exige Node.js, bundler ou build;
-- facilita demonstração para recrutadores e avaliadores técnicos;
-- reduz dependências e superfície de manutenção;
-- é suficiente para upload de `.txt`, geração, download e histórico local.
+- `web/api.js`: chamadas HTTP para `/api/v1`;
+- `web/state/store.js`: estado global, tema, limites e token;
+- `web/render.js`: templates e escaping;
+- `web/ui.js`: DOM, eventos, validação visual e acessibilidade;
+- `web/app.js`: bootstrap e registro do service worker.
 
-Frameworks como React, Vue ou Next.js podem ser úteis no futuro se o painel crescer, mas seriam complexidade desnecessária nesta versão.
+Essa escolha evita Node.js, bundler ou build, reduz dependências e mantém o projeto fácil de demonstrar em ambiente limpo.
 
 ## Executar API local
 
 ```bash
-uvicorn src.api:app --reload
+uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Abra `http://127.0.0.1:8000`.
 
 ## Endpoints
 
+As rotas antigas `/api/...` foram removidas. A API pública local usa somente `/api/v1/...`.
+
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/` | Entrega o front-end local |
-| `GET` | `/api/health` | Healthcheck simples |
-| `POST` | `/api/setup` | Cria `output/` e `reports/` e valida recursos essenciais |
-| `GET` | `/api/profiles` | Retorna `{items, default}` com perfis formais (label, descrição, exigências e flags) |
-| `GET` | `/api/piece-types` | Lista tipos de peça agrupados conforme o prompt jurídico |
-| `POST` | `/api/documents` | Gera `.docx`, valida e grava relatórios JSON/HTML |
-| `POST` | `/api/documents/upload` | Extrai texto de `.txt`, `.md`, `.docx`, `.pdf` ou imagem e gera `.docx` |
-| `GET` | `/api/documents/{filename}/download` | Baixa documento gerado |
-| `GET` | `/api/reports` | Lista histórico local de relatórios e status |
-| `GET` | `/api/reports/{filename}` | Abre relatório JSON ou HTML |
+| `GET` | `/api/v1/health` | Healthcheck simples |
+| `POST` | `/api/v1/setup` | Cria `output/` e `reports/` e valida recursos essenciais |
+| `GET` | `/api/v1/profiles` | Retorna `{items, default}` com perfis formais |
+| `GET` | `/api/v1/piece-types` | Lista tipos de peça agrupados conforme o prompt jurídico |
+| `GET` | `/api/v1/limits` | Expõe limites de texto, upload e DOCX |
+| `POST` | `/api/v1/documents` | Gera `.docx`, valida e grava relatórios JSON/HTML |
+| `POST` | `/api/v1/documents/upload` | Extrai texto de `.txt`, `.md`, `.docx`, `.pdf` ou imagem e gera `.docx` |
+| `GET` | `/api/v1/documents/{filename}/download` | Baixa documento gerado |
+| `GET` | `/api/v1/reports` | Lista histórico local de relatórios e status |
+| `GET` | `/api/v1/reports/{filename}` | Abre relatório JSON ou HTML |
 
 ## Detecção automática de peça e perfil
 
-`piece_type_id` e `profile_id` são opcionais em `/api/documents` e `/api/documents/upload`. Comportamento padrão:
+`piece_type_id` e `profile_id` são opcionais em `/api/v1/documents` e `/api/v1/documents/upload`.
 
-- `piece_type_id` ausente, vazio ou `"auto"` → o sistema tenta inferir a peça a partir do texto, usando regras determinísticas em `src/piece_types.py::infer_piece_type_id`. Se nada for reconhecido, segue sem rótulo de peça.
-- `profile_id` ausente, vazio ou `"auto"` → o sistema usa o perfil sugerido pela peça detectada. Sem peça reconhecida, cai em `judicial-inicial-jef` (PJE / Projudi).
+- `piece_type_id` ausente, vazio ou `"auto"` faz o sistema inferir a peça por regras determinísticas em `src/core/piece_inference.py`.
+- `profile_id` ausente, vazio ou `"auto"` usa o perfil sugerido pela peça detectada.
+- Sem peça reconhecida, o fallback é `judicial-inicial-jef`.
 
-A resposta inclui `piece_type_inferred: bool`, `profile_inferred: bool` e o objeto `profile { id, label, descricao }` para auditoria do que foi escolhido automaticamente.
+A resposta inclui `piece_type_inferred`, `profile_inferred` e `profile { id, label, descricao }` para auditoria.
 
-## Exemplo de requisição
+## Exemplos
 
-Sem informar nada (sistema detecta tudo):
+Sem informar peça nem perfil:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/documents \
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"PROCURAÇÃO AD JUDICIA...\\n\\nOutorgante fictício para teste.\"}"
 ```
@@ -58,7 +63,7 @@ curl -X POST http://127.0.0.1:8000/api/documents \
 Com peça e perfil explícitos:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/documents \
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"[PREENCHER: texto fictício completo da peça]\",\"profile_id\":\"judicial-inicial-jef\",\"piece_type_id\":\"auxilio-incapacidade-temporaria\"}"
 ```
@@ -66,14 +71,14 @@ curl -X POST http://127.0.0.1:8000/api/documents \
 Upload de arquivo:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/documents/upload \
+curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
   -F "file=@peticao.docx"
 ```
 
-Upload de múltiplos arquivos, incluindo imagem para OCR (com perfil explícito):
+Upload de múltiplos arquivos, incluindo imagem para OCR:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/documents/upload \
+curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
   -F "files=@relato.pdf" \
   -F "files=@print.png" \
   -F "profile_id=judicial-inicial-jef"
@@ -85,11 +90,9 @@ curl -X POST http://127.0.0.1:8000/api/documents/upload \
 - Não exponha em rede pública sem autenticação, TLS, logs controlados e política de retenção.
 - Defina `API_TOKEN` no `.env` para exigir o cabeçalho `X-API-Token` nas rotas sensíveis.
 - `output/`, `reports/`, inbox, outbox e status podem conter dados pessoais ou sensíveis.
-- O fluxo web usa `no_outbox=True`, ou seja, gera e valida sem enfileirar envio automático.
-- O payload textual da API tem limite de tamanho para reduzir risco de abuso local.
-- Uploads são limitados a `.txt`, `.md`, `.docx`, `.pdf`, `.png`, `.jpg`, `.jpeg` e `.webp`.
+- O front usa `no_outbox=True`, ou seja, gera e valida sem envio automático.
+- O service worker cacheia somente assets estáticos; não cacheia `/api/v1`, uploads, relatórios ou DOCX.
 - Imagens são usadas para OCR e não são anexadas ao `.docx` gerado.
-- OCR de imagem exige Tesseract instalado no sistema operacional; sem isso, a API bloqueia com erro claro.
 
 ## Docker
 
@@ -106,5 +109,3 @@ docker run --rm -p 8000:8000 \
   -v ./reports:/app/reports \
   sistema-peticoes
 ```
-
-Use essa opção apenas em ambiente controlado.

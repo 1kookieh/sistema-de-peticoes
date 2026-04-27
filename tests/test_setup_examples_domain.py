@@ -1,8 +1,11 @@
-from pathlib import Path
+﻿from pathlib import Path
 
-from src import cli, gmail_sender, main, pipeline_state
-from src.domain import ProcessResult
-from src.gmail_reader import buscar_emails_pendentes
+from src.interfaces import cli
+from src.adapters.outbox import gmail_sender
+from src.orchestration import pipeline as main
+from src.infra import pipeline_state
+from src.core.domain import ProcessResult
+from src.adapters.inbox.gmail_reader import buscar_emails_pendentes
 
 
 def test_cli_setup_cria_output_reports_e_verifica_recursos(tmp_path, monkeypatch):
@@ -82,3 +85,7 @@ def test_gitignore_preserva_apenas_gitkeep_em_runtime():
     assert "!reports/.gitkeep" in gitignore
     assert "*.docx" in gitignore
     assert "*_report.json" in gitignore
+
+
+
+

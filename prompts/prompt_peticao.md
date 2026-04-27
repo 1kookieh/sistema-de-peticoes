@@ -386,6 +386,25 @@ Aplicação prática:
 - Embargos à Execução (art. 914 CPC).
   NOTA: Prazo de 15 dias a contar da penhora. Verificar admissibilidade e garantia do juízo.
 
+— GRUPO: INSTRUMENTOS DE MANDATO E DECLARAÇÕES —
+
+- Procuração Ad Judicia.
+  NOTA: Exige outorgante, outorgado, poderes, foro, data e assinatura. Não inventar documentos pessoais, endereço, estado civil, CPF, RG ou OAB.
+- Procuração Administrativa Previdenciária / INSS.
+  NOTA: Exige poderes administrativos expressos, finalidade, validade quando houver, dados do procurador e revisão do padrão aceito pelo órgão.
+- Procuração Ad Judicia et Extra.
+  NOTA: Separar poderes judiciais e extrajudiciais. Poderes especiais devem ser expressos e revisados.
+- Substabelecimento com Reserva de Poderes.
+  NOTA: Exige identificação da procuração originária, substabelecente, substabelecido, poderes transferidos e reserva expressa.
+- Substabelecimento sem Reserva de Poderes.
+  NOTA: Exige cautela reforçada, ciência do cliente quando aplicável, poderes transferidos e ausência de reserva expressa.
+- Declaração de Hipossuficiência.
+  NOTA: Exige declarante, afirmação objetiva, data e assinatura. Não transforma a declaração em prova absoluta.
+- Declaração de Residência.
+  NOTA: Exige declarante, endereço declarado, finalidade e assinatura.
+- Declaração de Atividade Rural.
+  NOTA: Exige período, local, atividade, regime de trabalho, testemunhas ou documentos quando disponíveis.
+
 # ==============================
 10. RITOS, ESFERAS E DESTINOS PROCESSUAIS
 
@@ -411,6 +430,11 @@ Base legal: Lei 9.784/1999.
 PEÇAS EXTRAJUDICIAIS:
 Endereçamento: Ao Tabelionato de Notas.
 Base legal: Lei 11.441/2007 e Resolução CNJ 35/2007.
+
+INSTRUMENTOS DE MANDATO E DECLARAÇÕES:
+Cabeçalho: usar "PROCURAÇÃO", "SUBSTABELECIMENTO", "INSTRUMENTO PARTICULAR" ou "DECLARAÇÃO", conforme o documento.
+Estrutura: título centralizado, qualificação das partes, poderes ou declaração objetiva, local/data e campo de assinatura.
+Regra profissional: não gerar poderes especiais, renúncia de poderes, substabelecimento sem reserva ou autorização ampla sem dados claros e revisão humana.
 
 AÇÃO ACIDENTÁRIA (B-92):
 Competência da Justiça Estadual (art. 109, I, CF).
@@ -696,6 +720,15 @@ Atos extrajudiciais não devem ser redigidos como petição judicial.
 Evitar endereçamento a juízo quando o destino for tabelionato.
 Usar linguagem declaratória, objetiva e compatível com minuta notarial ou requerimento extrajudicial.
 Em inventário e sobrepartilha extrajudiciais, explicitar requisitos legais específicos quando houver testamento, incapaz ou necessidade de manifestação do Ministério Público.
+
+— MÓDULO: INSTRUMENTOS DE MANDATO E DECLARAÇÕES —
+
+Procurações e substabelecimentos não devem ser redigidos como petição judicial.
+Usar título direto: "PROCURAÇÃO", "SUBSTABELECIMENTO COM RESERVA DE PODERES", "SUBSTABELECIMENTO SEM RESERVA DE PODERES" ou "INSTRUMENTO PARTICULAR DE PROCURAÇÃO".
+Identificar outorgante/substabelecente e outorgado/substabelecido com dados fornecidos. Se faltar dado essencial, usar MINUTA_PENDENTE.
+Poderes especiais devem ser expressos somente quando informados ou solicitados de modo claro pelo usuário.
+Não presumir autorização para receber valores, dar quitação, confessar, transigir, renunciar, substabelecer sem reserva ou firmar compromisso sem validação humana.
+Fechamento deve conter local, data e assinatura da parte competente. OAB do advogado pode constar na qualificação quando fornecida, mas não deve ser inventada.
 
 # ==============================
 16. ESTRUTURA DAS PEÇAS JUDICIAIS INICIAIS

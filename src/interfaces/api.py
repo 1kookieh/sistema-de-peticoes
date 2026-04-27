@@ -1,43 +1,115 @@
-"""API REST local para geração, download e painel de relatórios."""
+﻿"""API REST local para geraÃ§Ã£o, download e painel de relatÃ³rios."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from config import API_TOKEN, FRONTEND_DIR, OUTPUT_DIR, REPORTS_DIR
-from src.file_extractors import FileExtractionError, extract_text_from_uploads
-from src.gmail_reader import Email
-from src.history import list_reports, list_status_items
-from src.main import processar_email
-from src.piece_types import get_piece_type, infer_piece_type_id, list_piece_types
-from src.profiles import PROFILES, get_profile, list_profile_ids
+from config import (
+    API_ALLOWED_ORIGINS,
+    API_TOKEN,
+    FRONTEND_DIR,
+    MAX_DOCX_BYTES,
+    OUTPUT_DIR,
+    RATE_LIMIT_MAX_MUTATIONS,
+    RATE_LIMIT_WINDOW_SECONDS,
+    REPORTS_DIR,
+)
+from src.adapters.files.file_extractors import FileExtractionError, extract_text_from_uploads
+from src.adapters.inbox.gmail_reader import Email
+from src.orchestration.history import list_reports, list_status_items
+from src.infra.logging import configure_logging
+from src.orchestration.pipeline import processar_email
+from src.core.piece_inference import infer_piece_type_id
+from src.core.piece_types import get_piece_type, list_piece_types
+from src.core.profiles import PROFILES, get_profile, list_profile_ids
 
 
 PROFILE_LABELS_PT = {
-    "judicial-inicial-jef": "Inicial JEF / Justiça Federal",
-    "judicial-inicial-estadual": "Inicial — Justiça Estadual",
-    "administrativo-inss": "Administrativo — INSS / CRPS",
-    "extrajudicial-tabelionato": "Extrajudicial — Tabelionato",
-    "instrumento-mandato": "Procuração / Substabelecimento / Declaração",
-    "forense-basico": "Forense básico (mínimo formal)",
+    "judicial-inicial-jef": "Inicial JEF / JustiÃ§a Federal",
+    "judicial-inicial-estadual": "Inicial â€” JustiÃ§a Estadual",
+    "administrativo-inss": "Administrativo â€” INSS / CRPS",
+    "extrajudicial-tabelionato": "Extrajudicial â€” Tabelionato",
+    "instrumento-mandato": "ProcuraÃ§Ã£o / Substabelecimento / DeclaraÃ§Ã£o",
+    "forense-basico": "Forense bÃ¡sico (mÃ­nimo formal)",
 }
 
 DEFAULT_PROFILE_ID = "judicial-inicial-jef"
-from src.reporting import build_run_report, write_html_report, write_json_report
-from src.setup_runtime import setup_runtime
+from src.orchestration.reporting import build_run_report, write_html_report, write_json_report
+from src.orchestration.setup import setup_runtime
+
+_RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    configure_logging(json_logs=True)
+    setup_runtime()
+    yield
+
 
 app = FastAPI(
-    title="Sistema de Petições API",
+    title="Sistema de PetiÃ§Ãµes API",
     version="1.0.0",
-    description="API local para geração supervisionada de documentos .docx.",
+    description="API local para geraÃ§Ã£o supervisionada de documentos .docx.",
+    lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(API_ALLOWED_ORIGINS),
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Token"],
+)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    )
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
+
+
+@app.middleware("http")
+async def local_rate_limit(request: Request, call_next):
+    if request.method == "POST" and request.url.path in {
+        "/api/v1/setup",
+        "/api/v1/documents",
+        "/api/v1/documents/upload",
+    }:
+        client = request.client.host if request.client else "local"
+        now = monotonic()
+        bucket = [
+            timestamp
+            for timestamp in _RATE_LIMIT_BUCKETS.get(client, [])
+            if now - timestamp < RATE_LIMIT_WINDOW_SECONDS
+        ]
+        if len(bucket) >= RATE_LIMIT_MAX_MUTATIONS:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "limite local de requisiÃ§Ãµes atingido"},
+            )
+        bucket.append(now)
+        _RATE_LIMIT_BUCKETS[client] = bucket
+    return await call_next(request)
+
 
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
@@ -47,33 +119,39 @@ class DocumentRequest(BaseModel):
     text: str = Field(
         min_length=1,
         max_length=500_000,
-        description="Texto da peça a ser formatada.",
+        description="Texto da peÃ§a a ser formatada.",
     )
     profile_id: str | None = Field(
         default=None,
         max_length=80,
         description=(
-            "Perfil formal de validação. Use ``auto``, vazio ou ``None`` para "
-            "deixar o sistema escolher (peça detectada → perfil sugerido; "
-            f"caso contrário, padrão ``{DEFAULT_PROFILE_ID}``)."
+            "Perfil formal de validaÃ§Ã£o. Use ``auto``, vazio ou ``None`` para "
+            "deixar o sistema escolher (peÃ§a detectada â†’ perfil sugerido; "
+            f"caso contrÃ¡rio, padrÃ£o ``{DEFAULT_PROFILE_ID}``)."
         ),
     )
     piece_type_id: str | None = Field(
         default=None,
         max_length=120,
-        description="Identificador da peça. Vazio ou ``auto`` deixa o sistema inferir do texto.",
+        description="Identificador da peÃ§a. Vazio ou ``auto`` deixa o sistema inferir do texto.",
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
-    assunto: str = Field(default="Geração local", max_length=200)
+    assunto: str = Field(default="GeraÃ§Ã£o local", max_length=200)
 
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
-    """Protege rotas sensíveis quando API_TOKEN estiver configurado."""
+    """Protege rotas sensÃ­veis quando API_TOKEN estiver configurado."""
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="token de API ausente ou inválido",
+            detail="token de API ausente ou invÃ¡lido",
         )
+
+
+def require_allowed_origin(origin: str | None = Header(default=None, alias="Origin")) -> None:
+    """Bloqueia chamadas mutadoras vindas de pÃ¡ginas nÃ£o autorizadas."""
+    if origin and origin not in API_ALLOWED_ORIGINS:
+        raise HTTPException(status_code=403, detail="origem nÃ£o autorizada para esta API local")
 
 
 def _profile_or_422(profile_id: str | None):
@@ -95,9 +173,9 @@ def _safe_file(base: Path, filename: str, suffixes: set[str]) -> Path:
     try:
         candidate.relative_to(base.resolve())
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="caminho inválido") from exc
+        raise HTTPException(status_code=400, detail="caminho invÃ¡lido") from exc
     if candidate.suffix.lower() not in suffixes or not candidate.exists():
-        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+        raise HTTPException(status_code=404, detail="arquivo nÃ£o encontrado")
     return candidate
 
 
@@ -105,16 +183,16 @@ def _safe_file(base: Path, filename: str, suffixes: set[str]) -> Path:
 def index() -> FileResponse:
     index_path = FRONTEND_DIR / "index.html"
     if not index_path.exists():
-        raise HTTPException(status_code=404, detail="frontend não encontrado")
+        raise HTTPException(status_code=404, detail="frontend nÃ£o encontrado")
     return FileResponse(index_path)
 
 
-@app.get("/api/health")
+@app.get("/api/v1/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/api/setup", dependencies=[Depends(require_api_token)])
+@app.post("/api/v1/setup", dependencies=[Depends(require_api_token), Depends(require_allowed_origin)])
 def api_setup() -> dict[str, Any]:
     checks = setup_runtime()
     return {
@@ -132,7 +210,7 @@ def api_setup() -> dict[str, Any]:
     }
 
 
-@app.get("/api/profiles")
+@app.get("/api/v1/profiles")
 def profiles() -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for profile_id in list_profile_ids():
@@ -154,7 +232,7 @@ def profiles() -> dict[str, Any]:
     return {"items": items, "default": DEFAULT_PROFILE_ID}
 
 
-@app.get("/api/piece-types")
+@app.get("/api/v1/piece-types")
 def piece_types() -> dict[str, Any]:
     items = [
         {
@@ -170,16 +248,29 @@ def piece_types() -> dict[str, Any]:
     return {"groups": groups, "items": items}
 
 
+@app.get("/api/v1/limits")
+def api_limits() -> dict[str, int]:
+    from src.adapters.files.file_extractors import MAX_TOTAL_UPLOAD_BYTES, MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES
+
+    return {
+        "max_text_chars": 500_000,
+        "max_file_bytes": MAX_UPLOAD_BYTES,
+        "max_total_upload_bytes": MAX_TOTAL_UPLOAD_BYTES,
+        "max_upload_files": MAX_UPLOAD_FILES,
+        "max_docx_bytes": MAX_DOCX_BYTES,
+    }
+
+
 def _resolve_piece_and_profile(
     text: str, piece_type_id: str | None, profile_id: str | None
 ) -> tuple[Any, Any, bool, bool]:
-    """Resolve peça e perfil aplicando inferência quando o usuário não escolhe.
+    """Resolve peÃ§a e perfil aplicando inferÃªncia quando o usuÃ¡rio nÃ£o escolhe.
 
     Regras:
-    - ``piece_type_id`` ausente / ``"auto"`` → tenta inferir do texto.
-    - ``profile_id`` ausente / ``"auto"`` / vazio → usa o perfil sugerido pela
-      peça detectada; caso contrário cai em ``DEFAULT_PROFILE_ID``.
-    - IDs explícitos inválidos viram HTTP 422 (mantém contrato anterior).
+    - ``piece_type_id`` ausente / ``"auto"`` â†’ tenta inferir do texto.
+    - ``profile_id`` ausente / ``"auto"`` / vazio â†’ usa o perfil sugerido pela
+      peÃ§a detectada; caso contrÃ¡rio cai em ``DEFAULT_PROFILE_ID``.
+    - IDs explÃ­citos invÃ¡lidos viram HTTP 422 (mantÃ©m contrato anterior).
     """
     piece_type_inferred = False
     if not piece_type_id or piece_type_id.strip().lower() == "auto":
@@ -231,7 +322,6 @@ def _generate_from_text(
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
     }
-    setup_runtime()
     token = uuid4().hex[:12]
     email = Email(
         thread_id=f"api-{token}",
@@ -275,9 +365,9 @@ def _generate_from_text(
         "status": result.status,
         "problems": result.problemas,
         "document": docx_name,
-        "download_url": f"/api/documents/{docx_name}/download" if docx_name else None,
-        "report_json_url": f"/api/reports/{json_path.name}",
-        "report_html_url": f"/api/reports/{html_path.name}",
+        "download_url": f"/api/v1/documents/{docx_name}/download" if docx_name else None,
+        "report_json_url": f"/api/v1/reports/{json_path.name}",
+        "report_html_url": f"/api/v1/reports/{html_path.name}",
         "piece_type": metadata["piece_type"],
         "piece_type_inferred": piece_type_inferred,
         "profile": {
@@ -290,9 +380,10 @@ def _generate_from_text(
     }
 
 
-@app.post("/api/documents", dependencies=[Depends(require_api_token)])
-def generate_document(payload: DocumentRequest) -> dict[str, Any]:
-    return _generate_from_text(
+@app.post("/api/v1/documents", dependencies=[Depends(require_api_token), Depends(require_allowed_origin)])
+async def generate_document(payload: DocumentRequest) -> dict[str, Any]:
+    return await run_in_threadpool(
+        _generate_from_text,
         text=payload.text,
         profile_id=payload.profile_id,
         piece_type_id=payload.piece_type_id,
@@ -301,14 +392,14 @@ def generate_document(payload: DocumentRequest) -> dict[str, Any]:
     )
 
 
-@app.post("/api/documents/upload", dependencies=[Depends(require_api_token)])
+@app.post("/api/v1/documents/upload", dependencies=[Depends(require_api_token), Depends(require_allowed_origin)])
 async def generate_document_from_upload(
     file: UploadFile | None = File(default=None),
     files: list[UploadFile] | None = File(default=None),
     profile_id: str | None = Form(default=None),
     piece_type_id: str | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
-    assunto: str = Form(default="Geração por upload local"),
+    assunto: str = Form(default="GeraÃ§Ã£o por upload local"),
 ) -> dict[str, Any]:
     uploads = list(files or [])
     if file is not None:
@@ -324,7 +415,8 @@ async def generate_document_from_upload(
     except FileExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     source_names = ", ".join(filename for filename, _ in payloads)
-    return _generate_from_text(
+    return await run_in_threadpool(
+        _generate_from_text,
         text=extracted_text,
         profile_id=profile_id,
         piece_type_id=piece_type_id,
@@ -334,7 +426,7 @@ async def generate_document_from_upload(
     )
 
 
-@app.get("/api/documents/{filename}/download", dependencies=[Depends(require_api_token)])
+@app.get("/api/v1/documents/{filename}/download", dependencies=[Depends(require_api_token)])
 def download_document(filename: str) -> FileResponse:
     path = _safe_file(OUTPUT_DIR, filename, {".docx"})
     return FileResponse(
@@ -344,13 +436,15 @@ def download_document(filename: str) -> FileResponse:
     )
 
 
-@app.get("/api/reports", dependencies=[Depends(require_api_token)])
+@app.get("/api/v1/reports", dependencies=[Depends(require_api_token)])
 def reports() -> dict[str, Any]:
     return {"reports": list_reports(), "status_items": list_status_items()}
 
 
-@app.get("/api/reports/{filename}", dependencies=[Depends(require_api_token)])
+@app.get("/api/v1/reports/{filename}", dependencies=[Depends(require_api_token)])
 def get_report(filename: str) -> FileResponse:
     path = _safe_file(REPORTS_DIR, filename, {".json", ".html"})
     media_type = "text/html" if path.suffix.lower() == ".html" else "application/json"
     return FileResponse(path, filename=path.name, media_type=media_type)
+
+

@@ -1,10 +1,15 @@
-import json
+﻿import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from src import api, file_extractors, gmail_sender, main, pipeline_state
-from src.history import list_reports
-from src.reporting import render_report_html
+from src.interfaces import api
+from src.adapters.files import file_extractors
+from src.adapters.outbox import gmail_sender
+from src.orchestration import pipeline as main
+from src.infra import pipeline_state
+from src.orchestration.history import list_reports
+from src.orchestration.reporting import render_report_html
 
 
 def _texto_valido():
@@ -28,8 +33,10 @@ def _configure_runtime(tmp_path, monkeypatch):
 def test_api_health_and_profiles():
     client = TestClient(api.app)
 
-    assert client.get("/api/health").json() == {"status": "ok"}
-    profiles_payload = client.get("/api/profiles").json()
+    assert client.get("/api/v1/health").json() == {"status": "ok"}
+    assert client.get("/api/health").status_code == 404
+    assert client.get("/api/v1/health").headers["x-content-type-options"] == "nosniff"
+    profiles_payload = client.get("/api/v1/profiles").json()
     assert profiles_payload["default"] == "judicial-inicial-jef"
     profiles = profiles_payload["items"]
     assert any(profile["id"] == "judicial-inicial-jef" for profile in profiles)
@@ -37,16 +44,51 @@ def test_api_health_and_profiles():
     assert jef["is_default"] is True
     assert jef["label"]
     assert jef["require_oab"] is True
-    piece_types = client.get("/api/piece-types").json()
+    piece_types = client.get("/api/v1/piece-types").json()
     assert any(item["id"] == "auxilio-incapacidade-temporaria" for item in piece_types["items"])
     assert any(item["id"] == "procuracao-ad-judicia" for item in piece_types["items"])
     assert any(item["id"] == "substabelecimento-com-reserva" for item in piece_types["items"])
 
 
+def test_api_limits_exposes_runtime_limits():
+    client = TestClient(api.app)
+
+    response = client.get("/api/v1/limits")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["max_text_chars"] == 500_000
+    assert payload["max_upload_files"] == 20
+    assert payload["max_docx_bytes"] > 0
+
+
+def test_api_blocks_untrusted_origin(tmp_path, monkeypatch):
+    _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/v1/documents",
+        json={"text": _texto_valido()},
+        headers={"Origin": "http://evil.local"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_api_rate_limits_mutating_routes(monkeypatch):
+    monkeypatch.setattr(api, "RATE_LIMIT_MAX_MUTATIONS", 0)
+    api._RATE_LIMIT_BUCKETS.clear()
+    client = TestClient(api.app)
+
+    response = client.post("/api/v1/setup")
+
+    assert response.status_code == 429
+
+
 def test_api_setup_returns_runtime_checks():
     client = TestClient(api.app)
 
-    response = client.post("/api/setup")
+    response = client.post("/api/v1/setup")
 
     assert response.status_code == 200
     payload = response.json()
@@ -58,8 +100,8 @@ def test_api_token_protects_sensitive_routes(monkeypatch):
     monkeypatch.setattr(api, "API_TOKEN", "segredo")
     client = TestClient(api.app)
 
-    unauthorized = client.get("/api/reports")
-    authorized = client.get("/api/reports", headers={"X-API-Token": "segredo"})
+    unauthorized = client.get("/api/v1/reports")
+    authorized = client.get("/api/v1/reports", headers={"X-API-Token": "segredo"})
 
     assert unauthorized.status_code == 401
     assert authorized.status_code == 200
@@ -70,7 +112,7 @@ def test_api_invalid_profile_returns_422(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     response = client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"text": _texto_valido(), "profile_id": "perfil-inexistente"},
     )
 
@@ -81,7 +123,7 @@ def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     output_dir, reports_dir = _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)
 
-    response = client.post("/api/documents", json={"text": _texto_valido()})
+    response = client.post("/api/v1/documents", json={"text": _texto_valido()})
 
     assert response.status_code == 200
     payload = response.json()
@@ -103,7 +145,7 @@ def test_api_generates_docx_from_txt_upload(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     response = client.post(
-        "/api/documents/upload",
+        "/api/v1/documents/upload",
         data={
             "profile_id": "judicial-inicial-jef",
             "piece_type_id": "auxilio-incapacidade-temporaria",
@@ -125,7 +167,7 @@ def test_api_generates_docx_from_multiple_uploads(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     response = client.post(
-        "/api/documents/upload",
+        "/api/v1/documents/upload",
         data={
             "profile_id": "judicial-inicial-jef",
             "piece_type_id": "auxilio-incapacidade-temporaria",
@@ -150,7 +192,7 @@ def test_api_image_upload_uses_ocr_text(tmp_path, monkeypatch):
     png_header = b"\x89PNG\r\n\x1a\n"
 
     response = client.post(
-        "/api/documents/upload",
+        "/api/v1/documents/upload",
         data={
             "profile_id": "judicial-inicial-jef",
             "piece_type_id": "auxilio-incapacidade-temporaria",
@@ -170,7 +212,7 @@ def test_api_rejects_unsupported_upload(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     response = client.post(
-        "/api/documents/upload",
+        "/api/v1/documents/upload",
         data={"profile_id": "judicial-inicial-jef"},
         files={"file": ("peticao.exe", b"conteudo", "application/octet-stream")},
     )
@@ -183,7 +225,7 @@ def test_api_blocks_invalid_text_and_keeps_report(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     invalid = _texto_valido().replace("OAB/GO 12.345", "OAB/UF 00.000")
-    response = client.post("/api/documents", json={"text": invalid})
+    response = client.post("/api/v1/documents", json={"text": invalid})
 
     assert response.status_code == 200
     payload = response.json()
@@ -197,7 +239,7 @@ def test_api_rejects_path_traversal(tmp_path, monkeypatch):
     _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)
 
-    response = client.get("/api/reports/%2e%2e%2fREADME.md")
+    response = client.get("/api/v1/reports/%2e%2e%2fREADME.md")
 
     assert response.status_code in {400, 404}
 
@@ -250,3 +292,28 @@ def test_html_report_escapes_content():
     assert "&lt;script&gt;" in html
     assert "&lt;b&gt;problema&lt;/b&gt;" in html
     assert "<b>problema</b>" not in html
+
+
+
+
+
+def test_frontend_uses_only_api_v1_routes():
+    web_dir = Path(__file__).resolve().parents[1] / "web"
+    sources = [path for path in web_dir.rglob("*.js") if path.name != "sw.js"]
+
+    content = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+
+    assert "/api/v1" in content
+    assert "/api/" not in content.replace("/api/v1", "")
+    assert "api-client" not in content
+
+
+def test_service_worker_does_not_cache_sensitive_routes():
+    sw_path = Path(__file__).resolve().parents[1] / "web" / "sw.js"
+    content = sw_path.read_text(encoding="utf-8")
+
+    assert 'url.pathname.startsWith("/api/v1")' in content
+    assert 'url.pathname.includes("/documents/")' in content
+    assert 'url.pathname.includes("/reports/")' in content
+    assert 'request.method !== "GET"' in content
+

@@ -1,4 +1,4 @@
-"""Leitura segura do histórico local de relatórios e status."""
+﻿"""Leitura segura do histÃ³rico local de relatÃ³rios e status."""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from config import REPORTS_DIR
-from src.pipeline_state import carregar_estado
+from src.infra.pipeline_state import carregar_estado
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -38,7 +38,10 @@ def list_reports(reports_dir: Path = REPORTS_DIR) -> list[dict[str, Any]]:
 
 
 def list_status_items() -> list[dict[str, Any]]:
-    estado = carregar_estado()
+    try:
+        estado = carregar_estado()
+    except (OSError, ValueError, json.JSONDecodeError):
+        return []
     items = estado.get("items", {})
     if not isinstance(items, dict):
         return []
@@ -51,3 +54,5 @@ def list_status_items() -> list[dict[str, Any]]:
         )
         if isinstance(item, dict)
     ]
+
+

@@ -1,4 +1,4 @@
-"""Política configurável de retenção para arquivos locais sensíveis."""
+﻿"""PolÃ­tica configurÃ¡vel de retenÃ§Ã£o para arquivos locais sensÃ­veis."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,18 +7,21 @@ from pathlib import Path
 
 from config import (
     OUTPUT_DIR,
+    REPORTS_DIR,
     RETENTION_OUTPUT_DAYS,
     RETENTION_QUEUE_DAYS,
+    RETENTION_REPORTS_DAYS,
     RETENTION_STATUS_DAYS,
     ROOT,
 )
-from src.gmail_sender import OUTBOX
-from src.pipeline_state import STATE_FILE
+from src.adapters.outbox.gmail_sender import OUTBOX
+from src.infra.pipeline_state import STATE_FILE
 
 
 @dataclass(frozen=True)
 class RetentionPolicy:
     output_days: int = RETENTION_OUTPUT_DAYS
+    reports_days: int = RETENTION_REPORTS_DAYS
     queue_days: int = RETENTION_QUEUE_DAYS
     status_days: int = RETENTION_STATUS_DAYS
     dry_run: bool = True
@@ -40,9 +43,13 @@ def cleanup_runtime(policy: RetentionPolicy | None = None) -> list[str]:
     candidates: list[tuple[Path, int]] = []
     if OUTPUT_DIR.exists():
         candidates.extend((path, policy.output_days) for path in OUTPUT_DIR.glob("*.docx"))
+    if REPORTS_DIR.exists():
+        candidates.extend((path, policy.reports_days) for path in REPORTS_DIR.glob("*.json"))
+        candidates.extend((path, policy.reports_days) for path in REPORTS_DIR.glob("*.html"))
     candidates.extend((path, policy.queue_days) for path in [ROOT / "mcp_inbox.json", OUTBOX])
     candidates.append((STATE_FILE, policy.status_days))
     candidates.extend((path, 0) for path in ROOT.glob("*.tmp"))
+    candidates.extend((path, 0) for path in ROOT.glob("*.lock"))
 
     for path, days in candidates:
         if not path.exists() or not path.is_file():
@@ -52,3 +59,5 @@ def cleanup_runtime(policy: RetentionPolicy | None = None) -> list[str]:
             if not policy.dry_run:
                 path.unlink()
     return removed
+
+

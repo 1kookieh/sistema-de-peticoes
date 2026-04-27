@@ -1,43 +1,58 @@
-"""
-Converte um texto de petição em .docx seguindo a skill WORD/DOCX JUDICIÁRIO
-(padrão forense + base ABNT).
+﻿"""
+Converte um texto de petiÃ§Ã£o em .docx seguindo a skill WORD/DOCX JUDICIÃRIO
+(padrÃ£o forense + base ABNT).
 
 Regras aplicadas:
 - A4, margens 3/3/2/2 cm (sup/esq/inf/dir)
 - Times New Roman 12, preto
 - Justificado, 1,5 entre linhas
-- Espaçamento antes/depois: 0 pt
+- EspaÃ§amento antes/depois: 0 pt
 - Recuo de primeira linha: 2,5 cm no corpo do texto
-- 7 linhas em branco após o endereçamento da vara
-- Negrito apenas em: endereçamento, nome da peça, títulos (DOS FATOS,
-  DO DIREITO, etc.), marcadores de alíneas "a)" "b)" "c)", nome do advogado, OAB
+- 7 linhas em branco apÃ³s o endereÃ§amento da vara
+- Negrito apenas em: endereÃ§amento, nome da peÃ§a, tÃ­tulos (DOS FATOS,
+  DO DIREITO, etc.), marcadores de alÃ­neas "a)" "b)" "c)", nome do advogado, OAB
 - Nome do advogado e OAB centralizados em linhas separadas, sem linha
   para assinatura
-- Fechamento "Termos em que, pede deferimento." em parágrafo justificado normal
-- Local e data com alinhamento à direita
+- Fechamento "Termos em que, pede deferimento." em parÃ¡grafo justificado normal
+- Local e data centralizados, antes da assinatura/OAB
 
 Uso:
-    python -m src.formatar_docx <entrada.txt> <saida.docx>
-    python -m src.formatar_docx -           # lê da stdin
+    python -m src.infra.docx_render <entrada.txt> <saida.docx>
+    python -m src.infra.docx_render -           # lÃª da stdin
 """
 from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt, RGBColor
 
+FONT_NAME = "Times New Roman"
+FONT_SIZE_PT = 12
+PAGE_WIDTH_CM = 21
+PAGE_HEIGHT_CM = 29.7
+TOP_MARGIN_CM = 3
+LEFT_MARGIN_CM = 3
+BOTTOM_MARGIN_CM = 2
+RIGHT_MARGIN_CM = 2
+FIRST_LINE_INDENT_CM = 2.5
+LINE_SPACING = 1.5
+
 
 HEADER_RE = re.compile(
-    r"^\s*(EXCELENT[ÍI]SSIMO|AO\s+TABELIONATO|AO\s+INSTITUTO)", re.IGNORECASE
+    r"^\s*(EXCELENT[IÍ]SSIMO|AO\s+TABELIONATO|AO\s+INSTITUTO|PROCURA[ÇC][ÃA]O|"
+    r"SUBSTABELECIMENTO|INSTRUMENTO\s+PARTICULAR|DECLARA[ÇC][ÃA]O)",
+    re.IGNORECASE,
 )
 
 TITLE_RE = re.compile(
     r"^\s*(A[ÇC][ÃA]O\s+DE\s+|RECURSO\s+|PETI[ÇC][ÃA]O\s+DE\s+|"
-    r"MANIFESTA[ÇC][ÃA]O\s+|QUESITOS\s+PERICIAIS|MANDADO\s+DE\s+SEGURAN[ÇC]A)",
+    r"MANIFESTA[ÇC][ÃA]O\s+|QUESITOS\s+PERICIAIS|MANDADO\s+DE\s+SEGURAN[ÇC]A|"
+    r"PROCURA[ÇC][ÃA]O|SUBSTABELECIMENTO|INSTRUMENTO\s+PARTICULAR|DECLARA[ÇC][ÃA]O)",
     re.IGNORECASE,
 )
 
@@ -53,27 +68,51 @@ SECTION_ROMAN_RE = re.compile(
 )
 
 ALINEA_RE = re.compile(r"^\s*([a-z](?:\.\d+)?\))\s+(.+)$", re.IGNORECASE)
+BOLD_LABEL_RE = re.compile(
+    r"^\s*((?:OUTORGANTE|OUTORGADA|OUTORGADO|SUBSTABELECENTE|SUBSTABELECIDO|"
+    r"DECLARANTE|REQUERENTE|AUTOR|AUTORA|R[ÉE]U|R[ÉE]|PODERES|FINALIDADE):)\s*(.*)$",
+    re.IGNORECASE,
+)
+QUALIFICATION_NAME_RE = re.compile(
+    r"^\s*([A-ZÁÀÂÃÉÈÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÈÊÍÓÔÕÚÇ\s.'-]{3,90}),\s+(.+)$"
+)
 
 CLOSING_RE = re.compile(r"^(Termos em que|Nestes termos).*pede deferimento", re.IGNORECASE)
 LOCAL_DATA_RE = re.compile(
     r"^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+(?:/[A-Z]{2})?,\s*\d{1,2}\s+de\s+\w+\s+de\s+\d{4}"
 )
 OAB_RE = re.compile(r"^\s*OAB\s*/?\s*[A-Z]{2}\s*[\d.]+\s*$", re.IGNORECASE)
+INSTRUMENT_HEADER_RE = re.compile(
+    r"^\s*(PROCURA[ÇC][ÃA]O|SUBSTABELECIMENTO|INSTRUMENTO\s+PARTICULAR|DECLARA[ÇC][ÃA]O)",
+    re.IGNORECASE,
+)
+
+
+def _normalize(value: str) -> str:
+    nfkd = unicodedata.normalize("NFD", value)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).upper()
 
 
 def _setup_page(doc: Document) -> None:
     for section in doc.sections:
-        section.page_width = Cm(21)
-        section.page_height = Cm(29.7)
-        section.top_margin = Cm(3)
-        section.left_margin = Cm(3)
-        section.bottom_margin = Cm(2)
-        section.right_margin = Cm(2)
+        section.page_width = Cm(PAGE_WIDTH_CM)
+        section.page_height = Cm(PAGE_HEIGHT_CM)
+        section.top_margin = Cm(TOP_MARGIN_CM)
+        section.left_margin = Cm(LEFT_MARGIN_CM)
+        section.bottom_margin = Cm(BOTTOM_MARGIN_CM)
+        section.right_margin = Cm(RIGHT_MARGIN_CM)
+
+
+def _setup_styles(doc: Document) -> None:
+    normal = doc.styles["Normal"]
+    normal.font.name = FONT_NAME
+    normal.font.size = Pt(FONT_SIZE_PT)
+    normal.font.color.rgb = RGBColor(0, 0, 0)
 
 
 def _style_run(run) -> None:
-    run.font.name = "Times New Roman"
-    run.font.size = Pt(12)
+    run.font.name = FONT_NAME
+    run.font.size = Pt(FONT_SIZE_PT)
     run.font.color.rgb = RGBColor(0, 0, 0)
 
 
@@ -81,11 +120,11 @@ def _new_paragraph(doc: Document, *, align=WD_ALIGN_PARAGRAPH.JUSTIFY,
                    indent: bool = True) -> "object":
     p = doc.add_paragraph()
     pf = p.paragraph_format
-    pf.line_spacing = 1.5
+    pf.line_spacing = LINE_SPACING
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
     if indent:
-        pf.first_line_indent = Cm(2.5)
+        pf.first_line_indent = Cm(FIRST_LINE_INDENT_CM)
     p.alignment = align
     return p
 
@@ -94,6 +133,27 @@ def _add_text(p, texto: str, *, bold: bool = False) -> None:
     run = p.add_run(texto)
     run.bold = bold
     _style_run(run)
+
+
+def _add_runs(p, runs: list[tuple[str, bool]]) -> None:
+    for texto, bold in runs:
+        if texto:
+            _add_text(p, texto, bold=bold)
+
+
+def _runs_for_body(texto: str) -> list[tuple[str, bool]]:
+    """Aplica negrito pontual em labels formais sem depender de prompt externo."""
+    label = BOLD_LABEL_RE.match(texto)
+    if label:
+        return [(label.group(1), True), (" " + label.group(2), False)]
+
+    qualification = QUALIFICATION_NAME_RE.match(texto)
+    if qualification and not _is_header(texto) and not _is_title(texto) and not _is_section_title(texto):
+        # Evita transformar tÃ­tulos em corpo; nomes qualificados costumam vir em
+        # caixa alta seguidos de vÃ­rgula e dados pessoais.
+        return [(qualification.group(1), True), (", " + qualification.group(2), False)]
+
+    return [(texto, False)]
 
 
 def _add_simple(doc: Document, texto: str, *, bold: bool = False,
@@ -120,7 +180,7 @@ def _is_section_title(linha: str) -> bool:
         return True
     if s.isupper() and 3 <= len(s) <= 80 and not HEADER_RE.match(s) and not TITLE_RE.match(s):
         keywords = ("FATO", "DIREITO", "PEDIDO", "PROVA", "CAUSA", "TUTELA",
-                    "QUESITO", "QUALIDADE", "INCAPACIDADE", "MÉRITO", "MERITO")
+                    "QUESITO", "QUALIDADE", "INCAPACIDADE", "MÃ‰RITO", "MERITO")
         return any(k in s for k in keywords)
     return False
 
@@ -129,11 +189,42 @@ def _is_title(linha: str) -> bool:
     s = linha.strip()
     if not s.isupper() or len(s) < 10:
         return False
-    return bool(TITLE_RE.match(s))
+    return bool(TITLE_RE.match(s)) or _normalize(s).startswith(
+        (
+            "ACAO DE ",
+            "RECURSO ",
+            "PETICAO DE ",
+            "MANIFESTACAO ",
+            "QUESITOS PERICIAIS",
+            "MANDADO DE SEGURANCA",
+            "PROCURACAO",
+            "SUBSTABELECIMENTO",
+            "INSTRUMENTO PARTICULAR",
+            "DECLARACAO",
+        )
+    )
 
 
 def _is_header(linha: str) -> bool:
-    return bool(HEADER_RE.match(linha.strip()))
+    s = linha.strip()
+    return bool(HEADER_RE.match(s)) or _normalize(s).startswith(
+        (
+            "EXCELENTISSIMO",
+            "AO TABELIONATO",
+            "AO INSTITUTO",
+            "PROCURACAO",
+            "SUBSTABELECIMENTO",
+            "INSTRUMENTO PARTICULAR",
+            "DECLARACAO",
+        )
+    )
+
+
+def _is_instrument_header(linha: str) -> bool:
+    s = linha.strip()
+    return bool(INSTRUMENT_HEADER_RE.match(s)) or _normalize(s).startswith(
+        ("PROCURACAO", "SUBSTABELECIMENTO", "INSTRUMENTO PARTICULAR", "DECLARACAO")
+    )
 
 
 def _is_closing(linha: str) -> bool:
@@ -156,7 +247,7 @@ def _render_alinea(doc: Document, marcador: str, texto: str) -> None:
 
 def _render_bloco_justificado(doc: Document, texto: str) -> None:
     p = _new_paragraph(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, indent=True)
-    _add_text(p, texto, bold=False)
+    _add_runs(p, _runs_for_body(texto))
 
 
 def _tem_alinea(linhas: list[str]) -> bool:
@@ -164,9 +255,9 @@ def _tem_alinea(linhas: list[str]) -> bool:
 
 
 def _render_sequencia_alineas(doc: Document, linhas: list[str]) -> None:
-    """Cada linha `a) ...`, `b) ...` vira um parágrafo próprio.
-    Linhas não-alínea são agregadas à alínea anterior (continuação) ou viram
-    parágrafo justificado solto."""
+    """Cada linha `a) ...`, `b) ...` vira um parÃ¡grafo prÃ³prio.
+    Linhas nÃ£o-alÃ­nea sÃ£o agregadas Ã  alÃ­nea anterior (continuaÃ§Ã£o) ou viram
+    parÃ¡grafo justificado solto."""
     atual_marcador: str | None = None
     atual_texto: list[str] = []
 
@@ -194,6 +285,7 @@ def _render_sequencia_alineas(doc: Document, linhas: list[str]) -> None:
 def renderizar(texto: str, destino: Path) -> Path:
     doc = Document()
     _setup_page(doc)
+    _setup_styles(doc)
 
     linhas_brutas = texto.splitlines()
     blocos: list[list[str]] = []
@@ -214,10 +306,10 @@ def renderizar(texto: str, destino: Path) -> Path:
         texto_bloco = " ".join(l.strip() for l in bloco)
 
         if _is_header(primeira) and not endereco_feito:
-            for linha in bloco:
-                _add_simple(doc, linha.strip(), bold=True,
-                            align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
-            _add_blank_lines(doc, 7)
+            blanks_after_header = 1 if _is_instrument_header(primeira) else 7
+            _add_simple(doc, texto_bloco, bold=True,
+                        align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
+            _add_blank_lines(doc, blanks_after_header)
             endereco_feito = True
             continue
 
@@ -249,7 +341,7 @@ def renderizar(texto: str, destino: Path) -> Path:
 
         if _is_local_data(primeira) and len(bloco) == 1:
             _add_simple(doc, primeira, bold=False,
-                        align=WD_ALIGN_PARAGRAPH.RIGHT, indent=False)
+                        align=WD_ALIGN_PARAGRAPH.CENTER, indent=False)
             continue
 
         if len(bloco) == 2 and _is_oab(bloco[1].strip()):
@@ -284,3 +376,5 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
+
+

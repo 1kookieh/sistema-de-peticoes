@@ -1,4 +1,4 @@
-"""CLI dedicada para execução supervisionada do pipeline."""
+﻿"""CLI dedicada para execuÃ§Ã£o supervisionada do pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -7,32 +7,34 @@ import sys
 from pathlib import Path
 
 from config import EMAIL_ADVOGADO, OUTPUT_DIR, REMETENTES_AUTORIZADOS, REPORTS_DIR, RETENTION_ENABLED, ROOT
-from src.gmail_reader import buscar_emails_pendentes
-from src.main import executar_pipeline
-from src.profiles import get_profile, list_profile_ids
-from src.reporting import build_run_report, write_json_report
-from src.retention import RetentionPolicy, cleanup_runtime
-from src.setup_runtime import setup_runtime
+from src.adapters.inbox.gmail_reader import buscar_emails_pendentes
+from src.infra.logging import configure_logging
+from src.orchestration.pipeline import executar_pipeline
+from src.core.profiles import get_profile, list_profile_ids
+from src.orchestration.reporting import build_run_report, write_json_report
+from src.orchestration.retention import RetentionPolicy, cleanup_runtime
+from src.orchestration.setup import setup_runtime
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src",
-        description="Pipeline supervisionado para gerar e validar petições .docx.",
+        description="Pipeline supervisionado para gerar e validar petiÃ§Ãµes .docx.",
     )
-    parser.add_argument("--profile", default=None, help="Perfil de validação formal.")
-    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponíveis.")
+    parser.add_argument("--profile", default=None, help="Perfil de validaÃ§Ã£o formal.")
+    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponÃ­veis.")
     parser.add_argument("--inbox", type=Path, help="Caminho de um JSON de entrada.")
-    parser.add_argument("--strict", action="store_true", help="Falha se não houver documento novo válido.")
-    parser.add_argument("--report", type=Path, help="Grava relatório JSON de conformidade.")
+    parser.add_argument("--strict", action="store_true", help="Falha se nÃ£o houver documento novo vÃ¡lido.")
+    parser.add_argument("--report", type=Path, help="Grava relatÃ³rio JSON de conformidade.")
     parser.add_argument("--no-outbox", action="store_true", help="Gera e valida sem gravar mcp_outbox.json.")
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
-    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
+    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a polÃ­tica de retenÃ§Ã£o.")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging(json_logs=False)
     args = build_parser().parse_args(argv)
 
     if args.list_profiles:
@@ -98,3 +100,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+

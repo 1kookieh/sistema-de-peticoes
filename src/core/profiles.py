@@ -1,7 +1,8 @@
-"""Perfis formais de validação por contexto de uso."""
+﻿"""Perfis formais de validaÃ§Ã£o por contexto de uso."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+import unicodedata
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,22 @@ PROFILES: dict[str, ValidationProfile] = {
         require_value_cause=False,
         min_blank_lines_after_header=1,
     ),
+    "instrumento-mandato": ValidationProfile(
+        id="instrumento-mandato",
+        descricao="Procuração, substabelecimento, declarações e instrumentos particulares.",
+        header_prefixes=(
+            "PROCURAÇÃO",
+            "PROCURACAO",
+            "SUBSTABELECIMENTO",
+            "INSTRUMENTO PARTICULAR",
+            "DECLARAÇÃO",
+            "DECLARACAO",
+        ),
+        required_sections=(),
+        require_oab=False,
+        require_value_cause=False,
+        min_blank_lines_after_header=1,
+    ),
     "forense-basico": ValidationProfile(
         id="forense-basico",
         descricao="Validação formal mínima para peças não classificadas.",
@@ -61,6 +78,11 @@ def list_profile_ids() -> list[str]:
     return sorted(PROFILES)
 
 
+def _normalize(value: str) -> str:
+    nfkd = unicodedata.normalize("NFD", value)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).upper()
+
+
 def get_profile(profile_id: str | None = None) -> ValidationProfile:
     from config import VALIDATION_PROFILE
 
@@ -69,18 +91,31 @@ def get_profile(profile_id: str | None = None) -> ValidationProfile:
         return PROFILES[resolved]
     except KeyError as exc:
         disponiveis = ", ".join(list_profile_ids())
-        raise ValueError(f"perfil de validação desconhecido: {resolved}. Disponíveis: {disponiveis}") from exc
+        raise ValueError(f"perfil de validaÃ§Ã£o desconhecido: {resolved}. DisponÃ­veis: {disponiveis}") from exc
 
 
 def infer_profile_id(texto: str) -> str:
     texto_upper = texto.upper()
     primeira = next((linha.strip().upper() for linha in texto.splitlines() if linha.strip()), "")
+    primeira_norm = _normalize(primeira)
+    texto_norm = _normalize(texto)
     if primeira.startswith(("AO INSTITUTO", "AO INSS", "AO CRPS")):
         return "administrativo-inss"
-    if primeira.startswith(("AO TABELIONATO", "AO CARTÓRIO", "AO CARTORIO")):
+    if primeira_norm.startswith(("AO TABELIONATO", "AO CARTORIO")):
         return "extrajudicial-tabelionato"
-    if "JUIZADO ESPECIAL FEDERAL" in texto_upper or "SUBSEÇÃO JUDICIÁRIA" in texto_upper:
+    if primeira_norm.startswith((
+        "PROCURACAO",
+        "PROCURACAO",
+        "SUBSTABELECIMENTO",
+        "INSTRUMENTO PARTICULAR",
+        "DECLARACAO",
+        "DECLARACAO",
+    )):
+        return "instrumento-mandato"
+    if "JUIZADO ESPECIAL FEDERAL" in texto_norm or "SUBSECAO JUDICIARIA" in texto_norm:
         return "judicial-inicial-jef"
     if primeira.startswith("EXCELENT"):
         return "judicial-inicial-estadual"
     return "forense-basico"
+
+

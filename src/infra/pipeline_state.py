@@ -1,4 +1,4 @@
-"""Estado local do pipeline para evitar reprocessamento acidental."""
+﻿"""Estado local do pipeline para evitar reprocessamento acidental."""
 from __future__ import annotations
 
 import json
@@ -6,8 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.infra.file_lock import exclusive_file_lock
+
 ROOT = Path(__file__).resolve().parent.parent
 STATE_FILE = ROOT / "mcp_status.json"
+_STATE_CACHE: dict[Path, tuple[float, dict[str, Any]]] = {}
 
 
 def _now_iso() -> str:
@@ -19,9 +22,15 @@ def carregar_estado(path: Path | None = None) -> dict[str, Any]:
     if not path.exists():
         return {"items": {}}
 
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    mtime = path.stat().st_mtime
+    cached = _STATE_CACHE.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+
+    raw = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict) or not isinstance(raw.get("items"), dict):
-        raise ValueError(f"estado de processamento inválido: {path}")
+        raise ValueError(f"estado de processamento invÃ¡lido: {path}")
+    _STATE_CACHE[path] = (mtime, raw)
     return raw
 
 
@@ -31,12 +40,13 @@ def salvar_estado(estado: dict[str, Any], path: Path | None = None) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
+    _STATE_CACHE[path] = (path.stat().st_mtime, estado)
 
 
 def ja_processado_ok(message_id: str, path: Path | None = None) -> bool:
     estado = carregar_estado(path)
     item = estado["items"].get(message_id)
-    return isinstance(item, dict) and item.get("status") == "ok"
+    return isinstance(item, dict) and item.get("status") in {"ok", "ok_no_outbox"}
 
 
 def registrar_item(
@@ -48,12 +58,16 @@ def registrar_item(
     docx: str | None = None,
     path: Path | None = None,
 ) -> None:
-    estado = carregar_estado(path)
-    estado["items"][message_id] = {
-        "thread_id": thread_id,
-        "status": status,
-        "problemas": problemas or [],
-        "docx": docx,
-        "updated_at": _now_iso(),
-    }
-    salvar_estado(estado, path)
+    path = path or STATE_FILE
+    with exclusive_file_lock(path):
+        estado = carregar_estado(path)
+        estado["items"][message_id] = {
+            "thread_id": thread_id,
+            "status": status,
+            "problemas": problemas or [],
+            "docx": docx,
+            "updated_at": _now_iso(),
+        }
+        salvar_estado(estado, path)
+
+

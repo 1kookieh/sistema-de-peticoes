@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório de conformidade formal</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #1f2933; }
+    h1 { margin-bottom: 4px; }
+    .muted { color: #4e5d70; }
+    .warning { border-left: 4px solid #b54708; background: #fffaeb; padding: 12px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #d0d5dd; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f2f4f7; }
+    code { background: #f2f4f7; padding: 2px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Relatório de conformidade formal</h1>
+  <p class="muted">Gerado em {{ generated_at }}</p>
+  <p><strong>Perfil:</strong> {{ profile.id }} — {{ profile.descricao }}</p>
+  <p><strong>Total:</strong> {{ summary.total or 0 }} |
+     <strong>Válidos:</strong> {{ summary.validos or 0 }} |
+     <strong>Bloqueados:</strong> {{ summary.bloqueados or 0 }} |
+     <strong>Falhas:</strong> {{ summary.falhas or 0 }}</p>
+  <div class="warning">
+    Este relatório verifica conformidade formal automatizada. Ele não substitui revisão jurídica humana, conferência de documentos, assinatura, procuração ou regras locais de protocolo.
+  </div>
+  <table>
+    <thead>
+      <tr><th>Status</th><th>Documento</th><th>Perfil</th><th>Problemas</th></tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.status }}</td>
+        <td>{{ item.docx or "" }}</td>
+        <td>{{ item.profile_id or profile.id }}</td>
+        <td>{{ (item.problems or ["Sem violações formais"]) | join("; ") }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">Nenhum item registrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

@@ -1,4 +1,4 @@
-"""Tipos de domínio compartilhados pelo pipeline supervisionado."""
+﻿"""Tipos de domÃ­nio compartilhados pelo pipeline supervisionado."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +14,7 @@ class ProcessResult:
     problemas: list[str]
     profile_id: str
     enfileirado: bool = False
+    docx_report: dict | None = None
 
     def to_report_item(self) -> dict:
         item = {
@@ -25,8 +26,10 @@ class ProcessResult:
             "profile_id": self.profile_id,
             "enqueued": self.enfileirado,
         }
-        if self.destino and self.destino.exists():
-            from src.reporting import build_docx_report
+        if self.docx_report is not None:
+            item["docx_report"] = self.docx_report
+        elif self.destino and self.destino.exists():
+            from src.orchestration.reporting import build_docx_report
 
             item["docx_report"] = build_docx_report(self.destino, self.profile_id)
         return item
@@ -61,3 +64,5 @@ class RuntimeCheck:
     ok: bool
     kind: str
     message: str
+
+

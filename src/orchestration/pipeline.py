@@ -1,32 +1,35 @@
-"""Orquestrador do pipeline supervisionado.
+﻿"""Orquestrador do pipeline supervisionado.
 
-A peça só é enfileirada quando passa pela pré-validação do texto e pela
-validação formal do `.docx`. Violações são registradas por item para revisão
+A peÃ§a sÃ³ Ã© enfileirada quando passa pela prÃ©-validaÃ§Ã£o do texto e pela
+validaÃ§Ã£o formal do `.docx`. ViolaÃ§Ãµes sÃ£o registradas por item para revisÃ£o
 humana antes de qualquer envio ou protocolo.
 """
 from __future__ import annotations
 
 import re
 import sys
-import traceback
+import logging
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from config import EMAIL_ADVOGADO, OUTPUT_DIR, REMETENTES_AUTORIZADOS
-from src.domain import PipelineSummary, ProcessResult
-from src.gmail_reader import Email, buscar_emails_pendentes
-from src.formatar_docx import renderizar
-from src.gmail_sender import enfileirar_resposta
-from src.pipeline_state import ja_processado_ok, registrar_item
-from src.profiles import get_profile
-from src.validar_docx import validar, validar_texto_protocolavel
+from config import EMAIL_ADVOGADO, MAX_DOCX_BYTES, OUTPUT_DIR, REMETENTES_AUTORIZADOS
+from src.core.domain import PipelineSummary, ProcessResult
+from src.adapters.inbox.gmail_reader import Email, buscar_emails_pendentes
+from src.infra.docx_render import renderizar
+from src.adapters.outbox.gmail_sender import enfileirar_resposta
+from src.infra.pipeline_state import ja_processado_ok, registrar_item
+from src.core.profiles import get_profile
+from src.orchestration.reporting import build_docx_report
+from src.core.validation.docx import validar, validar_texto_protocolavel
+
+logger = logging.getLogger(__name__)
 
 
 def _timestamp() -> str:
@@ -38,6 +41,18 @@ def _safe_token(value: str) -> str:
     return token[:32] or "sem_id"
 
 
+def _reject_oversized_docx(path: Path) -> list[str]:
+    if not path.exists() or path.stat().st_size <= MAX_DOCX_BYTES:
+        return []
+    size_mb = path.stat().st_size / 1024 / 1024
+    max_mb = MAX_DOCX_BYTES / 1024 / 1024
+    try:
+        path.unlink()
+    except OSError:
+        logger.warning("nÃ£o foi possÃ­vel remover DOCX acima do limite: %s", path)
+    return [f"DOCX gerado acima do limite permitido ({size_mb:.1f} MB > {max_mb:.1f} MB)."]
+
+
 def processar_email(
     email: Email,
     *,
@@ -45,10 +60,10 @@ def processar_email(
     no_outbox: bool = False,
 ) -> ProcessResult:
     profile = get_profile(profile_id)
-    print(f"[+] Processando thread {email.thread_id}")
+    logger.info("processando thread %s", email.thread_id, extra={"thread_id": email.thread_id})
 
     if ja_processado_ok(email.message_id):
-        print("    item já processado com sucesso; pulando")
+        logger.info("item jÃ¡ processado com sucesso; pulando", extra={"message_id": email.message_id})
         return ProcessResult(
             thread_id=email.thread_id,
             message_id=email.message_id,
@@ -60,9 +75,10 @@ def processar_email(
 
     problemas_pre = validar_texto_protocolavel(email.peticao_texto, profile.id)
     if problemas_pre:
-        print(f"    [BLOQUEADO] {len(problemas_pre)} problema(s) antes da geração:")
-        for problema in problemas_pre:
-            print(f"      - {problema}")
+        logger.warning(
+            "entrada bloqueada antes da geraÃ§Ã£o",
+            extra={"message_id": email.message_id, "status": "invalid_input", "profile_id": profile.id},
+        )
         registrar_item(
             email.message_id,
             thread_id=email.thread_id,
@@ -80,13 +96,33 @@ def processar_email(
 
     destino = OUTPUT_DIR / f"peticao_{_timestamp()}_{_safe_token(email.thread_id)}.docx"
     renderizar(email.peticao_texto, destino)
-    print(f"    docx -> {destino.name}")
+    logger.info("docx gerado: %s", destino.name, extra={"thread_id": email.thread_id})
+
+    problemas_tamanho = _reject_oversized_docx(destino)
+    if problemas_tamanho:
+        registrar_item(
+            email.message_id,
+            thread_id=email.thread_id,
+            status="invalid_docx",
+            problemas=problemas_tamanho,
+            docx=destino.name,
+        )
+        return ProcessResult(
+            thread_id=email.thread_id,
+            message_id=email.message_id,
+            status="invalid_docx",
+            destino=None,
+            problemas=problemas_tamanho,
+            profile_id=profile.id,
+        )
 
     problemas = validar(destino, profile.id)
+    docx_report = build_docx_report(destino, profile.id, problems=problemas)
     if problemas:
-        print(f"    [BLOQUEADO] {len(problemas)} violacao(oes) no .docx:")
-        for v in problemas:
-            print(f"      - {v}")
+        logger.warning(
+            "docx bloqueado por violaÃ§Ãµes formais",
+            extra={"message_id": email.message_id, "status": "invalid_docx", "profile_id": profile.id},
+        )
         registrar_item(
             email.message_id,
             thread_id=email.thread_id,
@@ -101,14 +137,15 @@ def processar_email(
             destino=destino,
             problemas=problemas,
             profile_id=profile.id,
+            docx_report=docx_report,
         )
     else:
-        print("    [VALIDACAO] OK")
+        logger.info("validaÃ§Ã£o formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
 
     status = "ok"
     enfileirado = False
     if no_outbox:
-        print("    [OUTBOX] ignorada por --no-outbox")
+        logger.info("outbox ignorada por no_outbox", extra={"message_id": email.message_id})
         status = "ok_no_outbox"
     else:
         enfileirar_resposta(
@@ -138,6 +175,7 @@ def processar_email(
         problemas=[],
         profile_id=profile.id,
         enfileirado=enfileirado,
+        docx_report=docx_report,
     )
 
 def executar_pipeline(
@@ -149,7 +187,7 @@ def executar_pipeline(
 ) -> dict:
     profile = get_profile(profile_id)
     if not emails:
-        print("Nenhum e-mail pendente.")
+        logger.info("nenhum e-mail pendente")
         summary = PipelineSummary()
         return {
             "exit_code": 3 if strict else 0,
@@ -157,7 +195,7 @@ def executar_pipeline(
             "items": [],
         }
 
-    print(f"{len(emails)} e-mail(s) pendente(s).")
+    logger.info("%s e-mail(s) pendente(s)", len(emails))
     erros = 0
     violacoes_totais = 0
     bloqueados = 0
@@ -179,8 +217,7 @@ def executar_pipeline(
                 ignorados += 1
         except Exception as e:
             erros += 1
-            print(f"[!] Falha em {email.thread_id}: {e}")
-            traceback.print_exc()
+            logger.exception("falha ao processar thread %s", email.thread_id)
             try:
                 registrar_item(
                     email.message_id,
@@ -201,11 +238,14 @@ def executar_pipeline(
         finally:
             items.append(resultado.to_report_item())
 
-    print(
-        f"\nConcluido. Enfileirados: {enfileirados} | "
-        f"Bloqueados: {bloqueados} | Falhas: {erros} | "
-        f"Violacoes: {violacoes_totais} | Ignorados: {ignorados} | "
-        f"Validos: {validos}"
+    logger.info(
+        "concluÃ­do: enfileirados=%s bloqueados=%s falhas=%s violaÃ§Ãµes=%s ignorados=%s vÃ¡lidos=%s",
+        enfileirados,
+        bloqueados,
+        erros,
+        violacoes_totais,
+        ignorados,
+        validos,
     )
     summary = PipelineSummary(
         total=len(emails),
@@ -229,7 +269,7 @@ def executar_pipeline(
 
 def main() -> int:
     if not EMAIL_ADVOGADO:
-        print(
+        logger.error(
             "[!] EMAIL_ADVOGADO nao configurado. "
             "Defina em `.env` (ver `.env.example`)."
         )
@@ -239,11 +279,12 @@ def main() -> int:
         emails = list(buscar_emails_pendentes(REMETENTES_AUTORIZADOS))
         run = executar_pipeline(emails)
     except Exception as e:
-        print(f"[!] Falha ao carregar fila de entrada: {e}")
-        traceback.print_exc()
+        logger.exception("falha ao carregar fila de entrada")
         return 1
     return int(run["exit_code"])
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
+

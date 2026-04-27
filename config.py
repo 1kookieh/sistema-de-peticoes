@@ -1,23 +1,18 @@
-"""Configurações globais do sistema.
-
-Todas as variáveis podem ser definidas em um arquivo `.env` local na raiz do
-projeto. Valores fornecidos via ambiente sobrescrevem defaults.
-"""
+"""Configurações centrais carregadas por `pydantic-settings`."""
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent
-OUTPUT_DIR = ROOT / "output"
-REPORTS_DIR = ROOT / "reports"
-FRONTEND_DIR = ROOT / "web"
-EXAMPLE_DOCX_DIR = ROOT / "examples" / "generated-docx"
-PROMPTS_DIR = ROOT / "prompts"
 
 
 def parse_env_lines(linhas: list[str]) -> dict[str, str]:
-    """Parseia linhas simples de `.env` sem expansão de variáveis."""
+    """Parseia linhas simples de `.env` para compatibilidade com testes/tools."""
     valores: dict[str, str] = {}
     for linha in linhas:
         linha = linha.strip()
@@ -32,7 +27,7 @@ def parse_env_lines(linhas: list[str]) -> dict[str, str]:
 
 
 def load_env_file(path: Path, *, override: bool = False) -> dict[str, str]:
-    """Carrega um `.env` simples e retorna os valores encontrados."""
+    """Carrega um `.env` simples preservando o comportamento anterior."""
     if not path.exists():
         return {}
 
@@ -45,37 +40,66 @@ def load_env_file(path: Path, *, override: bool = False) -> dict[str, str]:
     return valores
 
 
-def _csv_env(nome: str) -> tuple[str, ...]:
-    bruto = os.environ.get(nome, "")
-    return tuple(item.strip() for item in bruto.split(",") if item.strip())
+def _csv(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return tuple(item.strip() for item in value.split(",") if item.strip())
+    return tuple(str(item).strip() for item in value if str(item).strip())
 
 
-load_env_file(ROOT / ".env")
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    email_advogado: str = Field(default="", alias="EMAIL_ADVOGADO")
+    gmail_label_processado: str = Field(default="peticao-gerada", alias="GMAIL_LABEL_PROCESSADO")
+    api_token: str = Field(default="", alias="API_TOKEN")
+    api_allowed_origins: tuple[str, ...] = Field(
+        default=("http://127.0.0.1:8000", "http://localhost:8000"),
+        alias="API_ALLOWED_ORIGINS",
+    )
+    max_docx_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_DOCX_BYTES")
+    rate_limit_window_seconds: int = Field(default=60, alias="RATE_LIMIT_WINDOW_SECONDS")
+    rate_limit_max_mutations: int = Field(default=20, alias="RATE_LIMIT_MAX_MUTATIONS")
+    remetentes_autorizados: tuple[str, ...] = Field(default=(), alias="REMETENTES_AUTORIZADOS")
+    max_json_bytes: int = Field(default=2 * 1024 * 1024, alias="MAX_JSON_BYTES")
+    validation_profile: str = Field(default="judicial-inicial-jef", alias="VALIDATION_PROFILE")
+    retention_enabled: bool = Field(default=False, alias="RETENTION_ENABLED")
+    retention_output_days: int = Field(default=30, alias="RETENTION_OUTPUT_DAYS")
+    retention_reports_days: int = Field(default=30, alias="RETENTION_REPORTS_DAYS")
+    retention_queue_days: int = Field(default=7, alias="RETENTION_QUEUE_DAYS")
+    retention_status_days: int = Field(default=30, alias="RETENTION_STATUS_DAYS")
+
+    @field_validator("api_allowed_origins", "remetentes_autorizados", mode="before")
+    @classmethod
+    def _parse_csv_values(cls, value: Any) -> tuple[str, ...]:
+        return _csv(value)
 
 
-EMAIL_ADVOGADO = os.environ.get("EMAIL_ADVOGADO", "").strip()
-"""E-mail do advogado responsável pela revisão humana."""
+settings = Settings()
 
-GMAIL_LABEL_PROCESSADO = os.environ.get("GMAIL_LABEL_PROCESSADO", "peticao-gerada")
-"""Label aplicado pelo orquestrador externo a threads já processadas."""
+OUTPUT_DIR = ROOT / "output"
+REPORTS_DIR = ROOT / "reports"
+FRONTEND_DIR = ROOT / "web"
+EXAMPLE_DOCX_DIR = ROOT / "examples" / "generated-docx"
+PROMPTS_DIR = ROOT / "prompts"
 
-REMETENTES_AUTORIZADOS = _csv_env("REMETENTES_AUTORIZADOS")
-"""Lista opcional de remetentes autorizados, separados por vírgula."""
-
-MAX_JSON_BYTES = int(os.environ.get("MAX_JSON_BYTES", str(2 * 1024 * 1024)))
-"""Tamanho máximo aceito para filas JSON locais."""
-
-VALIDATION_PROFILE = os.environ.get("VALIDATION_PROFILE", "judicial-inicial-jef").strip()
-"""Perfil formal usado pelo validador quando nenhum perfil é informado."""
-
-RETENTION_ENABLED = os.environ.get("RETENTION_ENABLED", "false").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "sim",
-}
-"""Ativa expurgo de arquivos de runtime quando solicitado pelo operador."""
-
-RETENTION_OUTPUT_DAYS = int(os.environ.get("RETENTION_OUTPUT_DAYS", "30"))
-RETENTION_QUEUE_DAYS = int(os.environ.get("RETENTION_QUEUE_DAYS", "7"))
-RETENTION_STATUS_DAYS = int(os.environ.get("RETENTION_STATUS_DAYS", "30"))
+EMAIL_ADVOGADO = settings.email_advogado.strip()
+GMAIL_LABEL_PROCESSADO = settings.gmail_label_processado
+API_TOKEN = settings.api_token.strip()
+API_ALLOWED_ORIGINS = settings.api_allowed_origins
+MAX_DOCX_BYTES = settings.max_docx_bytes
+RATE_LIMIT_WINDOW_SECONDS = settings.rate_limit_window_seconds
+RATE_LIMIT_MAX_MUTATIONS = settings.rate_limit_max_mutations
+REMETENTES_AUTORIZADOS = settings.remetentes_autorizados
+MAX_JSON_BYTES = settings.max_json_bytes
+VALIDATION_PROFILE = settings.validation_profile.strip()
+RETENTION_ENABLED = settings.retention_enabled
+RETENTION_OUTPUT_DAYS = settings.retention_output_days
+RETENTION_REPORTS_DAYS = settings.retention_reports_days
+RETENTION_QUEUE_DAYS = settings.retention_queue_days
+RETENTION_STATUS_DAYS = settings.retention_status_days

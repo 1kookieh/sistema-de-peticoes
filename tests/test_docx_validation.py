@@ -1,7 +1,8 @@
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from src.formatar_docx import renderizar
-from src.validar_docx import validar, validar_texto_protocolavel
+from src.core.validation.docx import validar, validar_texto_protocolavel
+from src.infra.docx_render import renderizar
 
 
 TEXTO_VALIDO = """EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL DA VARA DO JUIZADO ESPECIAL FEDERAL DA SUBSEÇÃO JUDICIÁRIA DE GOIÂNIA/GO
@@ -36,6 +37,19 @@ MARIA ADVOGADA DE EXEMPLO
 OAB/GO 12.345"""
 
 
+TEXTO_PROCURACAO = """PROCURAÇÃO AD JUDICIA ET EXTRA
+
+OUTORGANTE: JOÃO DA SILVA, brasileiro, residente em Goiânia/GO.
+
+OUTORGADA: MARIA ADVOGADA DE EXEMPLO, advogada inscrita na OAB/GO 12.345.
+
+PODERES: representar o outorgante perante órgãos administrativos e judiciais, com poderes gerais para o foro, observados os limites da revisão humana obrigatória.
+
+Goiânia/GO, 6 de abril de 2026.
+
+JOÃO DA SILVA"""
+
+
 def test_renderizar_docx_valido_com_acentos(tmp_path):
     destino = tmp_path / "peticao.docx"
 
@@ -56,6 +70,27 @@ def test_renderizar_define_pagina_a4(tmp_path):
     assert round(section.page_height.cm, 1) == 29.7
 
 
+def test_renderizar_negrito_pontual_em_qualificacao_e_labels(tmp_path):
+    destino = tmp_path / "peticao.docx"
+    renderizar(TEXTO_VALIDO, destino)
+
+    doc = Document(destino)
+    qualificacao = next(p for p in doc.paragraphs if p.text.startswith("JOÃO DA SILVA"))
+
+    assert qualificacao.runs[0].text == "JOÃO DA SILVA"
+    assert qualificacao.runs[0].bold is True
+
+
+def test_renderizar_local_data_centralizado(tmp_path):
+    destino = tmp_path / "peticao.docx"
+    renderizar(TEXTO_VALIDO, destino)
+
+    doc = Document(destino)
+    local_data = next(p for p in doc.paragraphs if p.text.startswith("Goiânia/GO,"))
+
+    assert local_data.alignment == WD_ALIGN_PARAGRAPH.CENTER
+
+
 def test_validar_texto_protocolavel_bloqueia_placeholders():
     problemas = validar_texto_protocolavel(
         TEXTO_VALIDO.replace("JOÃO DA SILVA", "NOME DO REQUERENTE")
@@ -71,3 +106,13 @@ def test_validar_docx_detecta_linha_de_assinatura(tmp_path):
     problemas = validar(destino)
 
     assert any("linha de assinatura" in problema for problema in problemas)
+
+
+def test_renderizar_procuracao_com_perfil_instrumento_mandato(tmp_path):
+    destino = tmp_path / "procuracao.docx"
+
+    renderizar(TEXTO_PROCURACAO, destino)
+
+    assert destino.exists()
+    assert validar(destino, profile_id="instrumento-mandato") == []
+    assert validar_texto_protocolavel(TEXTO_PROCURACAO, "instrumento-mandato") == []
