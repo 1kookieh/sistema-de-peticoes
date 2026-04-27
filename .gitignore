@@ -46,6 +46,7 @@ ENV/
 # ---------- Variáveis de ambiente e segredos ----------
 .env
 .env.*
+!.env.example
 
 # ---------- Artefatos gerados pelo pipeline ----------
 output/*
@@ -60,6 +61,8 @@ mcp_inbox.json
 mcp_outbox.json
 mcp_status.json
 *.tmp
+*.lock
+*.log
 reports/
 !reports/
 reports/*
@@ -68,9 +71,11 @@ reports/*
 *.html
 !web/*.html
 !web/**/*.html
+!templates/*.html
 
 # ---------- Configurações locais do orquestrador ----------
 .claude/
+CLAUDE.md
 
 # ---------- SO / editores ----------
 .DS_Store

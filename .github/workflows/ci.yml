@@ -43,13 +43,13 @@ jobs:
           INBOX_MOCK_PATH: ./teste_inbox.json
         run: |
           mkdir -p output
-          python -m src.main
+          python -m src
 
       - name: Validar artefato gerado
         run: |
           shopt -s nullglob
           for f in output/*.docx; do
             echo "Validando $f"
-            python -m src.validar_docx "$f"
+            python -m src.core.validation.docx "$f"
           done
         shell: bash
