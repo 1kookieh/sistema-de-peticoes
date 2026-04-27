@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LexDoc — Gerador Jurídico</title>
+  <title>LexDoc — Gerador Jurídico de DOCX</title>
   <meta name="description" content="Gere peças jurídicas em DOCX a partir de texto, PDF, Word ou imagem com validação supervisionada.">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -22,7 +22,7 @@
         </span>
         <span class="brand-text">
           <strong>LexDoc</strong>
-          <small>Gerador jurídico</small>
+          <small>Gerador Jurídico de DOCX</small>
         </span>
       </a>
 
@@ -47,8 +47,9 @@
         <span class="dot" aria-hidden="true"></span>
         Uso jurídico supervisionado · Processamento local · Revisão obrigatória
       </span>
-      <h1>Gere DOCX jurídico com mais clareza e segurança</h1>
-      <p class="hero-sub">Crie peças jurídicas a partir de texto, PDF, Word ou imagem com validação automática e revisão assistida.</p>
+      <h1>Gerador Jurídico de DOCX</h1>
+      <p class="hero-sub">Transforme texto, PDF, Word ou imagem em peças jurídicas revisáveis, com validação automática e uso supervisionado.</p>
+      <p id="step-helper" class="step-helper" aria-live="polite">Etapa 1 de 3 — escolha o tipo e o perfil da peça.</p>
 
       <ol class="stepper" aria-label="Etapas do fluxo">
         <li class="step-node is-active" data-step="1">
@@ -70,7 +71,7 @@
       <form id="generator-form" class="card form-card stack" novalidate>
         <header id="card-piece" class="card-head">
           <h2><span class="num-chip">1</span> Tipo de peça</h2>
-          <p class="muted">Tudo opcional. Sem escolha, o sistema detecta a peça pelo texto e aplica o perfil <strong>Inicial JEF/Federal</strong> (PJE/Projudi).</p>
+          <p class="muted">Escolha manualmente ou deixe o sistema detectar pelo conteúdo.</p>
         </header>
 
         <div class="grid">
@@ -104,7 +105,7 @@
 
         <header class="card-head">
           <h2><span class="num-chip">2</span> Entrada</h2>
-          <p class="muted">Aceita .txt, .md, .docx, .pdf e imagens. Imagens passam por OCR para extrair texto.</p>
+          <p class="muted">Cole texto ou envie arquivos para extração automática.</p>
         </header>
 
         <label id="upload-box" class="upload-box" tabindex="0">
@@ -124,7 +125,12 @@
 
         <label class="field">
           <span class="field-label">Texto da peça ou conteúdo base</span>
-          <textarea id="text" rows="12" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
+          <span class="quick-actions" aria-label="Ações rápidas do texto">
+            <button id="paste-text" class="ghost-btn small" type="button">Colar texto</button>
+            <button id="clear-text" class="ghost-btn small" type="button">Limpar</button>
+            <button id="insert-example" class="ghost-btn small" type="button">Exemplo</button>
+          </span>
+          <textarea id="text" rows="8" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
         </label>
 
         <div class="actions">
@@ -134,7 +140,7 @@
             </span>
             <span class="btn-label">Gerar e validar DOCX</span>
           </button>
-          <span class="muted">Processamento seguro. Nada é enviado para serviços externos.</span>
+          <span class="muted">Processamento local. Nada é enviado para serviços externos.</span>
         </div>
 
         <p class="warning">
@@ -146,7 +152,7 @@
         <section id="card-result" class="card result-card">
           <header class="card-head compact">
             <h2><span class="num-chip">3</span> Resultado da geração</h2>
-            <p class="muted">Os arquivos aparecem aqui após a geração.</p>
+            <p class="muted">Downloads, alertas e relatórios aparecem aqui.</p>
           </header>
           <div id="result" class="result" aria-live="polite">
             <div class="empty-state">
@@ -165,9 +171,9 @@
             <p class="muted">Verifique antes de protocolar.</p>
           </header>
           <ul class="checklist">
-            <li><span class="chk" aria-hidden="true"></span> Conferir parte autora e ré (qualificação e endereços)</li>
+            <li class="done"><span class="chk" aria-hidden="true"></span> Conferir parte autora e ré</li>
             <li><span class="chk" aria-hidden="true"></span> Verificar DER, NB e fundamentos legais</li>
-            <li><span class="chk" aria-hidden="true"></span> Competência e valor da causa</li>
+            <li class="warn"><span class="chk" aria-hidden="true"></span> Competência e valor da causa</li>
             <li><span class="chk" aria-hidden="true"></span> OAB, procuração e documentos anexos</li>
           </ul>
         </section>
@@ -176,10 +182,19 @@
           <header class="card-head compact spaced">
             <div>
               <h2>Histórico recente</h2>
-              <p class="muted">Relatórios e documentos salvos nesta máquina.</p>
+              <p class="muted">Últimos documentos salvos nesta máquina.</p>
             </div>
             <button id="refresh" class="ghost-btn small" type="button">Atualizar</button>
           </header>
+          <div class="history-tools">
+            <input id="history-search" type="search" placeholder="Buscar no histórico">
+            <select id="history-filter" aria-label="Filtrar histórico">
+              <option value="all">Todos</option>
+              <option value="valid">Válidos</option>
+              <option value="blocked">Bloqueados</option>
+              <option value="failed">Falhas</option>
+            </select>
+          </div>
           <div id="history" aria-live="polite"></div>
         </section>
       </aside>

@@ -129,6 +129,8 @@ def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     payload = response.json()
     assert payload["status"] == "ok_no_outbox"
     assert payload["download_url"].endswith("/download")
+    assert "prompt_peticao.md" in payload["prompt_usage"]
+    assert "prompt_formatacao_word.md" in payload["prompt_usage"]
     assert (output_dir / payload["document"]).exists()
     assert any(reports_dir.glob("*.json"))
     assert any(reports_dir.glob("*.html"))

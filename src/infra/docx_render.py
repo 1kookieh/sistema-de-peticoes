@@ -31,6 +31,8 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt, RGBColor
 
+from src.core.prompts import PromptSpec, load_word_formatting_prompt
+
 FONT_NAME = "Times New Roman"
 FONT_SIZE_PT = 12
 PAGE_WIDTH_CM = 21
@@ -282,7 +284,16 @@ def _render_sequencia_alineas(doc: Document, linhas: list[str]) -> None:
     flush()
 
 
-def renderizar(texto: str, destino: Path) -> Path:
+def renderizar(
+    texto: str,
+    destino: Path,
+    *,
+    formatting_prompt: PromptSpec | None = None,
+) -> Path:
+    # O prompt de formatação é obrigatório mesmo com renderização determinística:
+    # ele é o contrato versionado que documenta o padrão Word esperado.
+    formatting_prompt = formatting_prompt or load_word_formatting_prompt()
+
     doc = Document()
     _setup_page(doc)
     _setup_styles(doc)

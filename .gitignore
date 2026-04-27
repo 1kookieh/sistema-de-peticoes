@@ -75,7 +75,6 @@ reports/*
 
 # ---------- Configurações locais do orquestrador ----------
 .claude/
-CLAUDE.md
 
 # ---------- SO / editores ----------
 .DS_Store

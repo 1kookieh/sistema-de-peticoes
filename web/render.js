@@ -13,6 +13,23 @@ export function setMessage(target, message, kind = "muted") {
   target.innerHTML = `<p class="${kind}">${escapeHTML(message)}</p>`;
 }
 
+export function renderLoading(container, label = "Gerando documento") {
+  container.classList.remove("has-problems");
+  container.innerHTML = `
+    <div class="loading-card" role="status">
+      <strong>${escapeHTML(label)}</strong>
+      <div class="progress-bar" aria-hidden="true"><span></span></div>
+      <ol class="progress-steps">
+        <li class="done">Arquivo recebido</li>
+        <li class="done">Texto extraído</li>
+        <li class="active">Detectando tipo de peça</li>
+        <li>Gerando DOCX</li>
+        <li>Validando riscos formais</li>
+      </ol>
+    </div>
+  `;
+}
+
 export function renderPieceTypes(select) {
   const grouped = new Map();
   for (const item of state.pieceTypes) {
@@ -78,7 +95,7 @@ export function renderProfileDetails(container, selectedId) {
     container.innerHTML = `
       <strong>Detecção automática</strong>
       <span>auto</span>
-      <p>O sistema escolhe o perfil pela peça detectada. Sem peça reconhecida, usa <strong>Inicial JEF/Federal</strong> (PJE/Projudi).</p>
+      <p>O sistema escolhe o perfil pela peça detectada. Sem reconhecimento, usa <strong>Inicial JEF/Federal</strong>.</p>
     `;
     return;
   }
@@ -105,7 +122,7 @@ export function renderPieceHint(container, selectedId) {
   if (!selectedId || selectedId === AUTO_VALUE) {
     container.innerHTML = `
       <strong>Detecção automática</strong>
-      <p>Cole o texto e o sistema identifica a peça por título e palavras-chave. Se não reconhecer, segue sem rótulo e aplica o perfil padrão.</p>
+      <p>Cole o texto e o sistema identifica a peça por título e palavras-chave.</p>
     `;
     return;
   }
@@ -121,13 +138,33 @@ export function renderPieceHint(container, selectedId) {
   `;
 }
 
-export function renderHistory(container, reports) {
+export function renderHistory(container, reports, options = {}) {
   if (!reports.length) {
     container.innerHTML = "<p class='muted' style='margin-top:10px'>Nenhum relatório local encontrado ainda.</p>";
     return;
   }
 
-  container.innerHTML = reports.map((item) => {
+  const query = (options.query || "").toLowerCase().trim();
+  const filter = options.filter || "all";
+  const filtered = reports.filter((item) => {
+    const validos = Number(item.summary?.validos ?? 0);
+    const bloqueados = Number(item.summary?.bloqueados ?? 0);
+    const falhas = Number(item.summary?.falhas ?? 0);
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "valid" && validos > 0 && !bloqueados && !falhas) ||
+      (filter === "blocked" && bloqueados > 0) ||
+      (filter === "failed" && falhas > 0);
+    const haystack = `${item.profile || ""} ${item.name || ""} ${item.first_docx || ""}`.toLowerCase();
+    return matchesFilter && (!query || haystack.includes(query));
+  }).slice(0, 3);
+
+  if (!filtered.length) {
+    container.innerHTML = "<p class='muted' style='margin-top:10px'>Nenhum item encontrado com esse filtro.</p>";
+    return;
+  }
+
+  container.innerHTML = filtered.map((item) => {
     const validos = Number(item.summary?.validos ?? 0);
     const bloqueados = Number(item.summary?.bloqueados ?? 0);
     const falhas = Number(item.summary?.falhas ?? 0);
@@ -136,12 +173,11 @@ export function renderHistory(container, reports) {
     if (falhas) statusBadge = '<span class="badge badge-danger">falha</span>';
     return `
     <article class="history-item">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="history-main">
         <strong>${escapeHTML(item.profile || item.name)}</strong>
         ${statusBadge}
       </div>
-      <p class="muted small">${escapeHTML(item.generated_at || "sem data")}</p>
-      <p class="muted small">Válidos: ${validos} · Bloqueados: ${bloqueados} · Falhas: ${falhas}</p>
+      <p class="muted small">${escapeHTML(item.generated_at || "sem data")} · Válidos: ${validos} · Bloqueados: ${bloqueados} · Falhas: ${falhas}</p>
       <div class="link-row">
         ${item.first_docx ? `<button class="link-button primary-link" aria-label="Baixar DOCX" data-download="/api/v1/documents/${encodeURIComponent(item.first_docx)}/download">DOCX</button>` : ""}
         <button class="link-button" aria-label="Abrir relatório HTML" data-open="/api/v1/reports/${encodeURIComponent(item.html_name)}">HTML</button>
@@ -168,9 +204,16 @@ export function renderResult(container, payload) {
     ? `<p class="muted"><strong>Fonte:</strong> ${escapeHTML(payload.source_filename)}</p>`
     : "";
 
+  const alerts = hasProblems
+    ? payload.problems.map((problem) => `<li>⚠ ${escapeHTML(problem)}</li>`).join("")
+    : [
+        "Conferir DER, NB e documentos anexos conforme o caso.",
+        "Confirmar competência, valor da causa, OAB e procuração.",
+        "Revisar mérito jurídico antes de qualquer protocolo.",
+      ].map((problem) => `<li>○ ${escapeHTML(problem)}</li>`).join("");
   const problems = hasProblems
-    ? `<div class="warning"><strong>Atenção:</strong> ${escapeHTML(payload.problems.join("; "))}</div>`
-    : `<p class="muted" style="display:flex;align-items:center;gap:8px"><span class="badge badge-ok">✓</span> Validação formal sem violações detectadas.</p>`;
+    ? `<div class="warning"><strong>Documento bloqueado ou com alertas:</strong><ul class="alert-list">${alerts}</ul></div>`
+    : `<div class="legal-alerts"><strong>Alertas de revisão humana</strong><ul class="alert-list">${alerts}</ul></div>`;
 
   container.classList.toggle("has-problems", hasProblems);
   container.innerHTML = `

@@ -79,6 +79,21 @@ def test_processar_email_reusa_relatorio_docx_sem_revalidar(tmp_path, monkeypatc
     assert item["docx_report"] is resultado.docx_report
 
 
+def test_processar_email_registra_uso_dos_prompts_obrigatorios(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
+    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+
+    resultado = main.processar_email(_email(_texto_valido()), no_outbox=True)
+    item = resultado.to_report_item()
+
+    assert "prompt_peticao.md" in item["prompt_usage"]
+    assert "prompt_formatacao_word.md" in item["prompt_usage"]
+    assert len(item["prompt_usage"]["prompt_peticao.md"]["sha256"]) == 64
+    assert len(item["prompt_usage"]["prompt_formatacao_word.md"]["sha256"]) == 64
+
+
 def test_main_retorna_2_sem_email_advogado(monkeypatch):
     monkeypatch.setattr(main, "EMAIL_ADVOGADO", "")
 

@@ -24,6 +24,8 @@ def setup_runtime(
 
     required: tuple[tuple[str, Path, str], ...] = (
         ("prompts", root / "prompts", "dir"),
+        ("prompt_peticao.md", root / "prompts" / "prompt_peticao.md", "file"),
+        ("prompt_formatacao_word.md", root / "prompts" / "prompt_formatacao_word.md", "file"),
         ("teste_inbox.json", root / "teste_inbox.json", "file"),
         ("requirements.txt", root / "requirements.txt", "file"),
         ("requirements-dev.txt", root / "requirements-dev.txt", "file"),

@@ -26,6 +26,11 @@ from src.infra.docx_render import renderizar
 from src.adapters.outbox.gmail_sender import enfileirar_resposta
 from src.infra.pipeline_state import ja_processado_ok, registrar_item
 from src.core.profiles import get_profile
+from src.core.prompts import (
+    load_word_formatting_prompt,
+    prepare_petition_text,
+    prompt_audit_payload,
+)
 from src.orchestration.reporting import build_docx_report
 from src.core.validation.docx import validar, validar_texto_protocolavel
 
@@ -73,7 +78,11 @@ def processar_email(
             profile_id=profile.id,
         )
 
-    problemas_pre = validar_texto_protocolavel(email.peticao_texto, profile.id)
+    texto_peticao, petition_prompt = prepare_petition_text(email.peticao_texto)
+    formatting_prompt = load_word_formatting_prompt()
+    prompt_usage = prompt_audit_payload(petition_prompt, formatting_prompt)
+
+    problemas_pre = validar_texto_protocolavel(texto_peticao, profile.id)
     if problemas_pre:
         logger.warning(
             "entrada bloqueada antes da geração",
@@ -92,10 +101,11 @@ def processar_email(
             destino=None,
             problemas=problemas_pre,
             profile_id=profile.id,
+            prompt_usage=prompt_usage,
         )
 
     destino = OUTPUT_DIR / f"peticao_{_timestamp()}_{_safe_token(email.thread_id)}.docx"
-    renderizar(email.peticao_texto, destino)
+    renderizar(texto_peticao, destino, formatting_prompt=formatting_prompt)
     logger.info("docx gerado: %s", destino.name, extra={"thread_id": email.thread_id})
 
     problemas_tamanho = _reject_oversized_docx(destino)
@@ -114,6 +124,7 @@ def processar_email(
             destino=None,
             problemas=problemas_tamanho,
             profile_id=profile.id,
+            prompt_usage=prompt_usage,
         )
 
     problemas = validar(destino, profile.id)
@@ -138,6 +149,7 @@ def processar_email(
             problemas=problemas,
             profile_id=profile.id,
             docx_report=docx_report,
+            prompt_usage=prompt_usage,
         )
     else:
         logger.info("validação formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
@@ -176,6 +188,7 @@ def processar_email(
         profile_id=profile.id,
         enfileirado=enfileirado,
         docx_report=docx_report,
+        prompt_usage=prompt_usage,
     )
 
 def executar_pipeline(

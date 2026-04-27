@@ -15,6 +15,7 @@ class ProcessResult:
     profile_id: str
     enfileirado: bool = False
     docx_report: dict | None = None
+    prompt_usage: dict | None = None
 
     def to_report_item(self) -> dict:
         item = {
@@ -26,6 +27,8 @@ class ProcessResult:
             "profile_id": self.profile_id,
             "enqueued": self.enfileirado,
         }
+        if self.prompt_usage is not None:
+            item["prompt_usage"] = self.prompt_usage
         if self.docx_report is not None:
             item["docx_report"] = self.docx_report
         elif self.destino and self.destino.exists():

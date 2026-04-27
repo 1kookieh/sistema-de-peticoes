@@ -12,6 +12,7 @@ import {
 } from "./state/store.js";
 import {
   renderHistory,
+  renderLoading,
   renderPieceHint,
   renderPieceTypes,
   renderProfileDetails,
@@ -36,10 +37,53 @@ const dom = {
   result: document.querySelector("#result"),
   history: document.querySelector("#history"),
   refresh: document.querySelector("#refresh"),
+  historySearch: document.querySelector("#history-search"),
+  historyFilter: document.querySelector("#history-filter"),
   themeToggle: document.querySelector("#theme-toggle"),
   uploadBox: document.querySelector("#upload-box"),
+  stepHelper: document.querySelector("#step-helper"),
+  pasteText: document.querySelector("#paste-text"),
+  clearText: document.querySelector("#clear-text"),
+  insertExample: document.querySelector("#insert-example"),
   steps: document.querySelectorAll(".step-node"),
 };
+
+let lastReports = [];
+
+const STEP_MESSAGES = {
+  1: "Etapa 1 de 3 — escolha o tipo e o perfil da peça.",
+  2: "Etapa 2 de 3 — envie arquivos ou cole o conteúdo base.",
+  3: "Etapa 3 de 3 — revise alertas, baixe o DOCX e confira os relatórios.",
+};
+
+const EXAMPLE_TEXT = `EXCELENTÍSSIMO SENHOR DOUTOR JUIZ FEDERAL DA VARA DO JUIZADO ESPECIAL FEDERAL DA SUBSEÇÃO JUDICIÁRIA DE GOIÂNIA/GO
+
+AÇÃO DE CONCESSÃO DE AUXÍLIO POR INCAPACIDADE TEMPORÁRIA
+
+JOÃO DA SILVA, brasileiro, casado, pedreiro, portador do CPF 123.456.789-09, residente em Goiânia/GO, vem, respeitosamente, propor a presente ação.
+
+DOS FATOS
+
+O autor informa incapacidade laboral temporária e apresenta documentos médicos para análise supervisionada.
+
+DO DIREITO
+
+Estão presentes os requisitos formais mínimos para revisão humana da peça.
+
+DOS PEDIDOS
+
+a) a concessão do benefício;
+b) a produção de provas;
+c) a condenação ao pagamento das parcelas vencidas.
+
+DO VALOR DA CAUSA
+
+Dá-se à causa o valor de R$ 10.000,00.
+
+Goiânia/GO, 24 de abril de 2026.
+
+Advogado Exemplo
+OAB/GO 12.345`;
 
 function setStep(active) {
   if (!dom.steps?.length) return;
@@ -48,18 +92,30 @@ function setStep(active) {
     node.classList.toggle("is-active", step === active);
     node.classList.toggle("is-done", step < active);
   });
+  if (dom.stepHelper) dom.stepHelper.textContent = STEP_MESSAGES[active] || STEP_MESSAGES[1];
 }
 
 function setGenerateLoading(isLoading) {
   if (!dom.generate) return;
-  dom.generate.disabled = isLoading;
+  dom.generate.disabled = isLoading || !hasContent();
   dom.generate.classList.toggle("is-loading", isLoading);
-  if (dom.generateLabel) dom.generateLabel.textContent = isLoading ? "Gerando..." : "Gerar e validar DOCX";
+  if (dom.generateLabel) dom.generateLabel.textContent = isLoading ? "Detectando e validando..." : "Gerar e validar DOCX";
+}
+
+function hasContent() {
+  return Boolean(dom.text.value.trim() || selectedFiles().length);
+}
+
+function syncGenerateState() {
+  if (dom.generate) dom.generate.disabled = !hasContent();
 }
 
 function renderFileList(uploads) {
   if (!uploads.length) {
-    dom.fileInfo.textContent = "Nenhum arquivo selecionado. O sistema usará o texto colado abaixo.";
+    dom.fileInfo.innerHTML = `
+      <strong>Estado vazio</strong>
+      <span class="muted small">Nenhum arquivo selecionado. Arraste arquivos ou cole texto abaixo.</span>
+    `;
     return;
   }
   const total = uploads.reduce((sum, u) => sum + u.size, 0);
@@ -70,7 +126,7 @@ function renderFileList(uploads) {
     </div>
   `).join("");
   dom.fileInfo.innerHTML = `
-    <strong>${uploads.length} arquivo${uploads.length > 1 ? "s" : ""} selecionado${uploads.length > 1 ? "s" : ""}</strong>
+    <strong>Estado com arquivo · ${uploads.length} arquivo${uploads.length > 1 ? "s" : ""}</strong>
     <span class="muted small"> · ${formatBytes(total)} no total</span>
     <div class="file-list">${rows}</div>
   `;
@@ -160,11 +216,19 @@ async function loadHistory() {
       );
       return;
     }
-    renderHistory(dom.history, payload.reports || []);
+    lastReports = payload.reports || [];
+    renderHistory(dom.history, lastReports, historyOptions());
   } catch (error) {
     console.error(error);
     setMessage(dom.history, "Não foi possível conectar à API local. Verifique se o servidor está rodando em http://127.0.0.1:8000/.", "warning");
   }
+}
+
+function historyOptions() {
+  return {
+    query: dom.historySearch?.value || "",
+    filter: dom.historyFilter?.value || "all",
+  };
 }
 
 async function loadTextPreviewFromFile(upload) {
@@ -174,13 +238,13 @@ async function loadTextPreviewFromFile(upload) {
 
 function validateFiles(uploads) {
   if (uploads.length > state.limits.max_upload_files) {
-    return `Selecione no máximo ${state.limits.max_upload_files} arquivos por vez.`;
+    return `Arquivos demais. Envie no máximo ${state.limits.max_upload_files} arquivos por vez.`;
   }
   const oversized = uploads.find((upload) => upload.size > state.limits.max_file_bytes);
-  if (oversized) return `${oversized.name} está acima do limite de ${formatBytes(state.limits.max_file_bytes)}.`;
+  if (oversized) return `Arquivo muito grande. ${oversized.name} está acima do limite de ${formatBytes(state.limits.max_file_bytes)} por arquivo.`;
   const totalBytes = uploads.reduce((sum, upload) => sum + upload.size, 0);
   if (totalBytes > state.limits.max_total_upload_bytes) {
-    return `Arquivos acima do limite total de ${formatBytes(state.limits.max_total_upload_bytes)}.`;
+    return `Arquivos acima do limite total. O limite atual é ${formatBytes(state.limits.max_total_upload_bytes)} por requisição.`;
   }
   return null;
 }
@@ -188,7 +252,7 @@ function validateFiles(uploads) {
 function validateBeforeGenerate() {
   const uploads = selectedFiles();
   if (uploads.length) return null;
-  if (!dom.text.value.trim()) return "Cole um texto ou selecione um arquivo.";
+  if (!dom.text.value.trim()) return "Nenhum conteúdo informado. Envie um arquivo ou cole um texto antes de gerar.";
   if (dom.text.value.length > state.limits.max_text_chars) return `Texto acima do limite de ${state.limits.max_text_chars} caracteres.`;
   return null;
 }
@@ -259,6 +323,7 @@ function bindEvents() {
       renderFileList([]);
       dom.clearFile.hidden = true;
       setStep(dom.text.value.trim() ? 2 : 1);
+      syncGenerateState();
       return;
     }
     const error = validateFiles(uploads);
@@ -267,12 +332,14 @@ function bindEvents() {
       dom.file.value = "";
       renderFileList([]);
       dom.clearFile.hidden = true;
+      syncGenerateState();
       return;
     }
     renderFileList(uploads);
     dom.clearFile.hidden = false;
     setStep(2);
     await loadTextPreviewFromFile(uploads[0]);
+    syncGenerateState();
   }
 
   dom.file.addEventListener("change", handleFileSelection);
@@ -282,6 +349,7 @@ function bindEvents() {
     renderFileList([]);
     dom.clearFile.hidden = true;
     setStep(dom.text.value.trim() ? 2 : 1);
+    syncGenerateState();
   });
 
   // Drag-and-drop visual feedback no upload-box
@@ -312,12 +380,37 @@ function bindEvents() {
   dom.text.addEventListener("input", () => {
     if (dom.text.value.trim() || selectedFiles().length) setStep(2);
     else setStep(1);
+    syncGenerateState();
   });
 
   dom.profile.addEventListener("change", () => renderProfileDetails(dom.profileDetails, dom.profile.value));
   dom.pieceType.addEventListener("change", () => renderPieceHint(dom.pieceHint, dom.pieceType.value));
   dom.refresh.addEventListener("click", loadHistory);
+  dom.historySearch?.addEventListener("input", () => renderHistory(dom.history, lastReports, historyOptions()));
+  dom.historyFilter?.addEventListener("change", () => renderHistory(dom.history, lastReports, historyOptions()));
   dom.themeToggle?.addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  dom.clearText?.addEventListener("click", () => {
+    dom.text.value = "";
+    setStep(selectedFiles().length ? 2 : 1);
+    syncGenerateState();
+  });
+  dom.insertExample?.addEventListener("click", () => {
+    dom.text.value = EXAMPLE_TEXT;
+    setStep(2);
+    syncGenerateState();
+    dom.text.focus();
+  });
+  dom.pasteText?.addEventListener("click", async () => {
+    try {
+      dom.text.value = await navigator.clipboard.readText();
+      setStep(2);
+      syncGenerateState();
+      dom.text.focus();
+    } catch (error) {
+      console.error(error);
+      setMessage(dom.result, "Não foi possível ler a área de transferência. Cole manualmente com Ctrl+V.", "warning");
+    }
+  });
 
   dom.apiToken.addEventListener("input", () => {
     localStorage.setItem(
@@ -336,7 +429,7 @@ function bindEvents() {
 
     setGenerateLoading(true);
     setStep(3);
-    dom.result.innerHTML = "<p class='muted'>Gerando documento e relatório...</p>";
+    renderLoading(dom.result, selectedFiles().length ? "Extraindo texto e gerando DOCX" : "Gerando documento");
     try {
       const uploads = selectedFiles();
       const { response, payload } = uploads.length
@@ -368,6 +461,8 @@ export async function initUI() {
   initTheme();
   dom.apiToken.value = loadStoredToken();
   bindEvents();
+  renderFileList([]);
+  syncGenerateState();
   await loadLimits();
   await Promise.all([loadProfiles(), loadPieceTypes(), loadHistory()]);
 }

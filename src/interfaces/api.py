@@ -1,4 +1,4 @@
-"""API REST local para geração, download e painel de relatórios."""
+﻿"""API REST local para geração, download e painel de relatórios."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -37,9 +37,9 @@ from src.core.profiles import PROFILES, get_profile, list_profile_ids
 
 PROFILE_LABELS_PT = {
     "judicial-inicial-jef": "Inicial JEF / Justiça Federal",
-    "judicial-inicial-estadual": "Inicial â€” Justiça Estadual",
-    "administrativo-inss": "Administrativo â€” INSS / CRPS",
-    "extrajudicial-tabelionato": "Extrajudicial â€” Tabelionato",
+    "judicial-inicial-estadual": "Inicial — Justiça Estadual",
+    "administrativo-inss": "Administrativo — INSS / CRPS",
+    "extrajudicial-tabelionato": "Extrajudicial — Tabelionato",
     "instrumento-mandato": "Procuração / Substabelecimento / Declaração",
     "forense-basico": "Forense básico (mínimo formal)",
 }
@@ -346,12 +346,15 @@ def _generate_from_text(
         "ignorados": 0,
         "validos": 1 if result.status == "ok_no_outbox" else 0,
     }
+    report_item = result.to_report_item()
+    metadata["prompt_usage"] = report_item.get("prompt_usage", {})
+
     report = build_run_report(
         profile=profile,
         strict=True,
         no_outbox=True,
         summary=run_summary,
-        items=[result.to_report_item()],
+        items=[report_item],
     )
     report["metadata"] = metadata
     report_base = REPORTS_DIR / f"api_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{token}"
@@ -377,6 +380,7 @@ def _generate_from_text(
         },
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
+        "prompt_usage": metadata["prompt_usage"],
     }
 
 

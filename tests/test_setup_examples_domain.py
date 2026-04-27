@@ -11,6 +11,8 @@ from src.adapters.inbox.gmail_reader import buscar_emails_pendentes
 def test_cli_setup_cria_output_reports_e_verifica_recursos(tmp_path, monkeypatch):
     root = tmp_path
     (root / "prompts").mkdir()
+    (root / "prompts" / "prompt_peticao.md").write_text("prompt peticao", encoding="utf-8")
+    (root / "prompts" / "prompt_formatacao_word.md").write_text("prompt word", encoding="utf-8")
     (root / "teste_inbox.json").write_text("[]", encoding="utf-8")
     (root / "requirements.txt").write_text("python-docx>=1.1.0\n", encoding="utf-8")
     (root / "requirements-dev.txt").write_text("-r requirements.txt\npytest>=8.0.0\n", encoding="utf-8")
@@ -24,6 +26,28 @@ def test_cli_setup_cria_output_reports_e_verifica_recursos(tmp_path, monkeypatch
     assert code == 0
     assert (root / "output" / ".gitkeep").exists()
     assert (root / "reports" / ".gitkeep").exists()
+
+
+def test_setup_verifica_prompts_obrigatorios(tmp_path):
+    from src.orchestration.setup import setup_runtime
+
+    root = tmp_path
+    (root / "prompts").mkdir()
+    (root / "prompts" / "prompt_peticao.md").write_text("prompt peticao", encoding="utf-8")
+    (root / "prompts" / "prompt_formatacao_word.md").write_text("prompt word", encoding="utf-8")
+    (root / "teste_inbox.json").write_text("[]", encoding="utf-8")
+    (root / "requirements.txt").write_text("python-docx>=1.1.0\n", encoding="utf-8")
+    (root / "requirements-dev.txt").write_text("-r requirements.txt\n", encoding="utf-8")
+
+    checks = setup_runtime(
+        root=root,
+        output_dir=root / "output",
+        reports_dir=root / "reports",
+    )
+
+    by_name = {check.name: check for check in checks}
+    assert by_name["prompt_peticao.md"].ok is True
+    assert by_name["prompt_formatacao_word.md"].ok is True
 
 
 def test_examples_valid_json_aceito_pelo_contrato(monkeypatch):
