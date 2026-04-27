@@ -1,7 +1,7 @@
-﻿"""Interface desktop local para geraÃ§Ã£o supervisionada de petiÃ§Ãµes.
+"""Interface desktop local para geração supervisionada de petições.
 
-A interface usa Tkinter, disponÃ­vel na biblioteca padrÃ£o, para manter o
-projeto simples e sem dependÃªncias de UI. Ela nÃ£o substitui a revisÃ£o humana:
+A interface usa Tkinter, disponível na biblioteca padrão, para manter o
+projeto simples e sem dependências de UI. Ela não substitui a revisão humana:
 apenas aciona o mesmo pipeline validado usado pela CLI e pela API.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from src.orchestration.setup import setup_runtime
 class DesktopApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Sistema de PetiÃ§Ãµes")
+        self.title("Sistema de Petições")
         self.geometry("900x680")
         self.minsize(760, 560)
         self._build_ui()
@@ -37,7 +37,7 @@ class DesktopApp(tk.Tk):
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(1, weight=1)
 
-        ttk.Label(header, text="Perfil de validaÃ§Ã£o").grid(row=0, column=0, sticky="w")
+        ttk.Label(header, text="Perfil de validação").grid(row=0, column=0, sticky="w")
         self.profile_var = tk.StringVar(value="judicial-inicial-jef")
         self.profile = ttk.Combobox(
             header,
@@ -53,8 +53,8 @@ class DesktopApp(tk.Tk):
         body.rowconfigure(1, weight=1)
 
         warning = (
-            "Uso supervisionado: o documento gerado exige revisÃ£o jurÃ­dica humana, "
-            "conferÃªncia de dados, assinatura, OAB, anexos e regras locais de protocolo."
+            "Uso supervisionado: o documento gerado exige revisão jurídica humana, "
+            "conferência de dados, assinatura, OAB, anexos e regras locais de protocolo."
         )
         ttk.Label(body, text=warning, wraplength=820).grid(row=0, column=0, sticky="ew", pady=(0, 8))
 
@@ -76,7 +76,7 @@ class DesktopApp(tk.Tk):
 
     def _load_txt(self) -> None:
         path = filedialog.askopenfilename(
-            title="Selecionar texto da petiÃ§Ã£o",
+            title="Selecionar texto da petição",
             filetypes=(("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")),
         )
         if not path:
@@ -102,7 +102,7 @@ class DesktopApp(tk.Tk):
     def _generate(self) -> None:
         texto = self.text.get("1.0", tk.END).strip()
         if not texto:
-            messagebox.showwarning("Texto obrigatÃ³rio", "Cole ou carregue o texto da peÃ§a antes de gerar.")
+            messagebox.showwarning("Texto obrigatório", "Cole ou carregue o texto da peça antes de gerar.")
             return
         self.generate_button.configure(state="disabled")
         self.status_var.set("Gerando e validando...")
@@ -116,7 +116,7 @@ class DesktopApp(tk.Tk):
                 thread_id=f"desktop-{token}",
                 message_id=f"desktop-{token}",
                 remetente="desktop@example.com",
-                assunto="GeraÃ§Ã£o desktop local",
+                assunto="Geração desktop local",
                 peticao_texto=texto,
             )
             result = processar_email(email, profile_id=profile.id, no_outbox=True)
@@ -143,15 +143,15 @@ class DesktopApp(tk.Tk):
             lines = [f"Status: {result.status}"]
             if result.destino:
                 lines.append(f"Documento: {OUTPUT_DIR / result.destino.name}")
-            lines.append(f"RelatÃ³rio JSON: {report_base.with_suffix('.json')}")
-            lines.append(f"RelatÃ³rio HTML: {report_base.with_suffix('.html')}")
+            lines.append(f"Relatório JSON: {report_base.with_suffix('.json')}")
+            lines.append(f"Relatório HTML: {report_base.with_suffix('.html')}")
             if result.problemas:
                 lines.append("")
                 lines.append("Problemas formais encontrados:")
                 lines.extend(f"- {problem}" for problem in result.problemas)
-            self.after(0, self._finish_generation, "\n".join(lines), "ConcluÃ­do.")
+            self.after(0, self._finish_generation, "\n".join(lines), "Concluído.")
         except Exception as exc:
-            self.after(0, self._finish_generation, f"Falha: {exc}", "Falha na geraÃ§Ã£o.")
+            self.after(0, self._finish_generation, f"Falha: {exc}", "Falha na geração.")
 
     def _finish_generation(self, result_text: str, status: str) -> None:
         self._set_result(result_text)

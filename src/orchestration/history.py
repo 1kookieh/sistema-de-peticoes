@@ -1,4 +1,4 @@
-﻿"""Leitura segura do histÃ³rico local de relatÃ³rios e status."""
+"""Leitura segura do histórico local de relatórios e status."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from src.adapters.outbox import gmail_sender
 from src.orchestration import pipeline as main
@@ -10,7 +10,7 @@ def _email(texto: str):
         thread_id="thread/001",
         message_id="msg-001",
         remetente="cliente@example.com",
-        assunto="Pedido de petiÃ§Ã£o",
+        assunto="Pedido de petição",
         peticao_texto=texto,
     )
 

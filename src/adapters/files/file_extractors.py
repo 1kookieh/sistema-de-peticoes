@@ -1,4 +1,4 @@
-﻿"""ExtraÃ§Ã£o de texto para uploads locais permitidos pela API."""
+"""Extração de texto para uploads locais permitidos pela API."""
 from __future__ import annotations
 
 from io import BytesIO
@@ -15,20 +15,20 @@ MAX_TOTAL_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_UPLOAD_FILES = 20
 ALLOWED_UPLOAD_SUFFIXES = {".txt", ".md", ".docx", ".pdf", ".png", ".jpg", ".jpeg", ".webp"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
-HEADER_LINE_RE = re.compile(r"^\s*(EXCELENT[ÃI]SSIMO|AO\s+TABELIONATO|AO\s+INSTITUTO)", re.IGNORECASE)
+HEADER_LINE_RE = re.compile(r"^\s*(EXCELENT[ÍI]SSIMO|AO\s+TABELIONATO|AO\s+INSTITUTO)", re.IGNORECASE)
 PIECE_TITLE_RE = re.compile(
     r"^\s*(A[CÃ‡][AÃƒ]O|PETI[CÃ‡][AÃƒ]O|RECURSO|MANDADO|CUMPRIMENTO|IMPUGNA[CÃ‡][AÃƒ]O|"
-    r"CONTRARRAZ[Ã•O]ES|EMBARGOS|REQUERIMENTO|AGRAVO|APELA[CÃ‡][AÃƒ]O|ALVAR[ÃA]|"
-    r"INVENT[ÃA]RIO)\b",
+    r"CONTRARRAZ[Ã•O]ES|EMBARGOS|REQUERIMENTO|AGRAVO|APELA[CÃ‡][AÃƒ]O|ALVAR[ÁA]|"
+    r"INVENT[ÁA]RIO)\b",
     re.IGNORECASE,
 )
 SECTION_LINE_RE = re.compile(r"^\s*(?:[IVXLCDM]+)\s*[-â€“â€”]\s+", re.IGNORECASE)
-LOCAL_DATE_RE = re.compile(r"^[A-ZÃÃ€Ã‚ÃƒÃ‰ÃˆÃŠÃÃ“Ã”Ã•ÃšÃ‡][\wÃÃ€Ã‚ÃƒÃ‰ÃˆÃŠÃÃ“Ã”Ã•ÃšÃ‡\s./-]+,\s*\d{1,2}\s+de\s+", re.IGNORECASE)
+LOCAL_DATE_RE = re.compile(r"^[A-ZÁÃ€Ã‚ÃƒÃ‰ÃˆÃŠÍÃ“Ã”Ã•ÃšÃ‡][\wÁÃ€Ã‚ÃƒÃ‰ÃˆÃŠÍÃ“Ã”Ã•ÃšÃ‡\s./-]+,\s*\d{1,2}\s+de\s+", re.IGNORECASE)
 OAB_RE = re.compile(r"^\s*OAB\s*/?\s*[A-Z]{2}\s+\d", re.IGNORECASE)
 
 
 class FileExtractionError(ValueError):
-    """Erro ao extrair texto de arquivo enviado pelo usuÃ¡rio."""
+    """Erro ao extrair texto de arquivo enviado pelo usuário."""
 
 
 def _decode_text(data: bytes) -> str:
@@ -37,7 +37,7 @@ def _decode_text(data: bytes) -> str:
             return data.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise FileExtractionError("nÃ£o foi possÃ­vel decodificar o arquivo de texto")
+    raise FileExtractionError("não foi possível decodificar o arquivo de texto")
 
 
 def _extract_docx(data: bytes) -> str:
@@ -56,17 +56,17 @@ def _extract_image(data: bytes) -> str:
     try:
         import pytesseract
     except ImportError as exc:
-        raise FileExtractionError("OCR de imagem nÃ£o estÃ¡ instalado") from exc
+        raise FileExtractionError("OCR de imagem não está instalado") from exc
 
     try:
         image = Image.open(BytesIO(data))
         text = pytesseract.image_to_string(image, lang="por")
     except pytesseract.TesseractNotFoundError as exc:
         raise FileExtractionError(
-            "OCR nÃ£o configurado. Instale o Tesseract OCR e deixe o executÃ¡vel no PATH."
+            "OCR não configurado. Instale o Tesseract OCR e deixe o executável no PATH."
         ) from exc
     except Exception as exc:
-        raise FileExtractionError("nÃ£o foi possÃ­vel extrair texto da imagem") from exc
+        raise FileExtractionError("não foi possível extrair texto da imagem") from exc
     return text
 
 
@@ -100,7 +100,7 @@ def _normalize_extracted_legal_text(text: str) -> str:
         elif header_mode and (
             PIECE_TITLE_RE.match(line)
             or SECTION_LINE_RE.match(line)
-            or line.lower().startswith(("joao ", "joÃ£o ", "maria ", "autor ", "requerente "))
+            or line.lower().startswith(("joao ", "joão ", "maria ", "autor ", "requerente "))
         ):
             starts_new_block = True
             header_mode = False
@@ -120,7 +120,7 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_UPLOAD_SUFFIXES:
         allowed = ", ".join(sorted(ALLOWED_UPLOAD_SUFFIXES))
-        raise FileExtractionError(f"formato nÃ£o suportado. Use: {allowed}")
+        raise FileExtractionError(f"formato não suportado. Use: {allowed}")
     if len(data) > MAX_UPLOAD_BYTES:
         raise FileExtractionError(f"arquivo excede {MAX_UPLOAD_BYTES} bytes")
 
@@ -136,18 +136,18 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
     except FileExtractionError:
         raise
     except Exception as exc:
-        raise FileExtractionError("nÃ£o foi possÃ­vel extrair texto do arquivo") from exc
+        raise FileExtractionError("não foi possível extrair texto do arquivo") from exc
 
     text = text.strip()
     if not text:
-        raise FileExtractionError("arquivo nÃ£o contÃ©m texto extraÃ­vel")
+        raise FileExtractionError("arquivo não contém texto extraível")
     return text
 
 
 def extract_text_from_uploads(files: list[tuple[str, bytes]]) -> str:
     if len(files) > MAX_UPLOAD_FILES:
         raise FileExtractionError(
-            f"limite de {MAX_UPLOAD_FILES} arquivos por requisiÃ§Ã£o excedido"
+            f"limite de {MAX_UPLOAD_FILES} arquivos por requisição excedido"
         )
     total_bytes = sum(len(data) for _, data in files)
     if total_bytes > MAX_TOTAL_UPLOAD_BYTES:

@@ -1,4 +1,4 @@
-﻿"""Tipos de domÃ­nio compartilhados pelo pipeline supervisionado."""
+"""Tipos de domínio compartilhados pelo pipeline supervisionado."""
 from __future__ import annotations
 
 from dataclasses import dataclass

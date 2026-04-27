@@ -1,9 +1,9 @@
-﻿"""Leitura da fila de entrada (mcp_inbox.json).
+"""Leitura da fila de entrada (mcp_inbox.json).
 
-O `mcp_inbox.json` Ã© populado por um orquestrador externo (assistente de
-linha de comando, integraÃ§Ã£o MCP com Gmail, etc.) que lÃª os e-mails, redige
-a peÃ§a com base nos prompts em `prompts/` e grava cada item jÃ¡ com o
-`peticao_texto` pronto. Este mÃ³dulo apenas desserializa.
+O `mcp_inbox.json` é populado por um orquestrador externo (assistente de
+linha de comando, integração MCP com Gmail, etc.) que lê os e-mails, redige
+a peça com base nos prompts em `prompts/` e grava cada item já com o
+`peticao_texto` pronto. Este módulo apenas desserializa.
 """
 from __future__ import annotations
 
@@ -42,15 +42,15 @@ def _validar_string(item: object, campo: str, indice: int) -> str:
 
     valor = item.get(campo)
     if not isinstance(valor, str) or not valor.strip():
-        raise InboxValidationError(f"item {indice}: campo obrigatÃ³rio invÃ¡lido: {campo}")
+        raise InboxValidationError(f"item {indice}: campo obrigatório inválido: {campo}")
     return valor.strip()
 
 
 def _ler_json_array(path: Path) -> list[object]:
     if not path.exists():
-        raise InboxValidationError(f"fila de entrada nÃ£o encontrada: {path}")
+        raise InboxValidationError(f"fila de entrada não encontrada: {path}")
     if not path.is_file():
-        raise InboxValidationError(f"fila de entrada nÃ£o Ã© arquivo: {path}")
+        raise InboxValidationError(f"fila de entrada não é arquivo: {path}")
     if path.stat().st_size > MAX_JSON_BYTES:
         raise InboxValidationError(
             f"fila de entrada excede {MAX_JSON_BYTES} bytes: {path}"
@@ -59,7 +59,7 @@ def _ler_json_array(path: Path) -> list[object]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise InboxValidationError(f"JSON invÃ¡lido em {path}: {exc}") from exc
+        raise InboxValidationError(f"JSON inválido em {path}: {exc}") from exc
 
     if not isinstance(raw, list):
         raise InboxValidationError("fila de entrada deve ser uma lista JSON")
@@ -76,7 +76,7 @@ def _carregar(path: Path) -> list[Email]:
         faltantes = [campo for campo in REQUIRED_FIELDS if campo not in item]
         if faltantes:
             raise InboxValidationError(
-                f"item {indice}: campos obrigatÃ³rios ausentes: {', '.join(faltantes)}"
+                f"item {indice}: campos obrigatórios ausentes: {', '.join(faltantes)}"
             )
 
         email = Email(

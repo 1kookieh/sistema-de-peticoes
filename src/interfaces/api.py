@@ -1,4 +1,4 @@
-﻿"""API REST local para geraÃ§Ã£o, download e painel de relatÃ³rios."""
+"""API REST local para geração, download e painel de relatórios."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -36,12 +36,12 @@ from src.core.profiles import PROFILES, get_profile, list_profile_ids
 
 
 PROFILE_LABELS_PT = {
-    "judicial-inicial-jef": "Inicial JEF / JustiÃ§a Federal",
-    "judicial-inicial-estadual": "Inicial â€” JustiÃ§a Estadual",
+    "judicial-inicial-jef": "Inicial JEF / Justiça Federal",
+    "judicial-inicial-estadual": "Inicial â€” Justiça Estadual",
     "administrativo-inss": "Administrativo â€” INSS / CRPS",
     "extrajudicial-tabelionato": "Extrajudicial â€” Tabelionato",
-    "instrumento-mandato": "ProcuraÃ§Ã£o / Substabelecimento / DeclaraÃ§Ã£o",
-    "forense-basico": "Forense bÃ¡sico (mÃ­nimo formal)",
+    "instrumento-mandato": "Procuração / Substabelecimento / Declaração",
+    "forense-basico": "Forense básico (mínimo formal)",
 }
 
 DEFAULT_PROFILE_ID = "judicial-inicial-jef"
@@ -59,9 +59,9 @@ async def lifespan(app_: FastAPI):
 
 
 app = FastAPI(
-    title="Sistema de PetiÃ§Ãµes API",
+    title="Sistema de Petições API",
     version="1.0.0",
-    description="API local para geraÃ§Ã£o supervisionada de documentos .docx.",
+    description="API local para geração supervisionada de documentos .docx.",
     lifespan=lifespan,
 )
 
@@ -104,7 +104,7 @@ async def local_rate_limit(request: Request, call_next):
         if len(bucket) >= RATE_LIMIT_MAX_MUTATIONS:
             return JSONResponse(
                 status_code=429,
-                content={"detail": "limite local de requisiÃ§Ãµes atingido"},
+                content={"detail": "limite local de requisições atingido"},
             )
         bucket.append(now)
         _RATE_LIMIT_BUCKETS[client] = bucket
@@ -119,39 +119,39 @@ class DocumentRequest(BaseModel):
     text: str = Field(
         min_length=1,
         max_length=500_000,
-        description="Texto da peÃ§a a ser formatada.",
+        description="Texto da peça a ser formatada.",
     )
     profile_id: str | None = Field(
         default=None,
         max_length=80,
         description=(
-            "Perfil formal de validaÃ§Ã£o. Use ``auto``, vazio ou ``None`` para "
-            "deixar o sistema escolher (peÃ§a detectada â†’ perfil sugerido; "
-            f"caso contrÃ¡rio, padrÃ£o ``{DEFAULT_PROFILE_ID}``)."
+            "Perfil formal de validação. Use ``auto``, vazio ou ``None`` para "
+            "deixar o sistema escolher (peça detectada â†’ perfil sugerido; "
+            f"caso contrário, padrão ``{DEFAULT_PROFILE_ID}``)."
         ),
     )
     piece_type_id: str | None = Field(
         default=None,
         max_length=120,
-        description="Identificador da peÃ§a. Vazio ou ``auto`` deixa o sistema inferir do texto.",
+        description="Identificador da peça. Vazio ou ``auto`` deixa o sistema inferir do texto.",
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
-    assunto: str = Field(default="GeraÃ§Ã£o local", max_length=200)
+    assunto: str = Field(default="Geração local", max_length=200)
 
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
-    """Protege rotas sensÃ­veis quando API_TOKEN estiver configurado."""
+    """Protege rotas sensíveis quando API_TOKEN estiver configurado."""
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="token de API ausente ou invÃ¡lido",
+            detail="token de API ausente ou inválido",
         )
 
 
 def require_allowed_origin(origin: str | None = Header(default=None, alias="Origin")) -> None:
-    """Bloqueia chamadas mutadoras vindas de pÃ¡ginas nÃ£o autorizadas."""
+    """Bloqueia chamadas mutadoras vindas de páginas não autorizadas."""
     if origin and origin not in API_ALLOWED_ORIGINS:
-        raise HTTPException(status_code=403, detail="origem nÃ£o autorizada para esta API local")
+        raise HTTPException(status_code=403, detail="origem não autorizada para esta API local")
 
 
 def _profile_or_422(profile_id: str | None):
@@ -173,9 +173,9 @@ def _safe_file(base: Path, filename: str, suffixes: set[str]) -> Path:
     try:
         candidate.relative_to(base.resolve())
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="caminho invÃ¡lido") from exc
+        raise HTTPException(status_code=400, detail="caminho inválido") from exc
     if candidate.suffix.lower() not in suffixes or not candidate.exists():
-        raise HTTPException(status_code=404, detail="arquivo nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
     return candidate
 
 
@@ -183,7 +183,7 @@ def _safe_file(base: Path, filename: str, suffixes: set[str]) -> Path:
 def index() -> FileResponse:
     index_path = FRONTEND_DIR / "index.html"
     if not index_path.exists():
-        raise HTTPException(status_code=404, detail="frontend nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="frontend não encontrado")
     return FileResponse(index_path)
 
 
@@ -264,13 +264,13 @@ def api_limits() -> dict[str, int]:
 def _resolve_piece_and_profile(
     text: str, piece_type_id: str | None, profile_id: str | None
 ) -> tuple[Any, Any, bool, bool]:
-    """Resolve peÃ§a e perfil aplicando inferÃªncia quando o usuÃ¡rio nÃ£o escolhe.
+    """Resolve peça e perfil aplicando inferência quando o usuário não escolhe.
 
     Regras:
     - ``piece_type_id`` ausente / ``"auto"`` â†’ tenta inferir do texto.
     - ``profile_id`` ausente / ``"auto"`` / vazio â†’ usa o perfil sugerido pela
-      peÃ§a detectada; caso contrÃ¡rio cai em ``DEFAULT_PROFILE_ID``.
-    - IDs explÃ­citos invÃ¡lidos viram HTTP 422 (mantÃ©m contrato anterior).
+      peça detectada; caso contrário cai em ``DEFAULT_PROFILE_ID``.
+    - IDs explícitos inválidos viram HTTP 422 (mantém contrato anterior).
     """
     piece_type_inferred = False
     if not piece_type_id or piece_type_id.strip().lower() == "auto":
@@ -399,7 +399,7 @@ async def generate_document_from_upload(
     profile_id: str | None = Form(default=None),
     piece_type_id: str | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
-    assunto: str = Form(default="GeraÃ§Ã£o por upload local"),
+    assunto: str = Form(default="Geração por upload local"),
 ) -> dict[str, Any]:
     uploads = list(files or [])
     if file is not None:

@@ -1,4 +1,4 @@
-﻿"""Perfis formais de validaÃ§Ã£o por contexto de uso."""
+"""Perfis formais de validação por contexto de uso."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -91,7 +91,7 @@ def get_profile(profile_id: str | None = None) -> ValidationProfile:
         return PROFILES[resolved]
     except KeyError as exc:
         disponiveis = ", ".join(list_profile_ids())
-        raise ValueError(f"perfil de validaÃ§Ã£o desconhecido: {resolved}. DisponÃ­veis: {disponiveis}") from exc
+        raise ValueError(f"perfil de validação desconhecido: {resolved}. Disponíveis: {disponiveis}") from exc
 
 
 def infer_profile_id(texto: str) -> str:

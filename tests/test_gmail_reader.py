@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 import pytest
 
@@ -39,7 +39,7 @@ def test_buscar_emails_pendentes_rejeita_campo_obrigatorio_ausente(tmp_path, mon
     inbox.write_text(json.dumps([{"thread_id": "t1"}]), encoding="utf-8")
     monkeypatch.setenv("INBOX_MOCK_PATH", str(inbox))
 
-    with pytest.raises(InboxValidationError, match="campos obrigatÃ³rios ausentes"):
+    with pytest.raises(InboxValidationError, match="campos obrigatórios ausentes"):
         list(buscar_emails_pendentes())
 
 

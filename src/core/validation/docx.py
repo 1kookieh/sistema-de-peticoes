@@ -1,11 +1,11 @@
-﻿"""Valida se um .docx atende Ã s regras formais do projeto.
+"""Valida se um .docx atende às regras formais do projeto.
 
-Retorna lista de violaÃ§Ãµes (strings). Uma lista vazia significa que o documento
-passou nas verificaÃ§Ãµes determinÃ­sticas implementadas: pÃ¡gina, margens, fonte,
-alinhamentos, 7 linhas apÃ³s o endereÃ§amento, OAB, local/data, placeholders e
-assinatura grÃ¡fica.
+Retorna lista de violações (strings). Uma lista vazia significa que o documento
+passou nas verificações determinísticas implementadas: página, margens, fonte,
+alinhamentos, 7 linhas após o endereçamento, OAB, local/data, placeholders e
+assinatura gráfica.
 
-NÃ£o valida semÃ¢ntica jurÃ­dica â€” essa responsabilidade fica com o redator
+Não valida semântica jurídica â€” essa responsabilidade fica com o redator
 (humano ou integrador externo) ao comparar o texto final contra o
 `prompt_peticao.md`.
 """
@@ -61,38 +61,38 @@ def _header_matches(texto: str, profile: ValidationProfile) -> bool:
 
 
 def validar_texto_protocolavel(texto: str, profile_id: str | None = None) -> list[str]:
-    """Valida bloqueios formais antes de gerar/enfileirar uma peÃ§a."""
+    """Valida bloqueios formais antes de gerar/enfileirar uma peça."""
     profile = get_profile(profile_id)
     problemas: list[str] = []
     texto_limpo = texto.strip()
     texto_upper = texto_limpo.upper()
 
     if not texto_limpo:
-        return ["texto da peÃ§a estÃ¡ vazio"]
+        return ["texto da peça está vazio"]
 
     if PLACEHOLDER_RE.search(texto_limpo):
-        problemas.append("texto contÃ©m placeholders ou dados de exemplo")
+        problemas.append("texto contém placeholders ou dados de exemplo")
     if DADO_FICTICIO_RE.search(texto_limpo):
-        problemas.append("texto contÃ©m CPF/NIT fictÃ­cio ou zerado")
+        problemas.append("texto contém CPF/NIT fictício ou zerado")
     if not _header_matches(texto_limpo, profile):
         problemas.append(
-            f"texto nÃ£o inicia com endereÃ§amento reconhecido pelo perfil {profile.id}"
+            f"texto não inicia com endereçamento reconhecido pelo perfil {profile.id}"
         )
     if profile.require_oab and not any(
         OAB_FORMAT_RE.match(linha.strip()) for linha in texto_limpo.splitlines()
     ):
-        problemas.append("texto nÃ£o contÃ©m linha de OAB em formato reconhecido")
+        problemas.append("texto não contém linha de OAB em formato reconhecido")
     if profile.require_local_data and not any(
         LOCAL_DATA_RE.match(linha.strip()) for linha in texto_limpo.splitlines()
     ):
-        problemas.append("texto nÃ£o contÃ©m local e data em formato reconhecido")
+        problemas.append("texto não contém local e data em formato reconhecido")
     if profile.require_oab and "TERMOS EM QUE" not in texto_upper and "NESTES TERMOS" not in texto_upper:
-        problemas.append("texto nÃ£o contÃ©m fechamento forense reconhecido")
+        problemas.append("texto não contém fechamento forense reconhecido")
 
     ausentes = [secao for secao in profile.required_sections if secao not in texto_upper]
     if ausentes:
         problemas.append(
-            f"perfil {profile.id} sem seÃ§Ãµes mÃ­nimas: " + ", ".join(ausentes)
+            f"perfil {profile.id} sem seções mínimas: " + ", ".join(ausentes)
         )
     if profile.require_value_cause and "VALOR DA CAUSA" not in texto_upper:
         problemas.append(f"perfil {profile.id} exige valor da causa")
@@ -103,15 +103,15 @@ def validar_texto_protocolavel(texto: str, profile_id: str | None = None) -> lis
 def validar(path: Path, profile_id: str | None = None) -> list[str]:
     profile = get_profile(profile_id)
     if not path.exists():
-        return [f"arquivo nÃ£o encontrado: {path}"]
+        return [f"arquivo não encontrado: {path}"]
 
     doc = Document(str(path))
     problemas: list[str] = []
 
     sec = doc.sections[0]
     for nome, atual, esperado in [
-        ("largura da pÃ¡gina", _cm(sec.page_width), PAGE_WIDTH_CM),
-        ("altura da pÃ¡gina", _cm(sec.page_height), PAGE_HEIGHT_CM),
+        ("largura da página", _cm(sec.page_width), PAGE_WIDTH_CM),
+        ("altura da página", _cm(sec.page_height), PAGE_HEIGHT_CM),
     ]:
         if abs(atual - esperado) > 0.1:
             problemas.append(
@@ -140,13 +140,13 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
     fontes_invalidas = fontes_vistas - FONTES_ACEITAS
     if fontes_invalidas:
         problemas.append(
-            f"fontes nÃ£o autorizadas: {sorted(fontes_invalidas)} "
+            f"fontes não autorizadas: {sorted(fontes_invalidas)} "
             f"(esperado: {sorted(FONTES_ACEITAS)})"
         )
     tamanhos_invalidos = {t for t in tamanhos_vistos if t != TAM_FONTE_PT}
     if tamanhos_invalidos:
         problemas.append(
-            f"tamanhos de fonte nÃ£o autorizados: {sorted(tamanhos_invalidos)} "
+            f"tamanhos de fonte não autorizados: {sorted(tamanhos_invalidos)} "
             f"(esperado: {TAM_FONTE_PT}pt)"
         )
 
@@ -165,12 +165,12 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
     t0_upper = t0.upper()
     if not _header_matches(t0, profile):
         problemas.append(
-            f"1Âº parÃ¡grafo nÃ£o parece endereÃ§amento do perfil {profile.id}: {t0[:60]!r}"
+            f"1º parágrafo não parece endereçamento do perfil {profile.id}: {t0[:60]!r}"
         )
     if p0.alignment != WD_ALIGN_PARAGRAPH.CENTER:
-        problemas.append("endereÃ§amento nÃ£o estÃ¡ centralizado")
+        problemas.append("endereçamento não está centralizado")
     if not any(r.bold for r in p0.runs if r.text.strip()):
-        problemas.append("endereÃ§amento nÃ£o estÃ¡ em negrito")
+        problemas.append("endereçamento não está em negrito")
 
     brancos = 0
     for p in paragrafos[idx_p0 + 1 :]:
@@ -180,13 +180,13 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
             break
     if brancos < profile.min_blank_lines_after_header:
         problemas.append(
-            f"{brancos} linhas em branco apÃ³s endereÃ§amento "
+            f"{brancos} linhas em branco após endereçamento "
             f"(esperado {profile.min_blank_lines_after_header})"
         )
 
     ultimos = [t for _, _, t in paragrafos_texto if t][-4:]
     if profile.require_oab and not any("OAB" in t.upper() for t in ultimos):
-        problemas.append("fechamento sem linha de OAB nos Ãºltimos parÃ¡grafos")
+        problemas.append("fechamento sem linha de OAB nos últimos parágrafos")
 
     paragrafo_oab = next(
         ((p, t) for _, p, t in reversed(paragrafos_texto) if OAB_ANY_RE.search(t)),
@@ -196,11 +196,11 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
     if paragrafo_oab and profile.require_oab:
         p_oab, linha_oab = paragrafo_oab
         if not OAB_FORMAT_RE.match(linha_oab):
-            problemas.append(f"linha OAB em formato nÃ£o reconhecido: {linha_oab[:60]!r}")
+            problemas.append(f"linha OAB em formato não reconhecido: {linha_oab[:60]!r}")
         if p_oab.alignment != WD_ALIGN_PARAGRAPH.CENTER:
-            problemas.append("linha OAB nÃ£o estÃ¡ centralizada")
+            problemas.append("linha OAB não está centralizada")
         if not any(r.bold for r in p_oab.runs if r.text.strip()):
-            problemas.append("linha OAB nÃ£o estÃ¡ em negrito")
+            problemas.append("linha OAB não está em negrito")
 
     if linha_oab and len(linha_oab) > 40:
         problemas.append(
@@ -210,7 +210,7 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
     if profile.require_local_data and not any(
         LOCAL_DATA_RE.match(t) for _, _, t in paragrafos_texto if t
     ):
-        problemas.append("local e data nÃ£o encontrados em formato reconhecido")
+        problemas.append("local e data não encontrados em formato reconhecido")
 
     for _, p, t in paragrafos_texto:
         if not t or p.alignment != WD_ALIGN_PARAGRAPH.JUSTIFY:
@@ -218,14 +218,14 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
         indent = _cm(p.paragraph_format.first_line_indent)
         if abs(indent - FIRST_LINE_INDENT_CM) > 0.1:
             problemas.append(
-                f"parÃ¡grafo sem recuo de {FIRST_LINE_INDENT_CM} cm: {t[:60]!r}"
+                f"parágrafo sem recuo de {FIRST_LINE_INDENT_CM} cm: {t[:60]!r}"
             )
             break
 
     for _, _, t in paragrafos_texto:
         if "_" * 5 in t or "-" * 10 in t:
             problemas.append(
-                "hÃ¡ linha de assinatura (traÃ§os/underscores) â€” proibido"
+                "há linha de assinatura (traços/underscores) â€” proibido"
             )
             break
 

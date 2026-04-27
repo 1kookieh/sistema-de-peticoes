@@ -1,4 +1,4 @@
-﻿"""RelatÃ³rios estruturados de conformidade formal."""
+"""Relatórios estruturados de conformidade formal."""
 from __future__ import annotations
 
 import json
@@ -119,7 +119,7 @@ def write_json_report(path: Path, report: dict[str, Any]) -> None:
 
 
 def render_report_html(report: dict[str, Any]) -> str:
-    """Converte um relatÃ³rio JSON em HTML local para revisÃ£o humana."""
+    """Converte um relatório JSON em HTML local para revisão humana."""
     env = Environment(
         loader=FileSystemLoader(TEMPLATES_DIR),
         autoescape=select_autoescape(("html", "xml")),

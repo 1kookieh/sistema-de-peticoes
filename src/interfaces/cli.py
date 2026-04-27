@@ -1,4 +1,4 @@
-﻿"""CLI dedicada para execuÃ§Ã£o supervisionada do pipeline."""
+"""CLI dedicada para execução supervisionada do pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -19,17 +19,17 @@ from src.orchestration.setup import setup_runtime
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src",
-        description="Pipeline supervisionado para gerar e validar petiÃ§Ãµes .docx.",
+        description="Pipeline supervisionado para gerar e validar petições .docx.",
     )
-    parser.add_argument("--profile", default=None, help="Perfil de validaÃ§Ã£o formal.")
-    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponÃ­veis.")
+    parser.add_argument("--profile", default=None, help="Perfil de validação formal.")
+    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponíveis.")
     parser.add_argument("--inbox", type=Path, help="Caminho de um JSON de entrada.")
-    parser.add_argument("--strict", action="store_true", help="Falha se nÃ£o houver documento novo vÃ¡lido.")
-    parser.add_argument("--report", type=Path, help="Grava relatÃ³rio JSON de conformidade.")
+    parser.add_argument("--strict", action="store_true", help="Falha se não houver documento novo válido.")
+    parser.add_argument("--report", type=Path, help="Grava relatório JSON de conformidade.")
     parser.add_argument("--no-outbox", action="store_true", help="Gera e valida sem gravar mcp_outbox.json.")
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
-    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a polÃ­tica de retenÃ§Ã£o.")
+    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
     return parser
 
 

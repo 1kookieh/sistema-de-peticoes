@@ -1,6 +1,6 @@
-﻿"""Lock simples de arquivo para proteger filas JSON locais.
+"""Lock simples de arquivo para proteger filas JSON locais.
 
-MantÃ©m o projeto sem dependÃªncias externas e reduz risco de duas execuÃ§Ãµes
+Mantém o projeto sem dependências externas e reduz risco de duas execuções
 sobrescreverem `mcp_status.json` ou `mcp_outbox.json` ao mesmo tempo.
 """
 from __future__ import annotations

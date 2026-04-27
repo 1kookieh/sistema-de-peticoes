@@ -1,4 +1,4 @@
-﻿"""ConfiguraÃ§Ã£o de logging para CLI, API e integraÃ§Ãµes locais."""
+"""Configuração de logging para CLI, API e integrações locais."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from typing import Any
 
 
 class JsonFormatter(logging.Formatter):
-    """Formatter mÃ­nimo em JSON para logs consumÃ­veis por ferramentas externas."""
+    """Formatter mínimo em JSON para logs consumíveis por ferramentas externas."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {

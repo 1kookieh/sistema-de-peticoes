@@ -1,24 +1,24 @@
-﻿"""
-Converte um texto de petiÃ§Ã£o em .docx seguindo a skill WORD/DOCX JUDICIÃRIO
-(padrÃ£o forense + base ABNT).
+"""
+Converte um texto de petição em .docx seguindo a skill WORD/DOCX JUDICIÁRIO
+(padrão forense + base ABNT).
 
 Regras aplicadas:
 - A4, margens 3/3/2/2 cm (sup/esq/inf/dir)
 - Times New Roman 12, preto
 - Justificado, 1,5 entre linhas
-- EspaÃ§amento antes/depois: 0 pt
+- Espaçamento antes/depois: 0 pt
 - Recuo de primeira linha: 2,5 cm no corpo do texto
-- 7 linhas em branco apÃ³s o endereÃ§amento da vara
-- Negrito apenas em: endereÃ§amento, nome da peÃ§a, tÃ­tulos (DOS FATOS,
-  DO DIREITO, etc.), marcadores de alÃ­neas "a)" "b)" "c)", nome do advogado, OAB
+- 7 linhas em branco após o endereçamento da vara
+- Negrito apenas em: endereçamento, nome da peça, títulos (DOS FATOS,
+  DO DIREITO, etc.), marcadores de alíneas "a)" "b)" "c)", nome do advogado, OAB
 - Nome do advogado e OAB centralizados em linhas separadas, sem linha
   para assinatura
-- Fechamento "Termos em que, pede deferimento." em parÃ¡grafo justificado normal
+- Fechamento "Termos em que, pede deferimento." em parágrafo justificado normal
 - Local e data centralizados, antes da assinatura/OAB
 
 Uso:
     python -m src.infra.docx_render <entrada.txt> <saida.docx>
-    python -m src.infra.docx_render -           # lÃª da stdin
+    python -m src.infra.docx_render -           # lê da stdin
 """
 from __future__ import annotations
 
@@ -149,8 +149,8 @@ def _runs_for_body(texto: str) -> list[tuple[str, bool]]:
 
     qualification = QUALIFICATION_NAME_RE.match(texto)
     if qualification and not _is_header(texto) and not _is_title(texto) and not _is_section_title(texto):
-        # Evita transformar tÃ­tulos em corpo; nomes qualificados costumam vir em
-        # caixa alta seguidos de vÃ­rgula e dados pessoais.
+        # Evita transformar títulos em corpo; nomes qualificados costumam vir em
+        # caixa alta seguidos de vírgula e dados pessoais.
         return [(qualification.group(1), True), (", " + qualification.group(2), False)]
 
     return [(texto, False)]
@@ -255,9 +255,9 @@ def _tem_alinea(linhas: list[str]) -> bool:
 
 
 def _render_sequencia_alineas(doc: Document, linhas: list[str]) -> None:
-    """Cada linha `a) ...`, `b) ...` vira um parÃ¡grafo prÃ³prio.
-    Linhas nÃ£o-alÃ­nea sÃ£o agregadas Ã  alÃ­nea anterior (continuaÃ§Ã£o) ou viram
-    parÃ¡grafo justificado solto."""
+    """Cada linha `a) ...`, `b) ...` vira um parágrafo próprio.
+    Linhas não-alínea são agregadas à alínea anterior (continuação) ou viram
+    parágrafo justificado solto."""
     atual_marcador: str | None = None
     atual_texto: list[str] = []
 

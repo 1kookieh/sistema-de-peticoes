@@ -1,4 +1,4 @@
-﻿"""Estado local do pipeline para evitar reprocessamento acidental."""
+"""Estado local do pipeline para evitar reprocessamento acidental."""
 from __future__ import annotations
 
 import json
@@ -29,7 +29,7 @@ def carregar_estado(path: Path | None = None) -> dict[str, Any]:
 
     raw = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict) or not isinstance(raw.get("items"), dict):
-        raise ValueError(f"estado de processamento invÃ¡lido: {path}")
+        raise ValueError(f"estado de processamento inválido: {path}")
     _STATE_CACHE[path] = (mtime, raw)
     return raw
 

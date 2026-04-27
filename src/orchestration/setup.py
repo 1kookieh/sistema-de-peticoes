@@ -1,4 +1,4 @@
-﻿"""PreparaÃ§Ã£o segura das pastas e arquivos locais de runtime."""
+"""Preparação segura das pastas e arquivos locais de runtime."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +18,7 @@ def setup_runtime(
     output_dir: Path = OUTPUT_DIR,
     reports_dir: Path = REPORTS_DIR,
 ) -> list[RuntimeCheck]:
-    """Cria diretÃ³rios de runtime e verifica arquivos essenciais."""
+    """Cria diretórios de runtime e verifica arquivos essenciais."""
     _touch_gitkeep(output_dir)
     _touch_gitkeep(reports_dir)
 
@@ -31,11 +31,11 @@ def setup_runtime(
 
     checks = [
         RuntimeCheck("output", output_dir, output_dir.is_dir(), "dir", "Pasta de documentos gerados"),
-        RuntimeCheck("reports", reports_dir, reports_dir.is_dir(), "dir", "Pasta de relatÃ³rios locais"),
+        RuntimeCheck("reports", reports_dir, reports_dir.is_dir(), "dir", "Pasta de relatórios locais"),
     ]
     for name, path, kind in required:
         ok = path.is_dir() if kind == "dir" else path.is_file()
-        checks.append(RuntimeCheck(name, path, ok, kind, "Recurso obrigatÃ³rio do projeto"))
+        checks.append(RuntimeCheck(name, path, ok, kind, "Recurso obrigatório do projeto"))
     return checks
 
 

@@ -1,4 +1,4 @@
-﻿"""PolÃ­tica configurÃ¡vel de retenÃ§Ã£o para arquivos locais sensÃ­veis."""
+"""Política configurável de retenção para arquivos locais sensíveis."""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,7 +1,7 @@
-﻿"""Orquestrador do pipeline supervisionado.
+"""Orquestrador do pipeline supervisionado.
 
-A peÃ§a sÃ³ Ã© enfileirada quando passa pela prÃ©-validaÃ§Ã£o do texto e pela
-validaÃ§Ã£o formal do `.docx`. ViolaÃ§Ãµes sÃ£o registradas por item para revisÃ£o
+A peça só é enfileirada quando passa pela pré-validação do texto e pela
+validação formal do `.docx`. Violações são registradas por item para revisão
 humana antes de qualquer envio ou protocolo.
 """
 from __future__ import annotations
@@ -49,7 +49,7 @@ def _reject_oversized_docx(path: Path) -> list[str]:
     try:
         path.unlink()
     except OSError:
-        logger.warning("nÃ£o foi possÃ­vel remover DOCX acima do limite: %s", path)
+        logger.warning("não foi possível remover DOCX acima do limite: %s", path)
     return [f"DOCX gerado acima do limite permitido ({size_mb:.1f} MB > {max_mb:.1f} MB)."]
 
 
@@ -63,7 +63,7 @@ def processar_email(
     logger.info("processando thread %s", email.thread_id, extra={"thread_id": email.thread_id})
 
     if ja_processado_ok(email.message_id):
-        logger.info("item jÃ¡ processado com sucesso; pulando", extra={"message_id": email.message_id})
+        logger.info("item já processado com sucesso; pulando", extra={"message_id": email.message_id})
         return ProcessResult(
             thread_id=email.thread_id,
             message_id=email.message_id,
@@ -76,7 +76,7 @@ def processar_email(
     problemas_pre = validar_texto_protocolavel(email.peticao_texto, profile.id)
     if problemas_pre:
         logger.warning(
-            "entrada bloqueada antes da geraÃ§Ã£o",
+            "entrada bloqueada antes da geração",
             extra={"message_id": email.message_id, "status": "invalid_input", "profile_id": profile.id},
         )
         registrar_item(
@@ -120,7 +120,7 @@ def processar_email(
     docx_report = build_docx_report(destino, profile.id, problems=problemas)
     if problemas:
         logger.warning(
-            "docx bloqueado por violaÃ§Ãµes formais",
+            "docx bloqueado por violações formais",
             extra={"message_id": email.message_id, "status": "invalid_docx", "profile_id": profile.id},
         )
         registrar_item(
@@ -140,7 +140,7 @@ def processar_email(
             docx_report=docx_report,
         )
     else:
-        logger.info("validaÃ§Ã£o formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
+        logger.info("validação formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
 
     status = "ok"
     enfileirado = False
@@ -239,7 +239,7 @@ def executar_pipeline(
             items.append(resultado.to_report_item())
 
     logger.info(
-        "concluÃ­do: enfileirados=%s bloqueados=%s falhas=%s violaÃ§Ãµes=%s ignorados=%s vÃ¡lidos=%s",
+        "concluído: enfileirados=%s bloqueados=%s falhas=%s violações=%s ignorados=%s válidos=%s",
         enfileirados,
         bloqueados,
         erros,
