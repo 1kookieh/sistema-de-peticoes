@@ -3,102 +3,194 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sistema de Petições</title>
+  <title>LexDoc — Gerador Jurídico</title>
+  <meta name="description" content="Gere peças jurídicas em DOCX a partir de texto, PDF, Word ou imagem com validação supervisionada.">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <main class="shell">
+  <a class="skip-link" href="#main">Pular para o conteúdo principal</a>
+
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
+      <a class="brand" href="/" aria-label="LexDoc, gerador jurídico">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28">
+            <rect x="4" y="3" width="22" height="26" rx="3" fill="currentColor" opacity=".18"/>
+            <rect x="4" y="3" width="22" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M9 11h12M9 15h12M9 19h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <strong>LexDoc</strong>
+          <small>Gerador jurídico</small>
+        </span>
+      </a>
+
+      <nav class="topnav" aria-label="Navegação principal">
+        <a class="topnav-item active" href="#main">Início</a>
+        <a class="topnav-item" href="#card-result">Documentos</a>
+        <a class="topnav-item" href="#card-piece">Modelos</a>
+        <a class="topnav-item" href="#card-history">Histórico</a>
+        <a class="topnav-item" href="#card-advanced">Configurações</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="ghost-btn" type="button" aria-pressed="false">Modo escuro</button>
+        <span class="avatar" aria-hidden="true">IG</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
     <section class="hero">
-      <p class="eyebrow">Uso jurídico supervisionado</p>
-      <h1>Gere DOCX a partir de texto, PDF, Word ou imagem</h1>
-      <p>Escolha o tipo de peça, envie arquivos ou cole o texto, gere o documento e revise tudo antes de qualquer uso real.</p>
+      <span class="eyebrow">
+        <span class="dot" aria-hidden="true"></span>
+        Uso jurídico supervisionado · Processamento local · Revisão obrigatória
+      </span>
+      <h1>Gere DOCX jurídico com mais clareza e segurança</h1>
+      <p class="hero-sub">Crie peças jurídicas a partir de texto, PDF, Word ou imagem com validação automática e revisão assistida.</p>
+
+      <ol class="stepper" aria-label="Etapas do fluxo">
+        <li class="step-node is-active" data-step="1">
+          <span class="step-num">1</span>
+          <span class="step-label">Tipo de peça</span>
+        </li>
+        <li class="step-node" data-step="2">
+          <span class="step-num">2</span>
+          <span class="step-label">Entrada</span>
+        </li>
+        <li class="step-node" data-step="3">
+          <span class="step-num">3</span>
+          <span class="step-label">Revisão e resultado</span>
+        </li>
+      </ol>
     </section>
 
     <section class="layout">
-      <form id="generator-form" class="card stack">
-        <div class="step">
-          <span>1</span>
-          <div>
-            <h2>Tipo de peça e perfil formal</h2>
-            <p class="muted">Tudo opcional. Se você não escolher, o sistema detecta a peça pelo texto e aplica o perfil <strong>Inicial JEF/Federal</strong> (PJE/Projudi) por padrão.</p>
-          </div>
-        </div>
-
-        <label>
-          Peça desejada <span class="optional-tag">opcional</span>
-          <select id="piece-type"></select>
-          <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> e o sistema reconhece a peça pelo conteúdo do texto.</span>
-        </label>
+      <form id="generator-form" class="card form-card stack" novalidate>
+        <header id="card-piece" class="card-head">
+          <h2><span class="num-chip">1</span> Tipo de peça</h2>
+          <p class="muted">Tudo opcional. Sem escolha, o sistema detecta a peça pelo texto e aplica o perfil <strong>Inicial JEF/Federal</strong> (PJE/Projudi).</p>
+        </header>
 
         <div class="grid">
-          <label>
-            Perfil formal <span class="optional-tag">opcional</span>
+          <label class="field">
+            <span class="field-label">Peça desejada <em class="optional-tag">opcional</em></span>
+            <select id="piece-type"></select>
+            <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> e o sistema reconhece pela estrutura do texto.</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Perfil formal <em class="optional-tag">opcional</em></span>
             <select id="profile"></select>
             <span class="field-hint muted">Padrão: Inicial JEF/Federal — usado em PJE e Projudi.</span>
-          </label>
-          <label>
-            Token da API <span class="optional-tag">opcional</span>
-            <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado">
           </label>
         </div>
 
         <div id="profile-details" class="profile-details" aria-live="polite"></div>
         <div id="piece-hint" class="hint"></div>
 
-        <div class="step">
-          <span>2</span>
-          <div>
-            <h2>Entrada</h2>
-            <p class="muted">Arquivos aceitos: .txt, .md, .docx, .pdf e imagens. Imagens são lidas por OCR para extrair texto.</p>
-          </div>
-        </div>
+        <details id="card-advanced" class="advanced">
+          <summary>
+            <span class="adv-icon" aria-hidden="true">⚙</span>
+            <span>Configurações avançadas</span>
+            <span class="muted adv-sub">Token da API e preferências do servidor local.</span>
+          </summary>
+          <label class="field">
+            <span class="field-label">Token da API <em class="optional-tag">opcional</em></span>
+            <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado no servidor">
+            <span class="field-hint muted">Necessário só quando o backend exige autenticação.</span>
+          </label>
+        </details>
 
-        <label class="upload-box">
+        <header class="card-head">
+          <h2><span class="num-chip">2</span> Entrada</h2>
+          <p class="muted">Aceita .txt, .md, .docx, .pdf e imagens. Imagens passam por OCR para extrair texto.</p>
+        </header>
+
+        <label id="upload-box" class="upload-box" tabindex="0">
           <input id="file" type="file" multiple accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp">
-          <strong>Adicionar arquivos</strong>
-          <span>Selecione até <strong>20 arquivos</strong> (PDF, DOCX, TXT, MD ou imagens). Limite por arquivo: 25&nbsp;MB. Limite total: 200&nbsp;MB. Imagens entram como fonte para OCR, não como anexo no DOCX.</span>
+          <span class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="36" height="36">
+              <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <strong>Arraste arquivos aqui ou clique para selecionar</strong>
+          <span class="muted">Formatos: PDF, DOCX, TXT, MD ou imagens (JPG, PNG, WEBP)</span>
+          <span class="muted small">Até <strong>20 arquivos</strong> · 25 MB por arquivo · 200 MB no total</span>
         </label>
-        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usará o texto colado abaixo.</div>
-        <button id="clear-file" class="secondary small" type="button" hidden>Remover arquivos e usar texto colado</button>
 
-        <label>
-          Texto da peça ou conteúdo base
-          <textarea id="text" rows="14" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
+        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usará o texto colado abaixo.</div>
+        <button id="clear-file" class="ghost-btn small" type="button" hidden>Remover arquivos e usar texto colado</button>
+
+        <label class="field">
+          <span class="field-label">Texto da peça ou conteúdo base</span>
+          <textarea id="text" rows="12" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
         </label>
 
         <div class="actions">
-          <button id="generate" type="submit">Gerar e validar DOCX</button>
-          <span class="muted">Nada é enviado para serviços externos por esta interface.</span>
+          <button id="generate" class="primary-btn" type="submit">
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6zM14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="btn-label">Gerar e validar DOCX</span>
+          </button>
+          <span class="muted">Processamento seguro. Nada é enviado para serviços externos.</span>
         </div>
 
-        <p class="warning">A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.</p>
+        <p class="warning">
+          <strong>Atenção:</strong> A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.
+        </p>
       </form>
 
       <aside class="panel">
-        <section class="card">
-          <div class="step compact">
-            <span>3</span>
-            <div>
-              <h2>Resultado</h2>
-              <p class="muted">Links aparecem após a geração.</p>
+        <section id="card-result" class="card result-card">
+          <header class="card-head compact">
+            <h2><span class="num-chip">3</span> Resultado da geração</h2>
+            <p class="muted">Os arquivos aparecem aqui após a geração.</p>
+          </header>
+          <div id="result" class="result" aria-live="polite">
+            <div class="empty-state">
+              <span class="empty-illu" aria-hidden="true">
+                <svg viewBox="0 0 48 48" width="48" height="48"><path d="M14 6h14l8 8v22a4 4 0 01-4 4H14a4 4 0 01-4-4V10a4 4 0 014-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M28 6v8h8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 22h16M16 28h16M16 34h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </span>
+              <p><strong>Nenhum documento gerado ainda.</strong></p>
+              <p class="muted">Envie um texto ou arquivo e clique em <em>Gerar e validar DOCX</em>. O resultado, alertas e downloads aparecem aqui.</p>
             </div>
           </div>
-          <div id="result" class="result" aria-live="polite"></div>
         </section>
 
         <section class="card">
-          <div class="section-title">
+          <header class="card-head compact">
+            <h2>Checklist de revisão</h2>
+            <p class="muted">Verifique antes de protocolar.</p>
+          </header>
+          <ul class="checklist">
+            <li><span class="chk" aria-hidden="true"></span> Conferir parte autora e ré (qualificação e endereços)</li>
+            <li><span class="chk" aria-hidden="true"></span> Verificar DER, NB e fundamentos legais</li>
+            <li><span class="chk" aria-hidden="true"></span> Competência e valor da causa</li>
+            <li><span class="chk" aria-hidden="true"></span> OAB, procuração e documentos anexos</li>
+          </ul>
+        </section>
+
+        <section id="card-history" class="card">
+          <header class="card-head compact spaced">
             <div>
-              <h2>Histórico local</h2>
+              <h2>Histórico recente</h2>
               <p class="muted">Relatórios e documentos salvos nesta máquina.</p>
             </div>
-            <button id="refresh" class="secondary small" type="button">Atualizar</button>
-          </div>
+            <button id="refresh" class="ghost-btn small" type="button">Atualizar</button>
+          </header>
           <div id="history" aria-live="polite"></div>
         </section>
       </aside>
     </section>
+
+    <footer class="page-foot muted">
+      <span>LexDoc · Sistema de Petições</span>
+      <span>Ambiente seguro e responsável — dados tratados com confidencialidade e sem armazenamento externo.</span>
+    </footer>
   </main>
+
   <script type="module" src="/static/app.js"></script>
 </body>
 </html>
