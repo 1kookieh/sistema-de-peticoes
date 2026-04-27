@@ -24,6 +24,18 @@ Sistema local em **Python + FastAPI + HTML/CSS/JavaScript** para transformar tex
 - **Arquitetura em camadas:** domínio, infraestrutura, adapters, interfaces e orchestration separados.
 - **Docker e CI:** ambiente reprodutível e testes automatizados no GitHub Actions.
 
+## Demonstração
+
+Fluxo principal:
+
+1. O usuário cola um texto ou envia um arquivo.
+2. O sistema extrai o conteúdo e identifica o tipo de peça.
+3. O pipeline aplica `prompt_peticao.md` para estruturar a minuta.
+4. A geração do Word aplica `prompt_formatacao_word.md`.
+5. O `.docx` é validado e acompanhado por relatório JSON/HTML.
+
+> Demonstração visual recomendada: adicionar um GIF curto da interface web mostrando upload, geração e download.
+
 ## Stack
 
 | Área | Tecnologias |
@@ -216,6 +228,14 @@ Boas práticas recomendadas:
 - Manipulação real de `.docx` com validação automatizada.
 - Preocupação com LGPD, retenção, auditoria e revisão humana.
 - Testes automatizados e CI para fluxo crítico.
+
+## Roadmap curto
+
+- Adicionar screenshots/GIFs reais da interface web.
+- Criar release estável `v1.0.0` no GitHub.
+- Ampliar exemplos fictícios de peças geradas.
+- Evoluir testes de regressão para mais tipos de peça.
+- Melhorar relatórios visuais sem expor dados sensíveis.
 
 ## Licença
 
