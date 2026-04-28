@@ -22,6 +22,12 @@ Quando IA estiver ativada, `prompt_peticao.md` e `prompt_formatacao_word.md` com
 
 O pipeline Python carrega e audita esses dois prompts. O relatório registra `prompt_usage` com nome, caminho e hash SHA-256. Em modo IA, o relatório também registra `llm` com provedor, modelo, hash do prompt final e flags de mock/fallback, sem salvar o prompt completo por padrão.
 
+## Redaction e consentimento de IA externa
+
+Providers externos, como `openai`, exigem consentimento explícito por requisição (`llm.consent_external_provider=true`, campo de upload `llm_consent_external_provider=true` ou flag CLI `--llm-consent-external`). Sem isso, o pipeline retorna `llm_error` e não chama a API externa.
+
+Antes de chamar um provider externo, o backend aplica mascaramento textual em padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail. Isso reduz exposição acidental, mas não remove nomes próprios nem todos os fatos sensíveis. Agentes não devem afirmar anonimização completa.
+
 ## Fluxo recomendado com Claude
 
 ```text

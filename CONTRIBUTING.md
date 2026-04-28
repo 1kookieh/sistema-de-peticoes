@@ -35,7 +35,13 @@ Rode:
 ```bash
 python -m compileall config.py src tests
 pytest -q
+ruff check .
+mypy config.py src/infra/llm
+pip-audit -r requirements.txt --strict
+bandit -q -r src
 ```
+
+O `mypy` é gradual neste momento: valide `config.py` e `src/infra/llm`, que são o escopo configurado no CI.
 
 Se alterar interface web, também valide sintaxe dos módulos JavaScript alterados:
 

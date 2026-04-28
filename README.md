@@ -193,6 +193,10 @@ Cuidados:
 - Nunca commite `.env` real.
 - Nunca coloque chave de API no README, issue, print ou log.
 - Ao usar IA externa, o texto informado pode ser enviado ao provedor configurado.
+- A API exige consentimento explícito por requisição para providers externos, via
+  `llm.consent_external_provider=true` ou campo de upload `llm_consent_external_provider=true`.
+- Antes do envio a provider externo, o pipeline mascara identificadores como CPF,
+  CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados.
 - O fallback para mock só ocorre se `LLM_FALLBACK_ENABLED=true`.
 
 ## Geração de DOCX
@@ -312,6 +316,17 @@ python -m compileall config.py src tests
 pytest -q
 ```
 
+Validações de qualidade usadas no CI:
+
+```bash
+ruff check .
+mypy config.py src/infra/llm
+pip-audit -r requirements.txt --strict
+bandit -q -r src
+```
+
+O type-check ainda é gradual: o projeto valida `config.py` e `src/infra/llm` no CI.
+
 No Windows deste projeto, caso `python` global não esteja no PATH, use:
 
 ```powershell
@@ -323,13 +338,19 @@ No Windows deste projeto, caso `python` global não esteja no PATH, use:
 
 ```bash
 docker build -t sistema-peticoes .
-docker run --rm -p 8000:8000 sistema-peticoes
+docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
+```
+
+O `Dockerfile` exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` para rotas sensíveis. Para demonstração local isolada, é possível desativar explicitamente:
+
+```bash
+docker run --rm -p 8000:8000 -e API_REQUIRE_TOKEN=false sistema-peticoes
 ```
 
 Para dados reais, monte volumes locais protegidos:
 
 ```bash
-docker run --rm -p 8000:8000 -v ./output:/app/output -v ./reports:/app/reports sistema-peticoes
+docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token -v ./output:/app/output -v ./reports:/app/reports sistema-peticoes
 ```
 
 ## Segurança e Privacidade
@@ -347,7 +368,8 @@ Recomendações:
 
 - Use dados fictícios em demonstrações públicas.
 - Configure `API_TOKEN` se expuser a API fora do loopback.
-- Não envie dados reais para IA externa sem autorização.
+- Não envie dados reais para IA externa sem autorização e sem marcar o consentimento explícito no fluxo.
+- Mesmo com mascaramento automático, revise manualmente o texto antes de usar provider externo.
 - Revise sempre mérito, competência, prazo, OAB, procuração, anexos e valor da causa.
 - Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
 

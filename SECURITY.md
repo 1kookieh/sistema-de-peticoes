@@ -43,8 +43,11 @@ Antes de usar IA externa:
 
 - confirme autorização para tratamento dos dados;
 - remova ou anonimize dados sensíveis quando possível;
+- marque consentimento explícito no fluxo web/API/CLI antes de enviar dados a provider externo;
 - revise termos internos de sigilo;
 - confira a peça gerada manualmente.
+
+O pipeline aplica mascaramento automático antes de chamar providers externos para padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail. Essa proteção reduz exposição acidental, mas não garante anonimização completa: nomes próprios, fatos sensíveis e descrições do caso podem continuar no texto. Trate IA externa como compartilhamento de dados com terceiro.
 
 ## API Local
 

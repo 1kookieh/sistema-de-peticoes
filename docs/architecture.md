@@ -95,6 +95,7 @@ Arquivos principais:
 
 - `schemas.py`: modelos Pydantic para resposta estruturada.
 - `prompting.py`: montagem do prompt final.
+- `redaction.py`: mascaramento de dados pessoais e neutralização básica antes de provider externo.
 - `base.py`: interface base de provider.
 - `factory.py`: seleção de provider.
 - `mock_provider.py`: provider determinístico para testes.
@@ -106,6 +107,8 @@ Regras:
 - O modo padrão é `none`.
 - `mock` só deve ser tratado como desenvolvimento/teste.
 - `openai` exige `OPENAI_API_KEY`.
+- Providers externos exigem consentimento explícito por requisição.
+- Antes da chamada externa, padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail são mascarados.
 - O prompt completo não deve ser salvo por padrão.
 - O relatório registra hashes e metadados, não chaves nem prompt completo.
 

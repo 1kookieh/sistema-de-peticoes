@@ -77,6 +77,8 @@ Cuidados:
 
 - Não use chave real em arquivos versionados.
 - Não envie dados reais sem autorização.
+- A interface e a API exigem consentimento explícito antes de enviar dados para provider externo.
+- O backend mascara padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail antes do envio externo, mas isso é uma proteção complementar e não dispensa revisão humana.
 - Revise a peça antes de qualquer uso profissional.
 
 ## 6. Usar CLI
@@ -118,3 +120,20 @@ No Windows, se `python` global não estiver no PATH:
 .\.venv\Scripts\python.exe -m compileall config.py src tests
 .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+## 9. Rodar com Docker
+
+```bash
+docker build -t sistema-peticoes .
+docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
+```
+
+O container exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` ao chamar rotas sensíveis.
+
+Para uma demonstração local isolada, você pode desativar explicitamente a exigência de token:
+
+```bash
+docker run --rm -p 8000:8000 -e API_REQUIRE_TOKEN=false sistema-peticoes
+```
+
+Não use `API_REQUIRE_TOKEN=false` se expuser a API fora do seu computador.

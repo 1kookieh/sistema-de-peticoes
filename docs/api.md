@@ -63,7 +63,8 @@ Payload principal:
   "llm": {
     "enabled": false,
     "provider": "none",
-    "model": null
+    "model": null,
+    "consent_external_provider": false
   }
 }
 ```
@@ -74,6 +75,7 @@ Campos opcionais:
 - `profile_id`: use um ID da rota `/profiles` ou `auto`.
 - `output_mode`: `minuta`, `final` ou `triagem`.
 - `llm`: configura IA por requisição.
+- `llm.consent_external_provider`: obrigatório quando o provider escolhido envia dados para fora do ambiente local, como `openai`.
 
 ## Modos de Saída
 
@@ -127,6 +129,24 @@ Providers disponíveis:
 | `mock` | Testes e desenvolvimento | Não |
 | `openai` | API externa OpenAI | Sim, `OPENAI_API_KEY` |
 
+Providers externos exigem consentimento explícito por requisição. Sem esse campo, a API não chama o provedor e retorna `llm_error` de forma controlada.
+
+Exemplo com OpenAI:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
+  -H "Content-Type: application/json" \
+  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"enabled\":true,\"provider\":\"openai\",\"model\":\"gpt-4o-mini\",\"consent_external_provider\":true}}"
+```
+
+No upload, use o campo de formulário:
+
+```bash
+-F "llm_consent_external_provider=true"
+```
+
+Antes do envio a providers externos, o backend aplica mascaramento textual para reduzir exposição de CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando esses padrões são detectados. O mascaramento não substitui revisão humana nem autorização adequada para tratamento de dados.
+
 Exemplo com mock:
 
 ```bash
@@ -160,7 +180,10 @@ Metadados retornados em `llm`:
 - `tokens_input`;
 - `tokens_output`;
 - `latency_ms`;
-- `error`.
+- `error`;
+- `redaction_applied`;
+- `redaction_counts`;
+- `consent_external_provider`.
 
 O prompt completo e chaves de API não são retornados.
 
@@ -196,6 +219,7 @@ Exemplo resumido:
 | Token ausente/inválido | `401` |
 | Rate limit local excedido | `429` |
 | Provider real sem chave | Status `llm_error` no payload |
+| Provider externo sem consentimento | Status `llm_error` no payload |
 
 ## Segurança Operacional
 
@@ -204,3 +228,4 @@ Exemplo resumido:
 - O service worker não cacheia `/api/v1`, uploads, relatórios ou DOCX.
 - Imagens são usadas para OCR e não são anexadas automaticamente ao `.docx`.
 - Use dados fictícios em demonstrações públicas.
+- Use providers externos somente com autorização, consentimento explícito na requisição e revisão humana.

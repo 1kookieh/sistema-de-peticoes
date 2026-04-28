@@ -14,11 +14,17 @@ Explique o que muda e por quê. Relacione a issue, se houver (`Closes #123`).
 ## Checklist
 
 - [ ] O título segue [Conventional Commits](https://www.conventionalcommits.org/pt-br/).
-- [ ] Rodei `python -m py_compile src/*.py config.py` sem erros.
-- [ ] Rodei o pipeline de ponta a ponta com `teste_inbox.json` e conferi a saída.
-- [ ] Se alterei regra de formatação, também atualizei `validar_docx.py` e o prompt correspondente.
+- [ ] Rodei `python -m compileall config.py src tests`.
+- [ ] Rodei `pytest -q`.
+- [ ] Rodei `ruff check .` quando alterei Python.
+- [ ] Rodei `mypy config.py src/infra/llm` quando alterei configuração ou LLM.
+- [ ] Rodei `pip-audit -r requirements.txt --strict` quando alterei dependências.
+- [ ] Rodei `bandit -q -r src` quando alterei backend, segurança ou LLM.
+- [ ] Rodei `node --check web/ui.js` e/ou `node --check web/render.js` quando alterei front-end.
+- [ ] Se alterei regra de formatação, também atualizei `src/core/validation/docx.py`, `src/infra/docx_render.py` e o prompt correspondente quando necessário.
 - [ ] Atualizei o `CHANGELOG.md` (seção `Unreleased`) quando a mudança é visível ao usuário.
 - [ ] Atualizei a documentação em `docs/` quando necessário.
+- [ ] Não adicionei `.env`, `output/`, `reports/`, caches, chaves de API ou dados reais.
 
 ## Teste manual
 
