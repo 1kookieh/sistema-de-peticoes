@@ -34,8 +34,20 @@ jobs:
         run: |
           python -m compileall config.py src tests
 
+      - name: Ruff (erros de sintaxe/nomes)
+        run: ruff check .
+
+      - name: Type check gradual
+        run: mypy config.py src/infra/llm
+
+      - name: Auditoria de dependências
+        run: pip-audit -r requirements.txt --strict
+
+      - name: Bandit (segurança estática)
+        run: bandit -q -r src
+
       - name: Rodar testes automatizados
-        run: pytest -q
+        run: pytest --cov=src --cov-report=term-missing
 
       - name: Smoke test do pipeline
         env:

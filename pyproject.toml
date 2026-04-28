@@ -1,0 +1,36 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+  ".venv",
+  "output",
+  "reports",
+]
+
+[tool.ruff.lint]
+# Keep CI focused on correctness first. Style rules can be expanded later.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_ignores = false
+warn_return_any = false
+check_untyped_defs = false
+disallow_untyped_defs = false
+exclude = [
+  "^\\.venv/",
+  "^output/",
+  "^reports/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+  "src/interfaces/desktop.py",
+]
