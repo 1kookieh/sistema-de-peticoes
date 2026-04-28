@@ -74,6 +74,21 @@ class Settings(BaseSettings):
     retention_reports_days: int = Field(default=30, alias="RETENTION_REPORTS_DAYS")
     retention_queue_days: int = Field(default=7, alias="RETENTION_QUEUE_DAYS")
     retention_status_days: int = Field(default=30, alias="RETENTION_STATUS_DAYS")
+    llm_mode: str = Field(default="none", alias="LLM_MODE")
+    llm_provider: str = Field(default="none", alias="LLM_PROVIDER")
+    llm_model: str = Field(default="", alias="LLM_MODEL")
+    llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
+    llm_max_output_tokens: int = Field(default=6000, alias="LLM_MAX_OUTPUT_TOKENS")
+    llm_timeout_seconds: int = Field(default=60, alias="LLM_TIMEOUT_SECONDS")
+    llm_retry_attempts: int = Field(default=2, alias="LLM_RETRY_ATTEMPTS")
+    llm_require_structured_output: bool = Field(default=True, alias="LLM_REQUIRE_STRUCTURED_OUTPUT")
+    llm_fallback_enabled: bool = Field(default=False, alias="LLM_FALLBACK_ENABLED")
+    llm_log_prompt: bool = Field(default=False, alias="LLM_LOG_PROMPT")
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
+    ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
 
     @field_validator("api_allowed_origins", "remetentes_autorizados", mode="before")
     @classmethod
@@ -105,3 +120,18 @@ RETENTION_OUTPUT_DAYS = settings.retention_output_days
 RETENTION_REPORTS_DAYS = settings.retention_reports_days
 RETENTION_QUEUE_DAYS = settings.retention_queue_days
 RETENTION_STATUS_DAYS = settings.retention_status_days
+LLM_MODE = settings.llm_mode.strip().lower()
+LLM_PROVIDER = settings.llm_provider.strip().lower()
+LLM_MODEL = settings.llm_model.strip()
+LLM_TEMPERATURE = settings.llm_temperature
+LLM_MAX_OUTPUT_TOKENS = settings.llm_max_output_tokens
+LLM_TIMEOUT_SECONDS = settings.llm_timeout_seconds
+LLM_RETRY_ATTEMPTS = settings.llm_retry_attempts
+LLM_REQUIRE_STRUCTURED_OUTPUT = settings.llm_require_structured_output
+LLM_FALLBACK_ENABLED = settings.llm_fallback_enabled
+LLM_LOG_PROMPT = settings.llm_log_prompt
+OPENAI_API_KEY = settings.openai_api_key.strip()
+ANTHROPIC_API_KEY = settings.anthropic_api_key.strip()
+GEMINI_API_KEY = settings.gemini_api_key.strip()
+OPENROUTER_API_KEY = settings.openrouter_api_key.strip()
+OLLAMA_BASE_URL = settings.ollama_base_url.strip()

@@ -1,57 +1,91 @@
-﻿# Sistema de Petições
+# Sistema de Petições
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-local-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ESM-F7DF1E?logo=javascript&logoColor=black)](web/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
-[![Tests](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)](tests)
 [![CI](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml/badge.svg)](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Sistema local em **Python + FastAPI + HTML/CSS/JavaScript** para **validar e renderizar** texto jurídico em documentos `.docx` no padrão forense, com detector automático de tipo de peça, perfis formais por contexto e relatórios JSON/HTML.
+Sistema local para gerar, validar e renderizar peças jurídicas em `.docx`, com API FastAPI, interface web, CLI, prompts versionados e integração opcional com IA/LLM.
 
-> **O sistema não gera texto jurídico com IA.** Ele recebe um texto pronto (digitado, colado ou extraído de PDF/DOCX/imagem via OCR), aplica validações determinísticas (placeholders, OAB, fechamento, valor da causa, seções mínimas) e renderiza um `.docx` no padrão forense. Os prompts em `prompts/` são contratos versionados auditáveis usados como referência para quem prepara o texto, não para chamada a LLM.
->
-> **Uso jurídico supervisionado.** Não substitui advogado, não valida mérito e não deve ser usado para protocolo sem revisão humana. Veja [docs/legal-limitations.md](docs/legal-limitations.md).
+> Uso supervisionado: este projeto não substitui advogado, não decide mérito jurídico e não deve ser usado para protocolo sem revisão humana.
 
-## Destaques
+## Visão Geral
 
-- **Renderização local de DOCX:** saída em `output/*.docx`, sem envio para serviços externos no fluxo padrão.
-- **Entradas flexíveis:** texto colado, `.txt`, `.md`, `.docx`, `.pdf` e imagens com OCR via Tesseract (UTF-8 obrigatório).
-- **API e interface web:** FastAPI em `/api/v1` e front-end local sem build, feito em HTML/CSS/JavaScript modular.
-- **Detector automático:** identifica mais de 70 tipos de peças e escolhe perfil formal quando o usuário deixa em automático.
-- **Validação dupla:** pré-validação textual (placeholders, OAB, fechamento, seções) e validação estrutural do `.docx` com `python-docx` (margens, fontes, recuos, linha de assinatura proibida).
-- **Relatórios auditáveis:** JSON e HTML em `reports/`, com histórico local, hash dos prompts e flags de inferência.
-- **Prompts versionados:** `prompt_peticao.md` é contrato de redação para advogado/usuário; `prompt_formatacao_word.md` é contrato do padrão Word. **Nenhum dos dois é enviado a um LLM pelo pipeline.** Ambos têm SHA-256 registrado no relatório.
-- **Arquitetura em camadas:** domínio, infraestrutura, adapters, interfaces e orchestration separados.
-- **Docker e CI:** ambiente reprodutível e testes automatizados no GitHub Actions.
+O projeto resolve um problema prático: transformar texto do caso, arquivos ou uma resposta estruturada de IA em um documento Word com padrão forense, validações automáticas e relatório de auditoria.
 
-## Demonstração
+O fluxo padrão não envia dados para serviços externos. A integração com IA é opcional e explícita.
 
-Fluxo principal:
+## Principais Funcionalidades
 
-1. O usuário cola um texto pronto ou envia um arquivo (PDF, DOCX, TXT, MD ou imagem).
-2. O sistema extrai o texto bruto e infere o tipo de peça por regras determinísticas.
-3. A pré-validação textual bloqueia placeholders, dados fictícios, ausência de OAB ou de seções mínimas.
-4. O renderizador aplica o padrão forense determinístico (A4, Times 12, 1,5, recuo 2,5 cm, 7 linhas após endereçamento).
-5. O `.docx` gerado é reaberto e revalidado; relatório JSON/HTML registra perfil, hash dos prompts e violações.
+- Geração de `.docx` jurídico com `python-docx`.
+- Interface web local em HTML, CSS e JavaScript puro.
+- API REST versionada em `/api/v1`.
+- CLI para uso em lote com inbox JSON.
+- Interface desktop simples com Tkinter.
+- Upload de `.txt`, `.md`, `.docx`, `.pdf` e imagens para OCR.
+- Detecção automática do tipo de peça e do perfil formal.
+- Modos de saída: `minuta`, `final` e `triagem`.
+- Integração opcional com LLM nos modos `none`, `mock` e `openai`.
+- Prompts versionados em `prompts/`.
+- Validação textual e validação estrutural do DOCX.
+- Relatórios JSON/HTML em `reports/`.
+- Dockerfile e CI com testes automatizados.
 
-> Demonstração visual recomendada: adicionar um GIF curto da interface web mostrando upload, geração e download.
+## Fluxo de Uso
 
-## Stack
+```text
+Entrada do usuário ou upload
+  -> extração/normalização do texto
+  -> inferência do tipo de peça e perfil formal
+  -> opcional: geração por IA com JSON estruturado
+  -> validação textual
+  -> renderização DOCX
+  -> validação estrutural do DOCX
+  -> relatório JSON/HTML
+  -> download do documento
+```
+
+## Tecnologias Utilizadas
 
 | Área | Tecnologias |
 |---|---|
 | Backend | Python 3.11+, FastAPI, Pydantic Settings |
-| Documentos | python-docx, validação estrutural de `.docx` |
+| IA/LLM | Camada de providers, mock local, OpenAI via HTTP |
+| DOCX | python-docx |
+| Extração | pypdf, Pillow, pytesseract |
 | Front-end | HTML, CSS, JavaScript ES Modules, Service Worker |
 | Desktop | Tkinter |
-| Testes | pytest, TestClient, golden files estruturais |
+| Testes | pytest, FastAPI TestClient |
 | DevOps | Docker, GitHub Actions |
 
-## Quick Start
+## Estrutura do Projeto
 
-### 1. Instalar
+```text
+src/
+  core/            domínio, perfis, tipos de peça, prompts e validações
+  adapters/        inbox, outbox e extração de arquivos
+  infra/           DOCX, LLM, locks, logging e estado local
+  interfaces/      API, CLI e desktop
+  orchestration/   pipeline, relatórios, retenção e setup
+web/               interface local
+templates/         template HTML de relatório
+prompts/           prompts jurídicos e de formatação
+docs/              documentação técnica
+tests/             testes automatizados
+examples/          exemplos fictícios
+```
+
+## Pré-requisitos
+
+- Python 3.11 ou superior.
+- Windows PowerShell, Linux ou macOS.
+- Tesseract OCR instalado apenas se você quiser extrair texto de imagens.
+- Docker opcional.
+- Chave de API somente se você ativar IA externa (`openai`).
+
+## Instalação
 
 ```bash
 git clone https://github.com/1kookieh/sistema-de-peticoes.git
@@ -75,63 +109,115 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-### 2. Preparar pastas locais
+Prepare as pastas locais:
 
 ```bash
 python -m src --setup
 ```
 
-Esse comando cria `output/` e `reports/`, preservando apenas `.gitkeep` no Git.
+## Como Rodar
 
-### 3. Rodar API + web
+API + interface web:
 
 ```bash
 uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Abra [http://127.0.0.1:8000](http://127.0.0.1:8000), cole um texto ou envie arquivo e clique em **Gerar e validar DOCX**.
-
-## Comandos úteis
-
-```bash
-# CLI em lote
-python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json
-
-# Validação de um DOCX gerado
-python -m src.core.validation.docx output/nome-do-arquivo.docx --profile judicial-inicial-jef
-
-# Interface desktop
-python -m src.interfaces.desktop
-
-# Docker
-docker build -t sistema-peticoes .
-docker run --rm -p 8000:8000 sistema-peticoes
-```
-
-## Como funciona
+Abra:
 
 ```text
-Entrada do usuário (texto pronto)
-  -> extração de texto de arquivo ou OCR (UTF-8 obrigatório)
-  -> inferência determinística do tipo de peça e perfil formal
-  -> pré-validação textual (placeholders, OAB, fechamento, seções, valor da causa)
-  -> renderização DOCX no padrão forense (sem chamada a LLM)
-  -> validação estrutural do DOCX gerado (margens, fontes, recuos, assinatura)
-  -> relatório JSON/HTML com hash dos prompts e download do documento
+http://127.0.0.1:8000
 ```
 
-> O contrato dos prompts versionados (`prompts/prompt_peticao.md` e `prompts/prompt_formatacao_word.md`) é **carregado e auditado** pelo pipeline (hash SHA-256 no relatório), mas o texto **não é reescrito por IA**. Eles servem como referência humana para quem prepara a minuta e como contrato versionado de formatação.
+Na tela web:
 
-Se houver falha em etapa crítica, o documento é bloqueado e o relatório explica o motivo.
+1. Escolha o tipo de peça ou deixe em detecção automática.
+2. Escolha o perfil formal ou deixe em detecção automática.
+3. Cole o texto do caso ou envie arquivos.
+4. Escolha o modo de saída.
+5. Clique em `Gerar DOCX` para criar o arquivo.
+6. Clique em `Validar texto` para fazer triagem sem gerar DOCX.
 
-## Interfaces disponíveis
+## Uso Sem IA
 
-| Interface | Comando/rota | Uso |
+Este é o modo padrão e recomendado para demonstrações seguras.
+
+```env
+LLM_MODE=none
+LLM_PROVIDER=none
+```
+
+Nesse modo, o sistema usa o texto informado pelo usuário, aplica validações e renderiza o DOCX localmente.
+
+## Uso Com IA/LLM
+
+A IA é opcional. Quando ativada, o sistema monta um prompt final usando:
+
+- `prompts/prompt_peticao.md`;
+- `prompts/prompt_formatacao_word.md`;
+- texto do caso;
+- tipo de peça;
+- perfil formal;
+- instruções de segurança e saída JSON.
+
+A resposta da IA deve ser JSON estruturado validável. O DOCX é renderizado a partir dessa estrutura, não do texto livre cru.
+
+| Provider | Descrição | Requer chave |
 |---|---|---|
-| Web local | `http://127.0.0.1:8000` | Uso diário e demonstração |
-| API REST | `/api/v1/*` | Integração local e automações |
-| CLI | `python -m src` | Processamento em lote |
-| Desktop | `python -m src.interfaces.desktop` | Uso local sem navegador |
+| `none` | Não usa IA externa | Não |
+| `mock` | Simula resposta estruturada para testes | Não |
+| `openai` | Usa API da OpenAI | Sim |
+
+### IA mock
+
+Use para testar o fluxo sem enviar dados para fora:
+
+```env
+LLM_PROVIDER=mock
+LLM_MODEL=
+```
+
+### OpenAI
+
+Use apenas em ambiente local/controlado:
+
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=coloque-sua-chave-no-env-local
+LLM_FALLBACK_ENABLED=false
+```
+
+Cuidados:
+
+- Nunca commite `.env` real.
+- Nunca coloque chave de API no README, issue, print ou log.
+- Ao usar IA externa, o texto informado pode ser enviado ao provedor configurado.
+- O fallback para mock só ocorre se `LLM_FALLBACK_ENABLED=true`.
+
+## Geração de DOCX
+
+Os arquivos gerados ficam em:
+
+```text
+output/
+```
+
+Os relatórios ficam em:
+
+```text
+reports/
+```
+
+Essas pastas são runtime local. Não versione documentos reais, relatórios reais ou dados de clientes.
+
+## API
+
+Documentação interativa:
+
+```text
+http://127.0.0.1:8000/docs
+```
 
 Endpoints principais:
 
@@ -147,98 +233,146 @@ GET    /api/v1/reports
 GET    /api/v1/reports/{filename}
 ```
 
-## Estrutura do projeto
+Exemplo com IA mock:
 
-```text
-src/
-  core/                 domínio puro, perfis, tipos de peça, inferência, validações
-  adapters/             entrada, saída e extração de arquivos
-  infra/                renderização DOCX, locks, logging e estado local
-  interfaces/           API, CLI e desktop
-  orchestration/        pipeline, relatórios, retenção e setup
-web/                    interface local em HTML/CSS/JavaScript
-templates/              template HTML de relatório
-prompts/                prompts versionados jurídicos e de formatação
-docs/                   arquitetura, API, limitações jurídicas e roadmap
-tests/                  testes automatizados
-examples/               entradas e documentos fictícios de exemplo
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
+  -H "Content-Type: application/json" \
+  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"enabled\":true,\"provider\":\"mock\"}}"
 ```
 
-## Configuração
+Veja mais em [docs/api.md](docs/api.md).
 
-Use `.env` local, baseado em `.env.example`. Não versione dados reais.
+## CLI
 
-```env
-EMAIL_ADVOGADO=advogado-responsavel@example.com
-API_TOKEN=
-API_ALLOWED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
-VALIDATION_PROFILE=judicial-inicial-jef
-REMETENTES_AUTORIZADOS=
-MAX_JSON_BYTES=2097152
-RETENTION_ENABLED=false
-RETENTION_OUTPUT_DAYS=30
-RETENTION_REPORTS_DAYS=30
-RETENTION_QUEUE_DAYS=7
-RETENTION_STATUS_DAYS=30
+Ajuda:
+
+```bash
+python -m src --help
 ```
 
-Quando `API_TOKEN` estiver preenchido, rotas sensíveis exigem o header `X-API-Token`.
+Processar inbox fictício sem outbox:
+
+```bash
+python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json
+```
+
+Usar IA mock pela CLI:
+
+```bash
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm --llm-provider mock --output-mode minuta
+```
+
+Interface desktop:
+
+```bash
+python -m src.interfaces.desktop
+```
+
+Guia passo a passo: [docs/usage.md](docs/usage.md).
+
+## Prompts
+
+Os prompts ficam em [prompts/](prompts/):
+
+| Arquivo | Função |
+|---|---|
+| `prompt_peticao.md` | Regras jurídicas, limites, estrutura e cautelas de geração |
+| `prompt_formatacao_word.md` | Regras de formatação esperadas para Word/DOCX |
+
+Ao alterar prompts, rode os testes e gere um DOCX fictício para revisar o resultado.
+
+Veja [docs/prompts.md](docs/prompts.md).
+
+## Documentação Complementar
+
+| Documento | Conteúdo |
+|---|---|
+| [docs/usage.md](docs/usage.md) | Guia prático de uso |
+| [docs/api.md](docs/api.md) | API, payloads e exemplos |
+| [docs/architecture.md](docs/architecture.md) | Arquitetura e fluxo interno |
+| [docs/prompts.md](docs/prompts.md) | Uso e manutenção dos prompts |
+| [docs/legal-limitations.md](docs/legal-limitations.md) | Limitações jurídicas e LGPD |
+| [SECURITY.md](SECURITY.md) | Segurança e dados sensíveis |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribuição |
+| [CLAUDE.md](CLAUDE.md) | Orientações para agentes Claude |
 
 ## Testes
 
+Instale dependências de desenvolvimento:
+
 ```bash
 pip install -r requirements-dev.txt
+```
+
+Execute:
+
+```bash
 python -m compileall config.py src tests
 pytest -q
 ```
 
-Estado atual local: **82 testes passando**.
+No Windows deste projeto, caso `python` global não esteja no PATH, use:
 
-## Segurança e LGPD
+```powershell
+.\.venv\Scripts\python.exe -m compileall config.py src tests
+.\.venv\Scripts\python.exe -m pytest -q
+```
 
-Trate como sensíveis:
+## Docker
 
-- `output/*.docx`
-- `reports/*.json` e `reports/*.html`
-- `mcp_inbox.json`, `mcp_outbox.json`, `mcp_status.json`
-- `.env`
+```bash
+docker build -t sistema-peticoes .
+docker run --rm -p 8000:8000 sistema-peticoes
+```
 
-Boas práticas recomendadas:
+Para dados reais, monte volumes locais protegidos:
 
-- usar apenas dados fictícios em demonstrações públicas;
-- manter `output/` e `reports/` fora do Git;
-- configurar retenção/expurgo quando houver dados reais;
-- usar `API_TOKEN` se a API não estiver restrita ao próprio computador;
-- revisar mérito, competência, prazo, OAB, procuração e documentos antes de qualquer uso real.
+```bash
+docker run --rm -p 8000:8000 -v ./output:/app/output -v ./reports:/app/reports sistema-peticoes
+```
 
-## Documentação
+## Segurança e Privacidade
 
-| Documento | Conteúdo |
-|---|---|
-| [CLAUDE.md](CLAUDE.md) | Uso com Claude, prompts e integração supervisionada |
-| [docs/api.md](docs/api.md) | Contratos REST e exemplos |
-| [docs/architecture.md](docs/architecture.md) | Arquitetura e responsabilidades |
-| [docs/legal-limitations.md](docs/legal-limitations.md) | Limitações jurídicas, LGPD e revisão humana |
-| [docs/roadmap.md](docs/roadmap.md) | Próximas melhorias |
-| [prompts/prompt_peticao.md](prompts/prompt_peticao.md) | Prompt jurídico principal |
-| [prompts/prompt_formatacao_word.md](prompts/prompt_formatacao_word.md) | Prompt de formatação Word |
+Considere sensíveis:
 
-## O que este projeto demonstra
+- `.env`;
+- `output/*.docx`;
+- `reports/*.json`;
+- `reports/*.html`;
+- inbox, outbox e status locais;
+- textos jurídicos enviados para IA externa.
 
-- Arquitetura Python em camadas.
-- API local com FastAPI e contrato versionado em `/api/v1`.
-- Front-end sem framework, modular e responsivo.
-- Manipulação real de `.docx` com validação automatizada.
-- Preocupação com LGPD, retenção, auditoria e revisão humana.
-- Testes automatizados e CI para fluxo crítico.
+Recomendações:
 
-## Roadmap curto
+- Use dados fictícios em demonstrações públicas.
+- Configure `API_TOKEN` se expuser a API fora do loopback.
+- Não envie dados reais para IA externa sem autorização.
+- Revise sempre mérito, competência, prazo, OAB, procuração, anexos e valor da causa.
+- Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
 
-- Adicionar screenshots/GIFs reais da interface web.
-- Criar release estável `v1.0.0` no GitHub.
-- Ampliar exemplos fictícios de peças geradas.
-- Evoluir testes de regressão para mais tipos de peça.
-- Melhorar relatórios visuais sem expor dados sensíveis.
+## Limitações
+
+- Não substitui advogado.
+- Não garante aceitação por tribunal, cartório ou órgão administrativo.
+- Não pesquisa jurisprudência em tempo real.
+- Não valida estratégia processual.
+- Não garante que dados fornecidos pelo usuário sejam verdadeiros.
+- O provider real implementado nesta versão é OpenAI; Anthropic, Gemini, OpenRouter e Ollama estão apenas previstos como evolução.
+
+## Roadmap
+
+- Adicionar screenshots/GIFs reais da interface.
+- Expandir providers LLM.
+- Melhorar validações jurídicas específicas por tipo de peça.
+- Adicionar paginação/filtros avançados em relatórios.
+- Evoluir exportação PDF opcional via ferramenta local.
+
+Veja [docs/roadmap.md](docs/roadmap.md).
+
+## Contribuição
+
+Leia [CONTRIBUTING.md](CONTRIBUTING.md). Contribuições devem preservar revisão humana obrigatória, não expor dados sensíveis e incluir testes quando alterarem geração, validação, API ou prompts.
 
 ## Licença
 

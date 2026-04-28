@@ -33,6 +33,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="final",
         help="Modo de saida: final bloqueia pendencias; minuta aceita marcadores; triagem nao gera DOCX.",
     )
+    parser.add_argument("--llm", action="store_true", help="Ativa geração por IA usando o provedor configurado.")
+    parser.add_argument("--no-llm", action="store_true", help="Força modo local sem IA.")
+    parser.add_argument(
+        "--llm-provider",
+        choices=("none", "mock", "openai"),
+        default=None,
+        help="Provider de IA para esta execução.",
+    )
+    parser.add_argument("--llm-model", default=None, help="Modelo de IA para esta execução.")
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
     parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
@@ -86,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
             no_outbox=args.no_outbox,
             strict=args.strict,
             output_mode=args.output_mode,
+            llm_enabled=False if args.no_llm else (True if args.llm else None),
+            llm_provider=args.llm_provider,
+            llm_model=args.llm_model,
         )
     except Exception as exc:
         print(f"[!] Falha no CLI: {exc}")

@@ -1,54 +1,79 @@
-# Limitações jurídicas, LGPD e uso supervisionado
+# Limitações Jurídicas, LGPD e Uso Supervisionado
 
-Este projeto automatiza preparação formal de documentos `.docx`, mas não substitui revisão jurídica humana.
+O sistema automatiza etapas técnicas de geração, formatação e validação de documentos `.docx`. Ele não substitui advogado e não decide mérito jurídico.
 
-## Limites do sistema
+## O Que o Sistema Faz
 
-- Não decide mérito jurídico.
-- Não confirma competência, rito, prazo, prescrição, decadência, tese aplicável ou jurisprudência atualizada.
-- Não garante aceitação por tribunal, cartório, sistema de protocolo ou órgão administrativo.
-- Não valida procuração, poderes nos autos, documentos médicos, cálculos, valor da causa ou autenticidade documental.
-- Não deve ser usado para protocolo sem aprovação expressa de advogado responsável.
-- **A detecção automática de tipo de peça é heurística**: serve para reduzir fricção operacional, não substitui escolha consciente do operador. O advogado responsável deve conferir se o perfil de validação aplicado é o adequado para a peça e o destino, especialmente quando o sistema cair no fallback `judicial-inicial-jef`.
+- Ajuda a estruturar e renderizar peças em DOCX.
+- Aplica validações formais e textuais.
+- Registra alertas em relatórios.
+- Permite uso opcional de IA/LLM configurável.
+- Mantém o fluxo padrão local, sem envio externo.
 
-## Revisão humana obrigatória
+## O Que o Sistema Não Faz
 
-Antes de qualquer uso real, um advogado deve conferir:
+- Não confirma competência, rito, prazo, prescrição ou decadência.
+- Não garante tese jurídica correta.
+- Não pesquisa jurisprudência em tempo real.
+- Não valida autenticidade documental.
+- Não garante aceitação por tribunal, cartório ou órgão administrativo.
+- Não substitui revisão de advogado responsável.
 
-- endereçamento, competência e classe processual;
+## Revisão Humana Obrigatória
+
+Antes de qualquer uso real, revise:
+
+- endereçamento e competência;
+- classe processual e rito;
 - qualificação das partes;
-- fatos, fundamentos, pedidos e valor da causa;
-- assinatura, OAB, procuração e poderes;
-- documentos anexos;
-- regras locais do tribunal, rito ou sistema de protocolo;
-- dados pessoais e dados sensíveis.
+- fatos, fundamentos e pedidos;
+- DER, NB, CID, datas, valores e documentos;
+- procuração, poderes e OAB;
+- anexos;
+- valor da causa;
+- regras locais do sistema de protocolo.
 
-## Dados sensíveis
+## IA/LLM e Responsabilidade
 
-Considere sensíveis por padrão:
+Quando IA externa estiver ativada, dados do caso podem ser enviados ao provedor configurado.
 
-- `output/*.docx`;
-- `reports/*.json`;
-- `reports/*.html`;
-- `mcp_inbox.json`;
-- `mcp_outbox.json`;
-- `mcp_status.json`;
-- arquivos temporários e logs operacionais.
+Use IA apenas quando houver autorização e base adequada para tratamento dos dados.
 
-Esses arquivos não devem ser versionados, enviados para issues públicas ou compartilhados sem anonimização.
+O sistema exige resposta estruturada e aplica validações, mas a IA ainda pode:
 
-## Retenção e expurgo
+- omitir informação importante;
+- interpretar fatos de forma inadequada;
+- sugerir fundamentos incompletos;
+- gerar texto que exija correção humana.
 
-Use retenção curta quando houver dados reais. A CLI oferece dry-run e expurgo explícito:
+## LGPD e Sigilo
+
+Considere sensíveis:
+
+- textos jurídicos;
+- uploads;
+- documentos gerados;
+- relatórios;
+- logs;
+- chaves de API;
+- dados pessoais ou de saúde.
+
+Não compartilhe arquivos reais em issues públicas, prints, exemplos ou commits.
+
+## Retenção
+
+Arquivos de runtime ficam em `output/` e `reports/`.
+
+Para limpar candidatos a expurgo:
 
 ```bash
 python -m src --cleanup-only
+```
+
+Para aplicar retenção:
+
+```bash
 python -m src --cleanup-only --apply-retention
 ```
 
 O operador continua responsável por backups, controle de acesso e política interna de armazenamento.
-Quando a API for usada em rede interna, configure `API_TOKEN` e trate o token como segredo operacional.
-
-## Demonstrações
-
-Demonstrações devem usar apenas dados fictícios, como os arquivos em `examples/`.

@@ -513,7 +513,7 @@ select optgroup { background: var(--accent-soft); color: var(--accent-ink); font
 .file-info .file-row .file-size { color: var(--muted-2); }
 
 /* Botões ------------------------------------------------------ */
-.primary-btn, .ghost-btn, .link-button, button {
+.primary-btn, .secondary-btn, .ghost-btn, .link-button, button {
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -541,6 +541,25 @@ select optgroup { background: var(--accent-soft); color: var(--accent-ink); font
 .primary-btn.is-loading:disabled { cursor: progress; filter: none; opacity: .92; }
 .primary-btn.is-loading .btn-icon { animation: spin 1.1s linear infinite; }
 
+.secondary-btn {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 8px 18px rgba(57, 43, 30, .08);
+  color: var(--accent-ink);
+  display: inline-flex;
+  font-size: 1rem;
+  gap: 10px;
+  justify-content: center;
+  min-height: 50px;
+  padding: 12px 22px;
+  width: 100%;
+}
+.secondary-btn:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); }
+.secondary-btn:disabled { cursor: not-allowed; opacity: .68; transform: none; }
+.secondary-btn.is-loading { animation: shimmer 1.6s linear infinite; background: linear-gradient(135deg, var(--paper), var(--accent-soft)); background-size: 200% 100%; cursor: progress; }
+.secondary-btn.is-loading .btn-icon { animation: spin 1.1s linear infinite; }
+
 .ghost-btn {
   background: transparent;
   border: 1px solid var(--line-strong);
@@ -557,7 +576,8 @@ select optgroup { background: var(--accent-soft); color: var(--accent-ink); font
   grid-template-columns: 1fr;
 }
 @media (min-width: 640px) {
-  .actions { grid-template-columns: 1fr auto; }
+  .actions { grid-template-columns: 1fr 1fr; }
+  .actions .muted { grid-column: 1 / -1; }
 }
 
 .warning {

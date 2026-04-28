@@ -1,64 +1,78 @@
-# Case study técnico
+# Case Study Técnico
 
 ## Contexto
 
-O `sistema-de-peticoes` nasceu como um pipeline local para reduzir retrabalho mecânico na preparação formal de documentos `.docx`, sem substituir a revisão jurídica humana.
+O `sistema-de-peticoes` nasceu para reduzir retrabalho mecânico na preparação formal de documentos jurídicos em `.docx`, mantendo revisão humana obrigatória.
 
-O problema tratado não é decidir mérito jurídico. O foco é organizar um fluxo técnico previsível: receber texto, validar entrada, gerar documento, validar formatação e registrar status.
+O projeto não tenta decidir mérito jurídico. O foco é organizar um fluxo técnico previsível: receber dados, gerar ou formatar texto, validar, renderizar DOCX e registrar auditoria.
 
 ## Problema
 
-Peças jurídicas podem conter lacunas, placeholders, dados fictícios, erros formais e informações sensíveis. Um pipeline automatizado precisa evitar duas falhas principais:
+Peças jurídicas podem conter:
 
-- gerar uma saída corrompida ou formalmente inválida;
-- transmitir falsa sensação de que o documento está pronto para protocolo.
+- lacunas;
+- placeholders;
+- dados fictícios;
+- erros formais;
+- informações sensíveis;
+- comentários internos indevidos.
 
-## Solução implementada
+Um pipeline automatizado precisa evitar duas falhas principais:
 
-O projeto usa Python e `python-docx` para gerar `.docx`, com uma etapa de validação antes e depois da geração.
+- gerar documento formalmente inválido;
+- transmitir falsa sensação de que a peça está pronta para protocolo.
 
-Fluxo:
+## Solução Implementada
+
+O projeto usa Python, FastAPI, `python-docx` e uma camada opcional de LLM.
+
+Fluxo resumido:
 
 ```text
-inbox JSON
-  -> validação de contrato
-  -> validação formal do texto
-  -> geração do .docx
-  -> validação formal do .docx
-  -> outbox ou bloqueio
-  -> status por item
-  -> relatório opcional
+entrada local
+  -> extração de texto
+  -> inferência de peça/perfil
+  -> opcional: LLM estruturado
+  -> validação textual
+  -> geração DOCX
+  -> validação estrutural
+  -> relatório
 ```
 
-## Decisões técnicas
+## Decisões Técnicas
 
-- Separar formatador e validador para reduzir risco de o mesmo módulo gerar e aprovar o próprio erro.
-- Usar filas JSON locais para manter integração simples e testável.
-- Tratar `output/`, `reports/`, inbox, outbox e status como dados sensíveis.
-- Usar perfis de validação para não assumir que existe um único padrão forense universal.
-- Bloquear outbox quando houver violação formal relevante.
+- Separar renderização e validação.
+- Usar perfis formais por contexto.
+- Manter API local e versionada.
+- Isolar LLM em `src/infra/llm/`.
+- Usar mock para testes sem envio externo.
+- Manter prompts versionados.
+- Não salvar prompt completo por padrão.
+- Bloquear modo final quando houver marcadores internos ou dados críticos ausentes.
 
-## O que o projeto demonstra
+## O Que o Projeto Demonstra
 
-- Arquitetura de pipeline em Python.
-- Manipulação de documentos `.docx`.
+- Arquitetura Python em camadas.
+- API FastAPI.
+- Front-end sem build.
+- Manipulação de DOCX.
+- Integração LLM testável.
 - Validação determinística.
-- Separação de responsabilidades.
-- Tratamento de dados sensíveis.
-- Documentação técnica para usuários e avaliadores.
-- Testes automatizados e golden file estrutural.
+- Testes automatizados.
+- Documentação de segurança e LGPD.
 
-## Limitações assumidas
+## Limitações Assumidas
 
-- O sistema não valida mérito jurídico.
-- O sistema não substitui advogado.
-- O padrão formal pode variar por tribunal, rito, classe processual e sistema de protocolo.
-- O relatório JSON é evidência de validação formal, não garantia de aceitação.
-- Demonstrações devem usar apenas dados fictícios.
+- Não substitui advogado.
+- Não valida mérito jurídico.
+- Não pesquisa jurisprudência em tempo real.
+- Não garante aceitação por tribunal ou órgão administrativo.
+- Providers além de OpenAI ainda são roadmap.
 
-## Próximas melhorias realistas
+## Evolução Natural
 
-- Ampliar perfis por tribunal e tipo de peça.
-- Melhorar mensagens de violação por seção ou parágrafo.
-- Adicionar demonstração visual com dados fictícios.
-- Criar exemplos adicionais de inbox inválida e documento bloqueado.
+- Mais providers LLM.
+- Mais validações jurídicas específicas.
+- Preview visual do documento.
+- Exportação PDF local opcional.
+- Mascaramento configurável em relatórios.

@@ -20,6 +20,8 @@ from config import (
     API_REQUIRE_TOKEN,
     API_TOKEN,
     FRONTEND_DIR,
+    LLM_MODEL,
+    LLM_PROVIDER,
     MAX_DOCX_BYTES,
     OUTPUT_DIR,
     RATE_LIMIT_MAX_MUTATIONS,
@@ -119,6 +121,12 @@ if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
+class LLMRequestOptions(BaseModel):
+    enabled: bool | None = Field(default=None)
+    provider: str | None = Field(default=None, max_length=40)
+    model: str | None = Field(default=None, max_length=120)
+
+
 class DocumentRequest(BaseModel):
     text: str = Field(
         min_length=1,
@@ -151,6 +159,10 @@ class DocumentRequest(BaseModel):
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
     assunto: str = Field(default="Geração local", max_length=200)
+    llm: LLMRequestOptions | None = Field(
+        default=None,
+        description="Opções de geração por IA. Ausente mantém o modo local sem IA.",
+    )
 
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
@@ -268,7 +280,7 @@ def piece_types() -> dict[str, Any]:
 
 
 @app.get("/api/v1/limits")
-def api_limits() -> dict[str, int]:
+def api_limits() -> dict[str, Any]:
     from src.adapters.files.file_extractors import MAX_TOTAL_UPLOAD_BYTES, MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES
 
     return {
@@ -277,6 +289,8 @@ def api_limits() -> dict[str, int]:
         "max_total_upload_bytes": MAX_TOTAL_UPLOAD_BYTES,
         "max_upload_files": MAX_UPLOAD_FILES,
         "max_docx_bytes": MAX_DOCX_BYTES,
+        "llm_default_provider": LLM_PROVIDER,
+        "llm_default_model": LLM_MODEL,
     }
 
 
@@ -326,6 +340,7 @@ def _generate_from_text(
     assunto: str,
     source_filename: str | None = None,
     output_mode: str | None = None,
+    llm: LLMRequestOptions | None = None,
 ) -> dict[str, Any]:
     mode_requested = normalize_mode(output_mode)
     piece_type, profile, piece_type_inferred, profile_inferred = _resolve_piece_and_profile(
@@ -359,6 +374,10 @@ def _generate_from_text(
             profile_id=profile.id,
             no_outbox=True,
             output_mode=mode_requested,
+            piece_type_id=piece_type.id if piece_type else None,
+            llm_enabled=llm.enabled if llm else None,
+            llm_provider=llm.provider if llm else None,
+            llm_model=llm.model if llm else None,
         )
     except Exception as exc:
         raise HTTPException(
@@ -376,6 +395,7 @@ def _generate_from_text(
     }
     report_item = result.to_report_item()
     metadata["prompt_usage"] = report_item.get("prompt_usage", {})
+    metadata["llm"] = report_item.get("llm", {})
     metadata["mode_delivered"] = result.mode_delivered or mode_requested
 
     report = build_run_report(
@@ -410,6 +430,7 @@ def _generate_from_text(
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
         "prompt_usage": metadata["prompt_usage"],
+        "llm": metadata["llm"],
         "mode_requested": mode_requested,
         "mode_delivered": result.mode_delivered or mode_requested,
     }
@@ -425,6 +446,7 @@ async def generate_document(payload: DocumentRequest) -> dict[str, Any]:
         remetente=payload.remetente,
         assunto=payload.assunto,
         output_mode=payload.output_mode,
+        llm=payload.llm,
     )
 
 
@@ -435,6 +457,9 @@ async def generate_document_from_upload(
     profile_id: str | None = Form(default=None),
     piece_type_id: str | None = Form(default=None),
     output_mode: str | None = Form(default=None),
+    llm_enabled: bool | None = Form(default=None),
+    llm_provider: str | None = Form(default=None),
+    llm_model: str | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
     assunto: str = Form(default="Geração por upload local"),
 ) -> dict[str, Any]:
@@ -461,6 +486,7 @@ async def generate_document_from_upload(
         assunto=assunto,
         source_filename=source_names,
         output_mode=output_mode,
+        llm=LLMRequestOptions(enabled=llm_enabled, provider=llm_provider, model=llm_model),
     )
 
 

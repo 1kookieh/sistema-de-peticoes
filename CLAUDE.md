@@ -1,8 +1,8 @@
 ﻿# CLAUDE.md — Integração Supervisionada com Claude
 
-Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **valida e renderiza** documentos jurídicos `.docx` em ambiente local. **O pipeline em si não chama nenhum LLM**: os prompts em `prompts/` são contratos versionados auditáveis (hash SHA-256 no relatório) usados como referência humana, não para chamada automática a um modelo.
+Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **gera, valida e renderiza** documentos jurídicos `.docx` em ambiente local. O fluxo padrão não usa LLM externo (`LLM_PROVIDER=none`), mas o pipeline possui integração opcional com provedores em `src/infra/llm/` (`mock` e `openai` nesta versão).
 
-O Claude pode apoiar a preparação da minuta **fora do pipeline** (em conversa separada com o usuário/advogado, seguindo `prompt_peticao.md`). A revisão humana por advogado responsável continua obrigatória antes de qualquer protocolo.
+Quando IA estiver ativada, `prompt_peticao.md` e `prompt_formatacao_word.md` compõem o prompt final, a resposta deve ser JSON estruturado e o DOCX é renderizado a partir dessa estrutura validada. A revisão humana por advogado responsável continua obrigatória antes de qualquer protocolo.
 
 ## Princípios obrigatórios
 
@@ -20,13 +20,13 @@ O Claude pode apoiar a preparação da minuta **fora do pipeline** (em conversa 
 | `prompts/prompt_peticao.md` | Orienta a estrutura jurídica, limites, catálogo de peças, tom e cautelas de geração. |
 | `prompts/prompt_formatacao_word.md` | Orienta o padrão formal esperado para Word/DOCX. |
 
-O pipeline Python carrega e audita esses dois prompts. O relatório registra `prompt_usage` com nome, caminho e hash SHA-256.
+O pipeline Python carrega e audita esses dois prompts. O relatório registra `prompt_usage` com nome, caminho e hash SHA-256. Em modo IA, o relatório também registra `llm` com provedor, modelo, hash do prompt final e flags de mock/fallback, sem salvar o prompt completo por padrão.
 
 ## Fluxo recomendado com Claude
 
 ```text
 Entrada do usuário ou arquivo
-  -> Claude prepara minuta conforme prompt_peticao.md
+  -> opcional: provider LLM gera JSON estruturado usando os prompts versionados
   -> Sistema detecta tipo de peça e perfil formal
   -> Sistema valida texto antes de renderizar
   -> Sistema aplica prompt_formatacao_word.md como contrato de formatação
@@ -61,7 +61,7 @@ python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef -
 src/
   core/            domínio, tipos de peça, perfis, prompts e validações
   adapters/        leitura de inbox, escrita de outbox e extração de arquivos
-  infra/           DOCX, locks, logging e estado local
+  infra/           DOCX, LLM, locks, logging e estado local
   interfaces/      API, CLI e desktop
   orchestration/   pipeline, relatórios, retenção e setup
 ```

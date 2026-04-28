@@ -106,9 +106,22 @@
             <select id="output-mode">
               <option value="minuta" selected>Minuta revisável (padrão)</option>
               <option value="final">Final protocolável - bloqueia pendências</option>
-              <option value="triagem">Triagem técnica - não gera DOCX</option>
             </select>
             <span class="field-hint muted">Use "final" apenas quando o texto estiver completo e sem marcadores internos.</span>
+          </label>
+          <label class="field">
+            <span class="field-label">IA / LLM</span>
+            <select id="llm-provider">
+              <option value="none" selected>Sem IA - usar texto informado</option>
+              <option value="mock">Mock local - testes e desenvolvimento</option>
+              <option value="openai">OpenAI - API externa configurada</option>
+            </select>
+            <span class="field-hint muted">Ao ativar IA externa, o texto informado poderá ser enviado ao provedor configurado. Revise dados sensíveis antes de prosseguir.</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Modelo de IA <em class="optional-tag">opcional</em></span>
+            <input id="llm-model" type="text" autocomplete="off" placeholder="Ex.: gpt-4o-mini">
+            <span class="field-hint muted">Se vazio, o backend usa LLM_MODEL ou o padrão do provedor.</span>
           </label>
         </details>
 
@@ -147,9 +160,15 @@
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6zM14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <span class="btn-label">Gerar e validar DOCX</span>
+            <span class="btn-label">Gerar DOCX</span>
           </button>
-          <span class="muted">Processamento local. Nada é enviado para serviços externos.</span>
+          <button id="validate" class="secondary-btn" type="button">
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 12l2 2 4-5M12 3a9 9 0 109 9 9 0 00-9-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="btn-label">Validar texto</span>
+          </button>
+          <span class="muted">Gere o DOCX para baixar a minuta. Use validar para conferir pendências sem criar arquivo.</span>
         </div>
 
         <p class="warning">
@@ -169,7 +188,7 @@
                 <svg viewBox="0 0 48 48" width="48" height="48"><path d="M14 6h14l8 8v22a4 4 0 01-4 4H14a4 4 0 01-4-4V10a4 4 0 014-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M28 6v8h8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 22h16M16 28h16M16 34h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               </span>
               <p><strong>Nenhum documento gerado ainda.</strong></p>
-              <p class="muted">Envie um texto ou arquivo e clique em <em>Gerar e validar DOCX</em>. O resultado, alertas e downloads aparecem aqui.</p>
+              <p class="muted">Envie um texto ou arquivo e escolha <em>Gerar DOCX</em> ou <em>Validar texto</em>. O resultado, alertas e downloads aparecem aqui.</p>
             </div>
           </div>
         </section>

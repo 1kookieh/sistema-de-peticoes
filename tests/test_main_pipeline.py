@@ -99,6 +99,26 @@ def test_processar_email_final_bloqueia_marcador_pendente_no_pipeline(tmp_path, 
     assert not any((tmp_path / "output").glob("*.docx"))
 
 
+def test_processar_email_minuta_gera_docx_mesmo_com_alertas_formais(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
+    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+
+    resultado = main.processar_email(
+        _email("Cliente relata indeferimento de beneficio por incapacidade. DER 10/01/2026."),
+        no_outbox=True,
+        output_mode="minuta",
+    )
+
+    assert resultado.status == "draft_with_warnings"
+    assert resultado.destino is not None
+    assert resultado.destino.exists()
+    assert resultado.problemas
+    assert resultado.mode_requested == "minuta"
+    assert resultado.mode_delivered == "minuta"
+
+
 def test_processar_email_triagem_nao_renderiza_docx(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")

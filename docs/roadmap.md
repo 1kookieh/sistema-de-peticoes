@@ -1,45 +1,43 @@
 # Roadmap
 
-## Curto Prazo
+Este roadmap lista melhorias técnicas planejadas. Ele não promete prazo nem substitui revisão jurídica humana.
 
-- [x] Suíte inicial de testes com `pytest`.
-- [x] Bloqueio de outbox quando há violação formal.
-- [x] Validação de contrato da inbox JSON.
-- [x] Avisos de LGPD e revisão humana na documentação.
-- [x] Perfis iniciais de validação por contexto.
-- [x] Relatório JSON de conformidade formal.
-- [x] CLI dedicada com `--strict`, `--report` e `--no-outbox`.
-- [x] Política configurável de retenção/expurgo.
-- [x] Golden file estrutural para `.docx`.
-- [x] Documentação de histórico Git profissional em `docs/git-history.md`.
-- [x] Comando `--setup` para primeiro uso.
-- [x] Exemplos seguros em `examples/`.
-- [x] Documento dedicado de limitações jurídicas e LGPD.
-- [x] API REST local com FastAPI.
-- [x] Front-end local simples para upload/geração/download.
-- [x] Painel local de histórico e relatórios.
-- [x] Relatório HTML local para revisão humana.
-- [x] Dockerfile para ambiente reprodutível.
-- [x] Interface desktop com Tkinter.
-- [x] Pasta de `.docx` fictício gerado para demonstração.
-- [ ] Mensagens de violação com mais contexto por parágrafo/seção.
-- [ ] Validação de múltiplos advogados no fechamento.
+## Concluído
+
+- Pipeline local de geração e validação DOCX.
+- API FastAPI em `/api/v1`.
+- Interface web local.
+- CLI e interface desktop.
+- Dockerfile.
+- Relatórios JSON/HTML.
+- Retenção configurável.
+- Detector automático de tipos de peça.
+- Modos `minuta`, `final` e `triagem`.
+- Integração LLM opcional com `mock` e `openai`.
+- Prompts versionados com hash de auditoria.
+- Testes automatizados para fluxo crítico.
+
+## Próximas Melhorias
+
+- Melhorar mensagens de validação por seção/parágrafo.
+- Ampliar validações específicas por tipo de peça.
+- Adicionar paginação e busca mais completa em relatórios.
+- Refinar preview visual antes do download.
+- Adicionar screenshots/GIFs reais no README.
+- Melhorar suporte a múltiplos advogados no fechamento.
 
 ## Médio Prazo
 
-- [ ] Expandir perfis por tribunal, rito e escritório.
-- [ ] Exportação PDF por ferramenta local, com aviso de dependência externa.
-- [ ] Autenticação local opcional para uso em rede interna.
+- Providers adicionais: Anthropic, Gemini, OpenRouter e Ollama.
+- Exportação PDF opcional via ferramenta local.
+- Templates por classe processual.
+- Configuração avançada de perfis por tribunal/escritório.
+- Mascaramento configurável de dados pessoais em relatórios.
 
-## Longo Prazo
+## Fora do Escopo Atual
 
-- [ ] Biblioteca de templates por classe processual.
-- [ ] Dashboard avançado de qualidade e métricas operacionais.
-- [ ] Integração segura com armazenamento criptografado.
-
-## Fora Do Escopo Atual
-
-- Geração automática de mérito jurídico definitivo.
-- Substituição de advogado responsável.
-- Consulta paga a APIs externas.
-- Garantia universal de aceitação por todos os tribunais brasileiros.
+- Substituir advogado responsável.
+- Garantir tese jurídica correta.
+- Garantir aceitação por todos os tribunais.
+- Processar dados reais em GitHub Actions.
+- Expor a API publicamente sem camada adicional de segurança.

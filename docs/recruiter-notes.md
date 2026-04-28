@@ -1,42 +1,45 @@
-# Notas para recrutadores / tech leads
+# Notas para Recrutadores e Tech Leads
 
-Resumo de 2 minutos para quem está avaliando o projeto.
+Resumo rápido para avaliação técnica do projeto.
 
-## O que é
+## O Que É
 
-Pipeline Python (3.11+) que transforma texto plano em peças jurídicas `.docx` com padrão formal forense, validação determinística e bloqueios para uso jurídico supervisionado.
+Sistema Python/FastAPI que gera e valida documentos jurídicos `.docx`, com interface web, CLI, arquitetura em camadas, integração opcional com IA/LLM e preocupação explícita com LGPD e revisão humana.
 
-## Por que é interessante
+## Por Que É Interessante
 
-- **Domínio específico com risco tratado.** Não é um CRUD genérico — o sistema codifica regras reais de formatação jurídica e deixa explícito que revisão humana continua obrigatória.
-- **Separação formatação × validação.** O validador funciona como oráculo independente do gerador. Isso é uma boa prática de software test‑driven aplicada ao domínio de documentos.
-- **Arquitetura orientada a filas JSON.** O núcleo Python é agnóstico ao canal de entrega — ingestão e envio são contratos em disco. Facilita testes, integrações e troca de canal sem mexer no core.
-- **Dependências mínimas.** Uma biblioteca de runtime (`python-docx`), `pytest` só para desenvolvimento e um loader `.env` simples. Sem vendor lock-in.
-- **Exit codes semânticos.** Pensado para rodar em CI/CD: `0` OK, `1` falha técnica, `2` config ausente, `3` peça bloqueada por violação formal.
+- **Domínio específico:** não é um CRUD genérico; trabalha com documentos jurídicos, DOCX e validação formal.
+- **Arquitetura em camadas:** separa domínio, infraestrutura, interfaces e orquestração.
+- **LLM com fronteira clara:** providers ficam em `src/infra/llm/`, não dentro das rotas.
+- **Validação dupla:** valida texto antes da geração e reabre o DOCX para validar estrutura.
+- **Segurança prática:** evita versionar runtime, protege downloads contra path traversal e documenta riscos de IA externa.
+- **Testes reais:** cobre API, pipeline, DOCX, modos de saída, inferência e LLM mock.
 
-## Como avaliar em 5 minutos
+## Onde Olhar Primeiro
 
-1. Abra `src/orchestration/pipeline.py` — orquestra validação, renderização, bloqueio e status por item.
-2. Veja o contraste entre `src/infra/docx_render.py` (renderiza) e `src/core/validation/docx.py` (verifica).
-3. Leia `docs/decisions.md` para entender trade-offs explícitos.
-4. Rode `pytest -q`.
-5. Rode `python -m src --inbox ./examples/inbox_valid.json --no-outbox --report reports/demo_report.json` depois de configurar `EMAIL_ADVOGADO`.
-6. Consulte `docs/git-history.md` para ver uma sugestão de histórico profissional com Conventional Commits.
+1. `src/orchestration/pipeline.py` — fluxo principal.
+2. `src/infra/llm/` — integração LLM.
+3. `src/infra/docx_render.py` — renderização DOCX.
+4. `src/core/validation/` — regras de validação.
+5. `src/interfaces/api.py` — contrato REST.
+6. `tests/` — cobertura dos fluxos críticos.
 
-## Skills demonstradas
+## Como Rodar em 5 Minutos
 
-- Python moderno (`dataclass`, `Path`, type hints, `from __future__ import annotations`).
-- Manipulação de OOXML via `python-docx`.
-- Desenho de pipelines determinísticos com exit codes acionáveis.
-- Modelagem por contratos (JSON) em vez de SDKs.
-- Testes automatizados com fixtures de `.docx`.
-- Cuidado explícito com LGPD e falsa prontidão jurídica.
-- Documentação técnica em pt-BR clara e navegável.
+```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+python -m src --setup
+uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
+```
 
-## Stack em uma linha
+Abra `http://127.0.0.1:8000`.
 
-Python 3.11+ · `python-docx` · `pytest` · GitHub Actions · Conventional Commits · MIT.
+## Stack
 
-## Contato
+Python 3.11+, FastAPI, Pydantic Settings, python-docx, pytest, HTML/CSS/JavaScript ESM, Docker e GitHub Actions.
 
-GitHub: [@1kookieh](https://github.com/1kookieh)
+## Limitação Importante
+
+O sistema é técnico e documental. Ele não substitui análise jurídica humana nem garante que uma peça esteja pronta para protocolo.

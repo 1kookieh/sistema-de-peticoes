@@ -142,6 +142,30 @@ def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     )
 
 
+def test_api_accepts_llm_mock_options_and_returns_metadata(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/v1/documents",
+        json={
+            "text": "Cliente relata indeferimento de beneficio por incapacidade.",
+            "profile_id": "forense-basico",
+            "piece_type_id": "auxilio-incapacidade-temporaria",
+            "output_mode": "minuta",
+            "llm": {"enabled": True, "provider": "mock"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["document"]
+    assert (output_dir / payload["document"]).exists()
+    assert payload["llm"]["used"] is True
+    assert payload["llm"]["mock_used"] is True
+    assert payload["llm"]["provider"] == "mock"
+
+
 def test_api_output_mode_final_bloqueia_marcador_pendente(tmp_path, monkeypatch):
     output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)
@@ -184,6 +208,27 @@ def test_api_output_mode_minuta_aceita_marcador_pendente(tmp_path, monkeypatch):
     assert payload["document"]
     assert payload["mode_requested"] == "minuta"
     assert payload["mode_delivered"] == "minuta"
+    assert any(output_dir.glob("*.docx"))
+
+
+def test_api_output_mode_minuta_entrega_docx_com_alertas_formais(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/v1/documents",
+        json={
+            "text": "Cliente relata indeferimento de beneficio por incapacidade. DER 10/01/2026.",
+            "output_mode": "minuta",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "draft_with_warnings"
+    assert payload["document"]
+    assert payload["download_url"]
+    assert payload["problems"]
     assert any(output_dir.glob("*.docx"))
 
 
@@ -409,6 +454,20 @@ def test_frontend_uses_only_api_v1_routes():
     assert "/api/v1" in content
     assert "/api/" not in content.replace("/api/v1", "")
     assert "api-client" not in content
+
+
+def test_frontend_separates_generate_and_validate_actions():
+    web_dir = Path(__file__).resolve().parents[1] / "web"
+    html = (web_dir / "index.html").read_text(encoding="utf-8")
+    ui_js = (web_dir / "ui.js").read_text(encoding="utf-8")
+
+    assert 'id="generate"' in html
+    assert 'id="validate"' in html
+    assert "Gerar DOCX" in html
+    assert "Validar texto" in html
+    assert "Gerar e validar DOCX" not in html
+    assert 'generateFromText("triagem")' in ui_js
+    assert 'generateFromUpload(uploads, "triagem")' in ui_js
 
 
 def test_service_worker_does_not_cache_sensitive_routes():

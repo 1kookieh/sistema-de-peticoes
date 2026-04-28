@@ -1,71 +1,108 @@
-# Contribuindo com o Sistema de Petições
+# Contribuindo
 
-Obrigado pelo interesse em contribuir! Este documento descreve o fluxo esperado.
+Obrigado por considerar contribuir com o `Sistema de Petições`.
 
-## Como reportar bugs
+Este projeto lida com documentos jurídicos e potenciais dados sensíveis. Toda contribuição deve preservar segurança, revisão humana e clareza técnica.
 
-Abra uma [issue](https://github.com/1kookieh/sistema-de-peticoes/issues/new?template=bug_report.md) usando o template de bug. Quanto mais contexto (trecho do `.docx`, saída do validador, versão do Python), mais rápido conseguimos reproduzir.
+## Como Preparar o Ambiente
 
-## Como sugerir melhorias
+```bash
+git clone https://github.com/1kookieh/sistema-de-peticoes.git
+cd sistema-de-peticoes
+python -m venv .venv
+```
 
-Use o template de [feature request](https://github.com/1kookieh/sistema-de-peticoes/issues/new?template=feature_request.md). Descreva o problema que resolve, não apenas a solução.
+Windows PowerShell:
 
-## Fluxo de desenvolvimento
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+Copy-Item .env.example .env
+```
 
-1. **Fork** do repositório e clone local.
-2. Crie uma branch a partir de `main` com nome descritivo:
-   ```bash
-   git checkout -b feat/pdf-export
-   ```
-3. Faça commits pequenos e focados seguindo [Conventional Commits](https://www.conventionalcommits.org/pt-br/):
-   - `feat:` nova funcionalidade
-   - `fix:` correção de bug
-   - `docs:` documentação
-   - `chore:` infra, build, dependências
-   - `refactor:` mudança interna sem alterar comportamento
-   - `test:` testes
-4. Rode localmente antes de abrir PR:
-   ```bash
-   pip install -r requirements-dev.txt
-   python -m compileall config.py src tests
-   pytest -q
-   INBOX_MOCK_PATH=./examples/inbox_smoke.json python -m src
-   python -m src --inbox ./examples/inbox_smoke.json --no-outbox --report reports/conformidade_report.json
-   ```
-   No PowerShell:
-   ```powershell
-   pip install -r requirements-dev.txt
-   python -m compileall config.py src tests
-   pytest -q
-   $env:INBOX_MOCK_PATH = ".\examples\inbox_smoke.json"
-   python -m src
-   python -m src --inbox .\examples\inbox_smoke.json --no-outbox --report reports\conformidade_report.json
-   ```
-5. Abra o PR preenchendo o template. Vincule a issue quando houver.
+Linux/macOS:
 
-## Padrões de código
+```bash
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+```
 
-- **Python 3.11+** (usamos sintaxe de tipos moderna e `match` quando agregar valor).
-- **Type hints** em toda função pública.
-- **Docstrings** curtas em pt-BR em módulos, classes e funções públicas.
-- **Imports** organizados: stdlib → terceiros → locais.
-- **Sem dependências novas** sem discussão prévia na issue — mantemos a superfície mínima.
-- **Testes obrigatórios** para mudanças em validação, filas, exit codes ou formatação `.docx`.
-- **Golden estrutural** deve ser atualizado somente quando a mudança de layout for intencional e documentada.
+## Antes de Abrir PR
 
-## Regras específicas de domínio
+Rode:
 
-- **Não adicione regras de formatação silenciosamente.** Toda nova regra precisa:
-  1. Estar documentada em `prompts/prompt_formatacao_word.md` (fonte humana).
-  2. Ter verificação correspondente em `src/core/validation/docx.py` (fonte executável).
-- **Nada de APIs pagas no core.** Integrações com LLMs ou serviços externos devem ficar em módulos ou projetos separados, consumindo as filas JSON.
-- **Nada de falsa prontidão jurídica.** Textos, README, mensagens e testes não devem afirmar que uma peça está pronta para protocolo sem revisão humana por advogado.
-- **LGPD por padrão.** Não versione `.docx`, inbox, outbox, status ou amostras com dados reais de clientes.
+```bash
+python -m compileall config.py src tests
+pytest -q
+```
 
-## Revisão
+Se alterar interface web, também valide sintaxe dos módulos JavaScript alterados:
 
-Reviews focam em: clareza do código, aderência ao padrão forense, impacto nas regras de validação, segurança de dados, qualidade dos testes e documentação.
+```bash
+node --check web/ui.js
+node --check web/render.js
+```
+
+## Padrão de Branch e Commit
+
+Use nomes descritivos:
+
+```bash
+git checkout -b feat/llm-provider
+git checkout -b fix/docx-validation
+git checkout -b docs/readme-usage
+```
+
+Commits recomendados:
+
+- `feat:` nova funcionalidade;
+- `fix:` correção de bug;
+- `docs:` documentação;
+- `test:` testes;
+- `refactor:` mudança interna sem alterar comportamento;
+- `chore:` manutenção.
+
+## Regras de Código
+
+- Preserve a arquitetura em camadas.
+- Não coloque chamadas de LLM diretamente nas rotas.
+- Não remova validações sem teste e justificativa.
+- Não adicione dependência nova sem necessidade clara.
+- Atualize documentação quando mudar contrato, comando ou fluxo.
+- Adicione testes para mudanças em API, pipeline, DOCX, prompts ou validação.
+
+## Regras para Prompts
+
+- Use apenas dados fictícios.
+- Não inclua nomes reais, CPF, RG, OAB, NB, DER ou documentos reais.
+- Separe instruções jurídicas de instruções de formatação.
+- Não peça para a IA inventar fatos ou jurisprudência.
+- Ao alterar prompts, rode os testes.
+
+## Segurança e LGPD
+
+Não commitar:
+
+- `.env`;
+- chaves de API;
+- DOCX real;
+- relatórios reais;
+- inbox/outbox/status com dados reais;
+- prints com dados sensíveis.
+
+Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
+
+## Pull Requests
+
+Ao abrir PR:
+
+1. Explique o problema resolvido.
+2. Liste arquivos principais alterados.
+3. Informe testes executados.
+4. Destaque riscos ou limitações.
+5. Informe se a mudança afeta IA/LLM, prompts, DOCX, API ou segurança.
 
 ## Conduta
 
-Seja gentil. Problemas são com o código, não com as pessoas.
+Seja objetivo e respeitoso. Reviews devem focar no código, documentação, segurança e confiabilidade do sistema.

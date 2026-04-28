@@ -16,6 +16,7 @@ class ProcessResult:
     enfileirado: bool = False
     docx_report: dict | None = None
     prompt_usage: dict | None = None
+    llm_usage: dict | None = None
     mode_requested: str | None = None
     mode_delivered: str | None = None
 
@@ -35,6 +36,8 @@ class ProcessResult:
             item["mode_delivered"] = self.mode_delivered
         if self.prompt_usage is not None:
             item["prompt_usage"] = self.prompt_usage
+        if self.llm_usage is not None:
+            item["llm"] = self.llm_usage
         if self.docx_report is not None:
             item["docx_report"] = self.docx_report
         elif self.destino and self.destino.exists():

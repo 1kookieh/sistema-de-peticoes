@@ -1,111 +1,206 @@
-# API REST e interfaces locais
+# API REST e Interfaces Locais
 
-Este projeto possui três formas de uso local sobre o mesmo pipeline supervisionado: CLI, API/front-end web e interface desktop. Nenhuma delas substitui revisão jurídica humana.
+A API local usa FastAPI e expõe apenas rotas versionadas em `/api/v1`. As rotas antigas `/api/...` não são mantidas.
 
-## Escolha de front-end
-
-A interface web usa HTML, CSS e JavaScript puro em `web/`, agora modularizado em:
-
-- `web/api.js`: chamadas HTTP para `/api/v1`;
-- `web/state/store.js`: estado global, tema, limites e token;
-- `web/render.js`: templates e escaping;
-- `web/ui.js`: DOM, eventos, validação visual e acessibilidade;
-- `web/app.js`: bootstrap e registro do service worker.
-
-Essa escolha evita Node.js, bundler ou build, reduz dependências e mantém o projeto fácil de demonstrar em ambiente limpo.
-
-## Executar API local
+## Iniciar Servidor
 
 ```bash
 uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Abra `http://127.0.0.1:8000`.
+URLs úteis:
+
+```text
+http://127.0.0.1:8000
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/api/v1/health
+```
+
+## Autenticação Local
+
+Se `API_TOKEN` estiver preenchido, rotas sensíveis exigem:
+
+```http
+X-API-Token: valor-do-token
+```
+
+Se `API_REQUIRE_TOKEN=true` e `API_TOKEN` estiver vazio, a API retorna erro de configuração.
 
 ## Endpoints
 
-As rotas antigas `/api/...` foram removidas. A API pública local usa somente `/api/v1/...`.
-
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/` | Entrega o front-end local |
-| `GET` | `/api/v1/health` | Healthcheck simples |
-| `POST` | `/api/v1/setup` | Cria `output/` e `reports/` e valida recursos essenciais |
-| `GET` | `/api/v1/profiles` | Retorna `{items, default}` com perfis formais |
-| `GET` | `/api/v1/piece-types` | Lista tipos de peça agrupados conforme o prompt jurídico |
-| `GET` | `/api/v1/limits` | Expõe limites de texto, upload e DOCX |
-| `POST` | `/api/v1/documents` | Gera `.docx`, valida e grava relatórios JSON/HTML |
-| `POST` | `/api/v1/documents/upload` | Extrai texto de `.txt`, `.md`, `.docx`, `.pdf` ou imagem e gera `.docx` |
-| `GET` | `/api/v1/documents/{filename}/download` | Baixa documento gerado |
-| `GET` | `/api/v1/reports` | Lista histórico local de relatórios e status |
+| `GET` | `/` | Serve a interface web local |
+| `GET` | `/api/v1/health` | Healthcheck |
+| `POST` | `/api/v1/setup` | Cria/verifica pastas locais |
+| `GET` | `/api/v1/profiles` | Lista perfis formais |
+| `GET` | `/api/v1/piece-types` | Lista tipos de peça |
+| `GET` | `/api/v1/limits` | Retorna limites de texto, upload, DOCX e defaults LLM |
+| `POST` | `/api/v1/documents` | Gera/valida DOCX a partir de texto |
+| `POST` | `/api/v1/documents/upload` | Extrai texto de arquivos e gera/valida DOCX |
+| `GET` | `/api/v1/documents/{filename}/download` | Baixa DOCX gerado |
+| `GET` | `/api/v1/reports` | Lista relatórios e status locais |
 | `GET` | `/api/v1/reports/{filename}` | Abre relatório JSON ou HTML |
 
-## Detecção automática de peça e perfil
-
-`piece_type_id` e `profile_id` são opcionais em `/api/v1/documents` e `/api/v1/documents/upload`.
-
-- `piece_type_id` ausente, vazio ou `"auto"` faz o sistema inferir a peça por regras determinísticas em `src/core/piece_inference.py`.
-- `profile_id` ausente, vazio ou `"auto"` usa o perfil sugerido pela peça detectada.
-- Sem peça reconhecida, o fallback é `judicial-inicial-jef`.
-
-A resposta inclui `piece_type_inferred`, `profile_inferred` e `profile { id, label, descricao }` para auditoria.
-
-## Exemplos
-
-Sem informar peça nem perfil:
+## Geração por Texto
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"PROCURAÇÃO AD JUDICIA...\\n\\nOutorgante fictício para teste.\"}"
+  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\"}"
 ```
 
-Com peça e perfil explícitos:
+Payload principal:
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/documents \
-  -H "Content-Type: application/json" \
-  -d "{\"text\":\"[PREENCHER: texto fictício completo da peça]\",\"profile_id\":\"judicial-inicial-jef\",\"piece_type_id\":\"auxilio-incapacidade-temporaria\"}"
+```json
+{
+  "text": "texto do caso ou da peça",
+  "profile_id": "auto",
+  "piece_type_id": "auto",
+  "output_mode": "minuta",
+  "remetente": "demo@example.com",
+  "assunto": "Geração local",
+  "llm": {
+    "enabled": false,
+    "provider": "none",
+    "model": null
+  }
+}
 ```
 
-Upload de arquivo:
+Campos opcionais:
+
+- `piece_type_id`: use um ID da rota `/piece-types` ou `auto`.
+- `profile_id`: use um ID da rota `/profiles` ou `auto`.
+- `output_mode`: `minuta`, `final` ou `triagem`.
+- `llm`: configura IA por requisição.
+
+## Modos de Saída
+
+| Modo | Gera DOCX | Comportamento |
+|---|---:|---|
+| `minuta` | Sim | Aceita alertas formais não críticos e registra pendências |
+| `final` | Sim, se válido | Bloqueia placeholders, marcas internas e pendências críticas |
+| `triagem` | Não | Retorna diagnóstico sem renderizar documento |
+
+## Upload
+
+Arquivo único:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
-  -F "file=@peticao.docx"
+  -F "file=@peticao.docx" \
+  -F "output_mode=minuta"
 ```
 
-Upload de múltiplos arquivos, incluindo imagem para OCR:
+Múltiplos arquivos:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
   -F "files=@relato.pdf" \
-  -F "files=@print.png" \
+  -F "files=@observacoes.txt" \
   -F "profile_id=judicial-inicial-jef"
 ```
 
-## Segurança operacional
+Arquivos suportados:
 
-- A API foi pensada para uso local.
-- Não exponha em rede pública sem autenticação, TLS, logs controlados e política de retenção.
-- Defina `API_TOKEN` no `.env` para exigir o cabeçalho `X-API-Token` nas rotas sensíveis.
-- `output/`, `reports/`, inbox, outbox e status podem conter dados pessoais ou sensíveis.
-- O front usa `no_outbox=True`, ou seja, gera e valida sem envio automático.
-- O service worker cacheia somente assets estáticos; não cacheia `/api/v1`, uploads, relatórios ou DOCX.
-- Imagens são usadas para OCR e não são anexadas ao `.docx` gerado.
+- `.txt` e `.md` em UTF-8;
+- `.docx`;
+- `.pdf`;
+- imagens suportadas pelo OCR configurado.
 
-## Docker
+Limites atuais são expostos por:
 
-```bash
-docker build -t sistema-peticoes .
-docker run --rm -p 8000:8000 sistema-peticoes
+```text
+GET /api/v1/limits
 ```
 
-Para uso com dados reais, monte volumes locais protegidos:
+## IA / LLM
+
+O padrão é `none`, sem envio externo.
+
+Providers disponíveis:
+
+| Provider | Uso | Chave |
+|---|---|---|
+| `none` | Modo local sem IA | Não |
+| `mock` | Testes e desenvolvimento | Não |
+| `openai` | API externa OpenAI | Sim, `OPENAI_API_KEY` |
+
+Exemplo com mock:
 
 ```bash
-docker run --rm -p 8000:8000 \
-  -v ./output:/app/output \
-  -v ./reports:/app/reports \
-  sistema-peticoes
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
+  -H "Content-Type: application/json" \
+  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"enabled\":true,\"provider\":\"mock\"}}"
 ```
+
+Exemplo com upload e mock:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
+  -F "files=@relato.pdf" \
+  -F "output_mode=minuta" \
+  -F "llm_enabled=true" \
+  -F "llm_provider=mock"
+```
+
+Metadados retornados em `llm`:
+
+- `enabled`;
+- `mode`;
+- `provider`;
+- `model`;
+- `used`;
+- `mock_used`;
+- `fallback_used`;
+- `prompt_files`;
+- `prompt_hash`;
+- `response_valid`;
+- `tokens_input`;
+- `tokens_output`;
+- `latency_ms`;
+- `error`.
+
+O prompt completo e chaves de API não são retornados.
+
+## Resposta
+
+Exemplo resumido:
+
+```json
+{
+  "status": "ok_no_outbox",
+  "problems": [],
+  "document": "peticao_20260428_123456_api.docx",
+  "download_url": "/api/v1/documents/peticao_20260428_123456_api.docx/download",
+  "report_json_url": "/api/v1/reports/api_20260428_123456.json",
+  "report_html_url": "/api/v1/reports/api_20260428_123456.html",
+  "piece_type_inferred": true,
+  "profile_inferred": true,
+  "llm": {
+    "used": false,
+    "provider": "none"
+  }
+}
+```
+
+## Erros Comuns
+
+| Situação | Resposta esperada |
+|---|---|
+| Perfil inexistente | `422` |
+| Arquivo não suportado | `422` |
+| Texto sem UTF-8 válido | `422` |
+| Origem HTTP não autorizada | `403` |
+| Token ausente/inválido | `401` |
+| Rate limit local excedido | `429` |
+| Provider real sem chave | Status `llm_error` no payload |
+
+## Segurança Operacional
+
+- A API foi desenhada para uso local.
+- Não exponha em rede pública sem autenticação, TLS e política de retenção.
+- O service worker não cacheia `/api/v1`, uploads, relatórios ou DOCX.
+- Imagens são usadas para OCR e não são anexadas automaticamente ao `.docx`.
+- Use dados fictícios em demonstrações públicas.

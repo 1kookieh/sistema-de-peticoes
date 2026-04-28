@@ -1,9 +1,8 @@
 """Carregamento e auditoria dos prompts oficiais do projeto.
 
-O sistema é determinístico e não chama um provedor LLM por padrão. Mesmo assim,
-os prompts versionados são tratados como contrato obrigatório do pipeline:
-`prompt_peticao.md` guia a preparação da peça e `prompt_formatacao_word.md`
-guia a renderização formal do Word.
+O sistema não chama provedor LLM por padrão. Quando IA é ativada, os prompts
+versionados são usados para montar o prompt final auditável; quando IA fica
+desativada, continuam funcionando como contrato obrigatório do pipeline.
 """
 from __future__ import annotations
 
@@ -66,12 +65,7 @@ def load_word_formatting_prompt() -> PromptSpec:
 
 
 def prepare_petition_text(raw_text: str) -> tuple[str, PromptSpec]:
-    """Prepara o texto da peça sob o contrato do `prompt_peticao.md`.
-
-    Sem provedor LLM configurado, a função não inventa fatos nem reescreve o
-    mérito: ela garante que o prompt oficial existe e devolve o texto recebido
-    para validação humana/determinística.
-    """
+    """Garante o prompt jurídico obrigatório e preserva o texto local bruto."""
     prompt = load_petition_prompt()
     return raw_text, prompt
 

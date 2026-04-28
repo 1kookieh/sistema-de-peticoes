@@ -31,6 +31,12 @@ from src.core.prompts import (
     prepare_petition_text,
     prompt_audit_payload,
 )
+from src.infra.llm.base import LLMRequest
+from src.infra.llm.errors import LLMError
+from src.infra.llm.factory import build_llm_provider, fallback_enabled, normalize_provider
+from src.infra.llm.mock_provider import MockLLMProvider
+from src.infra.llm.rendering import draft_to_petition_text
+from src.infra.llm.schemas import LLMGenerationMetadata
 from src.orchestration.reporting import build_docx_report
 from src.core.validation.docx import validar, validar_texto_protocolavel
 from src.core.validation.modes import normalize_mode, validar_modo_saida
@@ -59,12 +65,98 @@ def _reject_oversized_docx(path: Path) -> list[str]:
     return [f"DOCX gerado acima do limite permitido ({size_mb:.1f} MB > {max_mb:.1f} MB)."]
 
 
+def _has_critical_input_problem(problemas: list[str]) -> bool:
+    """Problemas que continuam bloqueantes mesmo em minuta."""
+    critical_terms = ("placeholders", "dados de exemplo", "fict", "zerado")
+    return any(
+        any(term in problema.lower() for term in critical_terms)
+        for problema in problemas
+    )
+
+
+def _llm_metadata_none() -> dict:
+    return LLMGenerationMetadata().model_dump()
+
+
+def _safe_llm_error(error: Exception) -> str:
+    return str(error).replace("\n", " ")[:500]
+
+
+def _prepare_with_llm(
+    *,
+    raw_text: str,
+    profile_id: str,
+    profile_description: str,
+    piece_type_id: str | None,
+    output_mode: str,
+    petition_prompt,
+    formatting_prompt,
+    llm_enabled: bool | None,
+    llm_provider: str | None,
+    llm_model: str | None,
+) -> tuple[str | None, dict, list[str]]:
+    """Generate petition text through an LLM provider when explicitly enabled."""
+    try:
+        provider_name = normalize_provider(llm_provider, enabled=llm_enabled)
+    except LLMError as exc:
+        metadata = LLMGenerationMetadata(
+            enabled=bool(llm_enabled),
+            mode="error",
+            provider=llm_provider or "invalid",
+            model=llm_model,
+            used=False,
+            error=_safe_llm_error(exc),
+        ).model_dump()
+        return None, metadata, [f"configuração de IA inválida: {exc}"]
+
+    if provider_name == "none":
+        return raw_text, _llm_metadata_none(), []
+
+    request = LLMRequest(
+        case_text=raw_text,
+        piece_type=piece_type_id,
+        profile_id=profile_id,
+        profile_description=profile_description,
+        output_mode=output_mode,
+        legal_prompt=petition_prompt,
+        docx_prompt=formatting_prompt,
+        model=llm_model,
+    )
+    try:
+        provider = build_llm_provider(provider_name, enabled=True, model=llm_model)
+        if provider is None:
+            return raw_text, _llm_metadata_none(), []
+        result = provider.generate(request)
+        return draft_to_petition_text(result.draft), result.metadata.model_dump(), []
+    except LLMError as exc:
+        if fallback_enabled() and provider_name != "mock":
+            fallback = MockLLMProvider(model="mock-fallback")
+            result = fallback.generate(request)
+            metadata = result.metadata
+            metadata.fallback_used = True
+            metadata.error = _safe_llm_error(exc)
+            return draft_to_petition_text(result.draft), metadata.model_dump(), []
+        metadata = LLMGenerationMetadata(
+            enabled=True,
+            mode="api" if provider_name != "mock" else "mock",
+            provider=provider_name,
+            model=llm_model,
+            used=False,
+            error=_safe_llm_error(exc),
+        ).model_dump()
+        return None, metadata, [f"falha na geração por IA: {exc}"]
+
+
 def processar_email(
     email: Email,
     *,
     profile_id: str | None = None,
     no_outbox: bool = False,
     output_mode: str = "final",
+    piece_type_id: str | None = None,
+    llm_enabled: bool | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> ProcessResult:
     profile = get_profile(profile_id)
     mode_requested = normalize_mode(output_mode)
@@ -87,6 +179,40 @@ def processar_email(
     texto_peticao, petition_prompt = prepare_petition_text(email.peticao_texto)
     formatting_prompt = load_word_formatting_prompt()
     prompt_usage = prompt_audit_payload(petition_prompt, formatting_prompt)
+    llm_usage = _llm_metadata_none()
+
+    texto_ia, llm_usage, problemas_llm = _prepare_with_llm(
+        raw_text=texto_peticao,
+        profile_id=profile.id,
+        profile_description=profile.descricao,
+        piece_type_id=piece_type_id,
+        output_mode=mode_requested,
+        petition_prompt=petition_prompt,
+        formatting_prompt=formatting_prompt,
+        llm_enabled=llm_enabled,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+    )
+    if problemas_llm:
+        registrar_item(
+            email.message_id,
+            thread_id=email.thread_id,
+            status="llm_error",
+            problemas=problemas_llm,
+        )
+        return ProcessResult(
+            thread_id=email.thread_id,
+            message_id=email.message_id,
+            status="llm_error",
+            destino=None,
+            problemas=problemas_llm,
+            profile_id=profile.id,
+            prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
+        )
+    texto_peticao = texto_ia or texto_peticao
 
     problemas_modo = validar_modo_saida(texto_peticao, mode_requested)
     if mode_requested == "triagem":
@@ -112,6 +238,7 @@ def processar_email(
             problemas=problemas,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
             mode_requested=mode_requested,
             mode_delivered="triagem",
         )
@@ -136,6 +263,7 @@ def processar_email(
             problemas=problemas_modo,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
             mode_requested=mode_requested,
             mode_delivered=mode_delivered,
         )
@@ -146,7 +274,7 @@ def processar_email(
         profile.id,
         allow_pending_markers=allow_pending_markers,
     )
-    if problemas_pre:
+    if problemas_pre and (mode_requested != "minuta" or _has_critical_input_problem(problemas_pre)):
         logger.warning(
             "entrada bloqueada antes da geração",
             extra={"message_id": email.message_id, "status": "invalid_input", "profile_id": profile.id},
@@ -165,6 +293,7 @@ def processar_email(
             problemas=problemas_pre,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
             mode_requested=mode_requested,
             mode_delivered=mode_delivered,
         )
@@ -190,13 +319,15 @@ def processar_email(
             problemas=problemas_tamanho,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
             mode_requested=mode_requested,
             mode_delivered=mode_delivered,
         )
 
-    problemas = validar(destino, profile.id, allow_pending_markers=allow_pending_markers)
+    problemas_docx = validar(destino, profile.id, allow_pending_markers=allow_pending_markers)
+    problemas = list(dict.fromkeys(problemas_pre + problemas_docx))
     docx_report = build_docx_report(destino, profile.id, problems=problemas)
-    if problemas:
+    if problemas and mode_requested != "minuta":
         logger.warning(
             "docx bloqueado por violações formais",
             extra={"message_id": email.message_id, "status": "invalid_docx", "profile_id": profile.id},
@@ -217,17 +348,19 @@ def processar_email(
             profile_id=profile.id,
             docx_report=docx_report,
             prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
             mode_requested=mode_requested,
             mode_delivered=mode_delivered,
         )
     else:
         logger.info("validação formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
 
-    status = "ok"
+    status = "draft_with_warnings" if problemas else "ok"
     enfileirado = False
     if no_outbox:
         logger.info("outbox ignorada por no_outbox", extra={"message_id": email.message_id})
-        status = "ok_no_outbox"
+        if not problemas:
+            status = "ok_no_outbox"
     else:
         enfileirar_resposta(
             para=email.remetente,
@@ -245,7 +378,7 @@ def processar_email(
         email.message_id,
         thread_id=email.thread_id,
         status=status,
-        problemas=[],
+        problemas=problemas,
         docx=destino.name,
     )
     return ProcessResult(
@@ -253,11 +386,12 @@ def processar_email(
         message_id=email.message_id,
         status=status,
         destino=destino,
-        problemas=[],
+        problemas=problemas,
         profile_id=profile.id,
         enfileirado=enfileirado,
         docx_report=docx_report,
         prompt_usage=prompt_usage,
+        llm_usage=llm_usage,
         mode_requested=mode_requested,
         mode_delivered=mode_delivered,
     )
@@ -269,6 +403,9 @@ def executar_pipeline(
     no_outbox: bool = False,
     strict: bool = False,
     output_mode: str = "final",
+    llm_enabled: bool | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> dict:
     profile = get_profile(profile_id)
     if not emails:
@@ -295,6 +432,9 @@ def executar_pipeline(
                 profile_id=profile.id,
                 no_outbox=no_outbox,
                 output_mode=output_mode,
+                llm_enabled=llm_enabled,
+                llm_provider=llm_provider,
+                llm_model=llm_model,
             )
             violacoes_totais += len(resultado.problemas)
             if resultado.problemas:

@@ -199,6 +199,11 @@ export function renderResult(container, payload) {
     ? `<p class="muted"><strong>Modo:</strong> solicitado ${escapeHTML(payload.mode_requested)} · entregue ${escapeHTML(payload.mode_delivered || payload.mode_requested)}</p>`
     : "";
 
+  const llm = payload.llm || {};
+  const llmLine = llm.provider
+    ? `<p class="muted"><strong>IA:</strong> ${llm.used ? "usada" : "não usada"} · provedor ${escapeHTML(llm.provider)}${llm.model ? ` · modelo ${escapeHTML(llm.model)}` : ""}${llm.mock_used ? " · mock" : ""}${llm.fallback_used ? " · fallback" : ""}</p>`
+    : "";
+
   const pieceLine = payload.piece_type
     ? `<p class="muted"><strong>Tipo detectado:</strong> ${escapeHTML(payload.piece_type.nome)} ${payload.piece_type_inferred ? inferredTag : ""}</p>`
     : `<p class="muted"><strong>Tipo:</strong> <em>não identificado</em> — validação aplicada pelo perfil.</p>`;
@@ -229,6 +234,7 @@ export function renderResult(container, payload) {
     ${pieceLine}
     ${profileLine}
     ${modeLine}
+    ${llmLine}
     ${sourceLine}
     ${problems}
     <div class="link-row">

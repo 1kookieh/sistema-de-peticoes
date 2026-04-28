@@ -29,12 +29,16 @@ const dom = {
   profileDetails: document.querySelector("#profile-details"),
   apiToken: document.querySelector("#api-token"),
   outputMode: document.querySelector("#output-mode"),
+  llmProvider: document.querySelector("#llm-provider"),
+  llmModel: document.querySelector("#llm-model"),
   text: document.querySelector("#text"),
   file: document.querySelector("#file"),
   fileInfo: document.querySelector("#file-info"),
   clearFile: document.querySelector("#clear-file"),
   generate: document.querySelector("#generate"),
   generateLabel: document.querySelector("#generate .btn-label"),
+  validate: document.querySelector("#validate"),
+  validateLabel: document.querySelector("#validate .btn-label"),
   result: document.querySelector("#result"),
   history: document.querySelector("#history"),
   refresh: document.querySelector("#refresh"),
@@ -99,8 +103,17 @@ function setStep(active) {
 function setGenerateLoading(isLoading) {
   if (!dom.generate) return;
   dom.generate.disabled = isLoading || !hasContent();
+  if (dom.validate) dom.validate.disabled = isLoading || !hasContent();
   dom.generate.classList.toggle("is-loading", isLoading);
-  if (dom.generateLabel) dom.generateLabel.textContent = isLoading ? "Detectando e validando..." : "Gerar e validar DOCX";
+  if (dom.generateLabel) dom.generateLabel.textContent = isLoading ? "Gerando DOCX..." : "Gerar DOCX";
+}
+
+function setValidateLoading(isLoading) {
+  if (!dom.validate) return;
+  dom.validate.disabled = isLoading || !hasContent();
+  if (dom.generate) dom.generate.disabled = isLoading || !hasContent();
+  dom.validate.classList.toggle("is-loading", isLoading);
+  if (dom.validateLabel) dom.validateLabel.textContent = isLoading ? "Validando texto..." : "Validar texto";
 }
 
 function hasContent() {
@@ -109,6 +122,7 @@ function hasContent() {
 
 function syncGenerateState() {
   if (dom.generate) dom.generate.disabled = !hasContent();
+  if (dom.validate) dom.validate.disabled = !hasContent();
 }
 
 function renderFileList(uploads) {
@@ -258,25 +272,33 @@ function validateBeforeGenerate() {
   return null;
 }
 
-async function generateFromUpload(uploads) {
+async function generateFromUpload(uploads, outputMode = dom.outputMode?.value || "minuta") {
   const body = new FormData();
   for (const upload of uploads) body.append("files", upload);
   body.append("profile_id", dom.profile.value);
   body.append("piece_type_id", dom.pieceType.value);
-  body.append("output_mode", dom.outputMode?.value || "minuta");
+  body.append("output_mode", outputMode);
+  body.append("llm_enabled", String(Boolean(dom.llmProvider?.value && dom.llmProvider.value !== "none")));
+  body.append("llm_provider", dom.llmProvider?.value || "none");
+  body.append("llm_model", dom.llmModel?.value.trim() || "");
   body.append("remetente", "frontend.local@example.com");
   body.append("assunto", "Geração por upload local");
   return postForm("/documents/upload", body, authHeaders());
 }
 
-async function generateFromText() {
+async function generateFromText(outputMode = dom.outputMode?.value || "minuta") {
   return postJson(
     "/documents",
     {
       text: dom.text.value,
       profile_id: dom.profile.value,
       piece_type_id: dom.pieceType.value,
-      output_mode: dom.outputMode?.value || "minuta",
+      output_mode: outputMode,
+      llm: {
+        enabled: Boolean(dom.llmProvider?.value && dom.llmProvider.value !== "none"),
+        provider: dom.llmProvider?.value || "none",
+        model: dom.llmModel?.value.trim() || null,
+      },
       remetente: "frontend.local@example.com",
       assunto: "Geração pelo painel local",
     },
@@ -432,7 +454,7 @@ function bindEvents() {
 
     setGenerateLoading(true);
     setStep(3);
-    renderLoading(dom.result, selectedFiles().length ? "Extraindo texto e gerando DOCX" : "Gerando documento");
+    renderLoading(dom.result, selectedFiles().length ? "Extraindo texto e gerando DOCX" : "Gerando DOCX");
     try {
       const uploads = selectedFiles();
       const { response, payload } = uploads.length
@@ -449,6 +471,35 @@ function bindEvents() {
       setMessage(dom.result, "Não foi possível conectar à API local. Verifique se o servidor está rodando em http://127.0.0.1:8000/.", "warning");
     } finally {
       setGenerateLoading(false);
+    }
+  });
+
+  dom.validate?.addEventListener("click", async () => {
+    const validationError = validateBeforeGenerate();
+    if (validationError) {
+      setMessage(dom.result, validationError, "warning");
+      return;
+    }
+
+    setValidateLoading(true);
+    setStep(3);
+    renderLoading(dom.result, selectedFiles().length ? "Extraindo texto e validando conteúdo" : "Validando conteúdo");
+    try {
+      const uploads = selectedFiles();
+      const { response, payload } = uploads.length
+        ? await generateFromUpload(uploads, "triagem")
+        : await generateFromText("triagem");
+      if (!response.ok) {
+        setMessage(dom.result, payload.detail || "Falha ao validar o conteúdo.", "warning");
+        return;
+      }
+      renderResult(dom.result, payload);
+      await loadHistory();
+    } catch (error) {
+      console.error(error);
+      setMessage(dom.result, "Não foi possível conectar à API local. Verifique se o servidor está rodando em http://127.0.0.1:8000/.", "warning");
+    } finally {
+      setValidateLoading(false);
     }
   });
 

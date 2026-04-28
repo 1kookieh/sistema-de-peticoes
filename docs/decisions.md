@@ -58,7 +58,7 @@ Registro leve de decisões do projeto.
 
 **Contexto.** “Padrão forense brasileiro” não é universal; JEF, Justiça Estadual, INSS e tabelionatos têm expectativas diferentes.
 
-**Decisão.** Criar perfis explícitos em `src/profiles.py`, selecionáveis por `VALIDATION_PROFILE` ou `--profile`.
+**Decisão.** Criar perfis explícitos em `src/core/profiles.py`, selecionáveis por `VALIDATION_PROFILE`, `--profile` ou API.
 
 **Consequências.**
 - Regras por contexto ficam auditáveis.
