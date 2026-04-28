@@ -78,7 +78,7 @@ Cuidados:
 - Não use chave real em arquivos versionados.
 - Não envie dados reais sem autorização.
 - A interface e a API exigem consentimento explícito antes de enviar dados para provider externo.
-- O backend mascara padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail antes do envio externo, mas isso é uma proteção complementar e não dispensa revisão humana.
+- O backend mascara padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail antes do envio externo, mas isso é uma proteção parcial: não garante anonimização completa e não dispensa revisão humana.
 - Revise a peça antes de qualquer uso profissional.
 
 ## 6. Usar CLI
@@ -129,6 +129,11 @@ docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
 ```
 
 O container exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` ao chamar rotas sensíveis.
+
+```bash
+curl http://127.0.0.1:8000/api/v1/health
+curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
+```
 
 Para uma demonstração local isolada, você pode desativar explicitamente a exigência de token:
 

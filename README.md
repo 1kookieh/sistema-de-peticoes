@@ -197,6 +197,8 @@ Cuidados:
   `llm.consent_external_provider=true` ou campo de upload `llm_consent_external_provider=true`.
 - Antes do envio a provider externo, o pipeline mascara identificadores como CPF,
   CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados.
+- Esse mascaramento é parcial e não garante anonimização completa: nomes, fatos,
+  contexto jurídico e outros dados sensíveis podem permanecer no texto enviado.
 - O fallback para mock só ocorre se `LLM_FALLBACK_ENABLED=true`.
 
 ## Geração de DOCX
@@ -341,7 +343,14 @@ docker build -t sistema-peticoes .
 docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
 ```
 
-O `Dockerfile` exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` para rotas sensíveis. Para demonstração local isolada, é possível desativar explicitamente:
+O `Dockerfile` exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` para rotas sensíveis:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/health
+curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
+```
+
+Para demonstração local isolada, é possível desativar explicitamente:
 
 ```bash
 docker run --rm -p 8000:8000 -e API_REQUIRE_TOKEN=false sistema-peticoes
@@ -369,7 +378,8 @@ Recomendações:
 - Use dados fictícios em demonstrações públicas.
 - Configure `API_TOKEN` se expuser a API fora do loopback.
 - Não envie dados reais para IA externa sem autorização e sem marcar o consentimento explícito no fluxo.
-- Mesmo com mascaramento automático, revise manualmente o texto antes de usar provider externo.
+- Mesmo com mascaramento automático parcial, revise manualmente o texto antes de usar provider externo.
+- Não trate redaction como anonimização jurídica, técnica ou operacional.
 - Revise sempre mérito, competência, prazo, OAB, procuração, anexos e valor da causa.
 - Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
 

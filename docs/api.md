@@ -26,6 +26,15 @@ X-API-Token: valor-do-token
 
 Se `API_REQUIRE_TOKEN=true` e `API_TOKEN` estiver vazio, a API retorna erro de configuração.
 
+O `Dockerfile` usa `API_REQUIRE_TOKEN=1` por padrão. Ao rodar em container, defina `API_TOKEN` e envie o header em rotas sensíveis:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/health
+curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
+```
+
+Os exemplos abaixo omitem o header apenas para o modo local padrão sem token.
+
 ## Endpoints
 
 | Método | Rota | Descrição |
