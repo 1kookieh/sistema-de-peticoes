@@ -1,7 +1,7 @@
 -r requirements.txt
 pytest==9.0.3
 httpx==0.28.1
-ruff==0.14.6
+ruff==0.15.12
 mypy==1.18.2
 pytest-cov==7.0.0
 pip-audit==2.10.0
