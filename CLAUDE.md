@@ -58,8 +58,18 @@ Acesse `http://127.0.0.1:8000`.
 ```bash
 python -m compileall config.py src tests
 pytest -q
+ruff check .
+mypy config.py src/infra/llm
+pip-audit -r requirements.txt --strict
+bandit -q -r src
 python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json
 ```
+
+O `mypy` ainda é gradual; o escopo validado no CI é `config.py` e `src/infra/llm`.
+
+## Docker e token da API
+
+O `Dockerfile` define `API_REQUIRE_TOKEN=1`. Ao rodar em container, defina `API_TOKEN` e use o mesmo valor no header `X-API-Token` para rotas sensíveis. Não rode container sem token fora de `127.0.0.1` ou demonstração local isolada.
 
 ## Arquitetura atual
 
@@ -102,6 +112,8 @@ Nunca versionar:
 - documentos reais de clientes
 
 Use apenas fixtures fictícias em `examples/` e `tests/`.
+
+Em testes e desenvolvimento, prefira `LLM_PROVIDER=mock`. Não envie dados reais para providers externos. Redaction é parcial e não deve ser descrita como anonimização completa.
 
 ## Limites jurídicos
 

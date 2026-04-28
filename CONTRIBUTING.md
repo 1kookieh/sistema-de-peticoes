@@ -97,6 +97,13 @@ Não commitar:
 - inbox/outbox/status com dados reais;
 - prints com dados sensíveis.
 
+Para mudanças envolvendo IA/LLM:
+
+- use `LLM_PROVIDER=mock` em testes e desenvolvimento, salvo quando estiver testando configuração/erro de provider externo;
+- não use dados reais em prompts, fixtures, documentação ou screenshots;
+- não descreva redaction como anonimização completa;
+- verifique consentimento explícito quando a mudança tocar providers externos.
+
 Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
 
 ## Pull Requests

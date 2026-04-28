@@ -235,6 +235,9 @@ Ao alterar UI:
 - Nunca commite `.env`, tokens, senhas, documentos reais, relatorios reais ou dados de clientes.
 - Trate `output/`, `reports/`, `mcp_inbox.json`, `mcp_outbox.json` e `mcp_status.json` como runtime sensivel.
 - Use apenas dados ficticios em `examples/` e `tests/`.
+- Use `LLM_PROVIDER=mock` em testes/desenvolvimento quando IA real nao for o foco.
+- Nao envie dados reais a provider externo; chamadas externas exigem consentimento explicito.
+- Redaction/mascaramento reduz exposicao, mas e parcial e nao deve ser descrito como anonimizacao completa.
 - Nao reduza validacoes para "fazer passar" sem justificativa tecnica.
 - Nao exponha CPF, NIT, endereco, e-mail ou conteudo juridico real em logs, screenshots, fixtures ou README.
 - Revise novas dependencias com cautela; mantenha a superficie minima.

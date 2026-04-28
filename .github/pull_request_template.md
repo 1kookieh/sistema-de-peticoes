@@ -25,6 +25,9 @@ Explique o que muda e por quê. Relacione a issue, se houver (`Closes #123`).
 - [ ] Atualizei o `CHANGELOG.md` (seção `Unreleased`) quando a mudança é visível ao usuário.
 - [ ] Atualizei a documentação em `docs/` quando necessário.
 - [ ] Não adicionei `.env`, `output/`, `reports/`, caches, chaves de API ou dados reais.
+- [ ] Usei `LLM_PROVIDER=mock` nos testes/desenvolvimento quando IA real não era o foco.
+- [ ] Não descrevi redaction como anonimização completa.
+- [ ] Revisei consentimento e envio de dados quando a mudança envolve provider externo.
 
 ## Teste manual
 

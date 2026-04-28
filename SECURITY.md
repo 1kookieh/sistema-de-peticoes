@@ -55,8 +55,12 @@ Recomendações:
 
 - mantenha a API em `127.0.0.1` para uso local;
 - configure `API_TOKEN` se for expor em rede interna;
+- em Docker, o projeto usa `API_REQUIRE_TOKEN=1` por padrão; defina `API_TOKEN` e envie `X-API-Token` nas rotas sensíveis;
+- não use `API_REQUIRE_TOKEN=false` quando a API estiver exposta fora do seu computador;
 - não exponha a API publicamente sem autenticação, TLS, logging controlado e política de retenção;
 - revise `API_ALLOWED_ORIGINS`.
+
+Para testes e desenvolvimento sem envio externo, use `LLM_PROVIDER=mock` com dados fictícios.
 
 ## Retenção
 

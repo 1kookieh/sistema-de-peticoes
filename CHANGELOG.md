@@ -26,7 +26,9 @@ Todas as mudanças relevantes deste projeto são documentadas aqui.
 - README reestruturado para refletir o fluxo real com e sem IA.
 - Documentação de API e arquitetura atualizada para `/api/v1` e camada LLM.
 - Documentação de Docker atualizada para refletir `API_REQUIRE_TOKEN=1` por padrão.
+- README e docs de uso/API reforçam uso de `X-API-Token` em container e redaction como proteção parcial, não anonimização.
 - Template de Pull Request atualizado para comandos reais de validação.
+- Guias de segurança, contribuição e agentes reforçam mock provider, consentimento e riscos de IA externa.
 - Prompts passaram por sanitização para remover dados sensíveis identificados.
 - Modo `minuta` permite gerar DOCX com alertas formais não críticos.
 - Provider `mock` passou a sinalizar revisão pendente e não entregar modo `final`.
