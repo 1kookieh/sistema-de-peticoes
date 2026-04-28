@@ -1,6 +1,8 @@
 ﻿# CLAUDE.md — Integração Supervisionada com Claude
 
-Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto gera e valida documentos jurídicos `.docx` em ambiente local, usando prompts versionados e validações determinísticas. O Claude pode apoiar a preparação da minuta, mas a revisão humana por advogado continua obrigatória.
+Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **valida e renderiza** documentos jurídicos `.docx` em ambiente local. **O pipeline em si não chama nenhum LLM**: os prompts em `prompts/` são contratos versionados auditáveis (hash SHA-256 no relatório) usados como referência humana, não para chamada automática a um modelo.
+
+O Claude pode apoiar a preparação da minuta **fora do pipeline** (em conversa separada com o usuário/advogado, seguindo `prompt_peticao.md`). A revisão humana por advogado responsável continua obrigatória antes de qualquer protocolo.
 
 ## Princípios obrigatórios
 

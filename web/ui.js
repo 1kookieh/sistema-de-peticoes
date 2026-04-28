@@ -28,6 +28,7 @@ const dom = {
   profile: document.querySelector("#profile"),
   profileDetails: document.querySelector("#profile-details"),
   apiToken: document.querySelector("#api-token"),
+  outputMode: document.querySelector("#output-mode"),
   text: document.querySelector("#text"),
   file: document.querySelector("#file"),
   fileInfo: document.querySelector("#file-info"),
@@ -262,6 +263,7 @@ async function generateFromUpload(uploads) {
   for (const upload of uploads) body.append("files", upload);
   body.append("profile_id", dom.profile.value);
   body.append("piece_type_id", dom.pieceType.value);
+  body.append("output_mode", dom.outputMode?.value || "minuta");
   body.append("remetente", "frontend.local@example.com");
   body.append("assunto", "Geração por upload local");
   return postForm("/documents/upload", body, authHeaders());
@@ -274,6 +276,7 @@ async function generateFromText() {
       text: dom.text.value,
       profile_id: dom.profile.value,
       piece_type_id: dom.pieceType.value,
+      output_mode: dom.outputMode?.value || "minuta",
       remetente: "frontend.local@example.com",
       assunto: "Geração pelo painel local",
     },

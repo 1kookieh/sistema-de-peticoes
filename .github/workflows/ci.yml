@@ -40,7 +40,7 @@ jobs:
       - name: Smoke test do pipeline
         env:
           EMAIL_ADVOGADO: advogado.ci@example.com
-          INBOX_MOCK_PATH: ./teste_inbox.json
+          INBOX_MOCK_PATH: ./examples/inbox_smoke.json
         run: |
           mkdir -p output
           python -m src

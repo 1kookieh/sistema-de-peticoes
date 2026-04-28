@@ -5,7 +5,7 @@ passou nas verificações determinísticas implementadas: página, margens, font
 alinhamentos, 7 linhas após o endereçamento, OAB, local/data, placeholders e
 assinatura gráfica.
 
-Não valida semântica jurídica â€” essa responsabilidade fica com o redator
+Não valida semântica jurídica — essa responsabilidade fica com o redator
 (humano ou integrador externo) ao comparar o texto final contra o
 `prompt_peticao.md`.
 """
@@ -34,7 +34,15 @@ FIRST_LINE_INDENT_CM = 2.5
 
 _EMU_POR_CM = 360000
 
-PLACEHOLDER_RE = re.compile(r"\[[^\]]+\]|OAB/UF\s+0+|NOME DO (?:ADVOGADO|REQUERENTE|AUTOR|CLIENTE)", re.IGNORECASE)
+BRACKET_PLACEHOLDER_RE = re.compile(r"\[[^\]]+\]")
+PENDING_MARKER_RE = re.compile(
+    r"\[(?:DADO\s+FALTANTE|REVISAR|INSERIR|PREENCHER|VERIFICAR|CONFIRMAR|TODO|FIXME)\b",
+    re.IGNORECASE,
+)
+EXAMPLE_PLACEHOLDER_RE = re.compile(
+    r"OAB/UF\s+0+|NOME DO (?:ADVOGADO|REQUERENTE|AUTOR|CLIENTE)",
+    re.IGNORECASE,
+)
 DADO_FICTICIO_RE = re.compile(r"\b0{2,3}\.0{3}\.0{3}-0{2}\b|\b0{3}\.0{5}\.0{2}-0\b")
 OAB_FORMAT_RE = re.compile(r"^\s*OAB\s*/\s*[A-Z]{2}\s*\d{1,3}(?:\.\d{3})*\s*$", re.IGNORECASE)
 OAB_ANY_RE = re.compile(r"OAB", re.IGNORECASE)
@@ -60,7 +68,20 @@ def _header_matches(texto: str, profile: ValidationProfile) -> bool:
     return any(primeira_norm.startswith(_normalize(prefix)) for prefix in profile.header_prefixes)
 
 
-def validar_texto_protocolavel(texto: str, profile_id: str | None = None) -> list[str]:
+def _has_disallowed_bracket_marker(texto: str, *, allow_pending_markers: bool) -> bool:
+    for match in BRACKET_PLACEHOLDER_RE.finditer(texto):
+        marker = match.group(0)
+        if not allow_pending_markers or not PENDING_MARKER_RE.match(marker):
+            return True
+    return False
+
+
+def validar_texto_protocolavel(
+    texto: str,
+    profile_id: str | None = None,
+    *,
+    allow_pending_markers: bool = False,
+) -> list[str]:
     """Valida bloqueios formais antes de gerar/enfileirar uma peça."""
     profile = get_profile(profile_id)
     problemas: list[str] = []
@@ -70,7 +91,10 @@ def validar_texto_protocolavel(texto: str, profile_id: str | None = None) -> lis
     if not texto_limpo:
         return ["texto da peça está vazio"]
 
-    if PLACEHOLDER_RE.search(texto_limpo):
+    if EXAMPLE_PLACEHOLDER_RE.search(texto_limpo) or _has_disallowed_bracket_marker(
+        texto_limpo,
+        allow_pending_markers=allow_pending_markers,
+    ):
         problemas.append("texto contém placeholders ou dados de exemplo")
     if DADO_FICTICIO_RE.search(texto_limpo):
         problemas.append("texto contém CPF/NIT fictício ou zerado")
@@ -100,7 +124,12 @@ def validar_texto_protocolavel(texto: str, profile_id: str | None = None) -> lis
     return problemas
 
 
-def validar(path: Path, profile_id: str | None = None) -> list[str]:
+def validar(
+    path: Path,
+    profile_id: str | None = None,
+    *,
+    allow_pending_markers: bool = False,
+) -> list[str]:
     profile = get_profile(profile_id)
     if not path.exists():
         return [f"arquivo não encontrado: {path}"]
@@ -159,7 +188,13 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
         return problemas
 
     texto_total = "\n".join(t for _, _, t in paragrafos_texto if t)
-    problemas.extend(validar_texto_protocolavel(texto_total, profile.id))
+    problemas.extend(
+        validar_texto_protocolavel(
+            texto_total,
+            profile.id,
+            allow_pending_markers=allow_pending_markers,
+        )
+    )
 
     idx_p0, p0, t0 = primeiros_nao_vazios[0]
     t0_upper = t0.upper()
@@ -225,7 +260,7 @@ def validar(path: Path, profile_id: str | None = None) -> list[str]:
     for _, _, t in paragrafos_texto:
         if "_" * 5 in t or "-" * 10 in t:
             problemas.append(
-                "há linha de assinatura (traços/underscores) â€” proibido"
+                "há linha de assinatura (traços/underscores) — proibido"
             )
             break
 
@@ -254,5 +289,4 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
 

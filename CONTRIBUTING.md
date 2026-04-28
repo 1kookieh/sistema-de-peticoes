@@ -29,17 +29,17 @@ Use o template de [feature request](https://github.com/1kookieh/sistema-de-petic
    pip install -r requirements-dev.txt
    python -m compileall config.py src tests
    pytest -q
-   INBOX_MOCK_PATH=./teste_inbox.json python -m src.main
-   python -m src --inbox ./teste_inbox.json --no-outbox --report reports/conformidade_report.json
+   INBOX_MOCK_PATH=./examples/inbox_smoke.json python -m src
+   python -m src --inbox ./examples/inbox_smoke.json --no-outbox --report reports/conformidade_report.json
    ```
    No PowerShell:
    ```powershell
    pip install -r requirements-dev.txt
    python -m compileall config.py src tests
    pytest -q
-   $env:INBOX_MOCK_PATH = ".\teste_inbox.json"
-   python -m src.main
-   python -m src --inbox .\teste_inbox.json --no-outbox --report reports\conformidade_report.json
+   $env:INBOX_MOCK_PATH = ".\examples\inbox_smoke.json"
+   python -m src
+   python -m src --inbox .\examples\inbox_smoke.json --no-outbox --report reports\conformidade_report.json
    ```
 5. Abra o PR preenchendo o template. Vincule a issue quando houver.
 
@@ -57,7 +57,7 @@ Use o template de [feature request](https://github.com/1kookieh/sistema-de-petic
 
 - **Não adicione regras de formatação silenciosamente.** Toda nova regra precisa:
   1. Estar documentada em `prompts/prompt_formatacao_word.md` (fonte humana).
-  2. Ter verificação correspondente em `src/validar_docx.py` (fonte executável).
+  2. Ter verificação correspondente em `src/core/validation/docx.py` (fonte executável).
 - **Nada de APIs pagas no core.** Integrações com LLMs ou serviços externos devem ficar em módulos ou projetos separados, consumindo as filas JSON.
 - **Nada de falsa prontidão jurídica.** Textos, README, mensagens e testes não devem afirmar que uma peça está pronta para protocolo sem revisão humana por advogado.
 - **LGPD por padrão.** Não versione `.docx`, inbox, outbox, status ou amostras com dados reais de clientes.

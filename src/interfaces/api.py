@@ -29,10 +29,17 @@ from src.adapters.files.file_extractors import FileExtractionError, extract_text
 from src.adapters.inbox.gmail_reader import Email
 from src.orchestration.history import list_reports, list_status_items
 from src.infra.logging import configure_logging
+from src.orchestration.reporting import build_run_report, write_html_report, write_json_report
+from src.orchestration.setup import setup_runtime
 from src.orchestration.pipeline import processar_email
 from src.core.piece_inference import infer_piece_type_id
 from src.core.piece_types import get_piece_type, list_piece_types
 from src.core.profiles import PROFILES, get_profile, list_profile_ids
+from src.core.validation.modes import (
+    normalize_mode,
+    validar_modo_saida,
+)
+from src.core.validation.docx import validar_texto_protocolavel
 
 
 PROFILE_LABELS_PT = {
@@ -45,8 +52,6 @@ PROFILE_LABELS_PT = {
 }
 
 DEFAULT_PROFILE_ID = "judicial-inicial-jef"
-from src.orchestration.reporting import build_run_report, write_html_report, write_json_report
-from src.orchestration.setup import setup_runtime
 
 _RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
 
@@ -134,6 +139,16 @@ class DocumentRequest(BaseModel):
         default=None,
         max_length=120,
         description="Identificador da peça. Vazio ou ``auto`` deixa o sistema inferir do texto.",
+    )
+    output_mode: str | None = Field(
+        default=None,
+        max_length=16,
+        description=(
+            "Modo de saída. ``final`` exige texto pronto para protocolo (sem "
+            "[DADO FALTANTE], 'inserir aqui', marcas de IA etc.). ``minuta`` "
+            "(padrão) aceita marcadores de revisão pendente. ``triagem`` retorna "
+            "apenas diagnóstico, sem gerar DOCX."
+        ),
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
     assunto: str = Field(default="Geração local", max_length=200)
@@ -306,10 +321,76 @@ def _generate_from_text(
     remetente: str,
     assunto: str,
     source_filename: str | None = None,
+    output_mode: str | None = None,
 ) -> dict[str, Any]:
+    mode_requested = normalize_mode(output_mode)
     piece_type, profile, piece_type_inferred, profile_inferred = _resolve_piece_and_profile(
         text, piece_type_id, profile_id
     )
+
+    # Bloqueios específicos do modo (ex.: [DADO FALTANTE] em "final").
+    mode_problems = validar_modo_saida(text, mode_requested)
+
+    # Modo "triagem": não chama pipeline, retorna apenas diagnóstico.
+    if mode_requested == "triagem":
+        diag = list(mode_problems) + validar_texto_protocolavel(text, profile.id)
+        return {
+            "status": "triagem",
+            "problems": diag,
+            "document": None,
+            "download_url": None,
+            "report_json_url": None,
+            "report_html_url": None,
+            "piece_type": {
+                "id": piece_type.id,
+                "nome": piece_type.nome,
+                "grupo": piece_type.grupo,
+                "exige_revisao": piece_type.exige_revisao,
+            } if piece_type else None,
+            "piece_type_inferred": piece_type_inferred,
+            "profile": {
+                "id": profile.id,
+                "label": PROFILE_LABELS_PT.get(profile.id, profile.id),
+                "descricao": profile.descricao,
+            },
+            "profile_inferred": profile_inferred,
+            "source_filename": source_filename,
+            "prompt_usage": {},
+            "mode_requested": mode_requested,
+            "mode_delivered": "triagem",
+        }
+
+    # Violações de modo são bloqueantes antes da renderização. Isso evita gerar
+    # um DOCX "final" com [DADO FALTANTE], marcas de IA ou instruções internas.
+    if mode_problems:
+        mode_delivered = "minuta" if mode_requested == "final" else mode_requested
+        return {
+            "status": "invalid_input",
+            "problems": mode_problems,
+            "document": None,
+            "download_url": None,
+            "report_json_url": None,
+            "report_html_url": None,
+            "piece_type": {
+                "id": piece_type.id,
+                "nome": piece_type.nome,
+                "grupo": piece_type.grupo,
+                "exige_revisao": piece_type.exige_revisao,
+            } if piece_type else None,
+            "piece_type_inferred": piece_type_inferred,
+            "profile": {
+                "id": profile.id,
+                "label": PROFILE_LABELS_PT.get(profile.id, profile.id),
+                "descricao": profile.descricao,
+            },
+            "profile_inferred": profile_inferred,
+            "source_filename": source_filename,
+            "prompt_usage": {},
+            "mode_requested": mode_requested,
+            "mode_delivered": mode_delivered,
+        }
+
+    mode_delivered = mode_requested
 
     metadata = {
         "piece_type": {
@@ -321,6 +402,9 @@ def _generate_from_text(
         "piece_type_inferred": piece_type_inferred,
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
+        "mode_requested": mode_requested,
+        "mode_delivered": mode_delivered,
+        "mode_problems": mode_problems,
     }
     token = uuid4().hex[:12]
     email = Email(
@@ -331,7 +415,12 @@ def _generate_from_text(
         peticao_texto=text,
     )
     try:
-        result = processar_email(email, profile_id=profile.id, no_outbox=True)
+        result = processar_email(
+            email,
+            profile_id=profile.id,
+            no_outbox=True,
+            output_mode=mode_delivered,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -364,9 +453,13 @@ def _generate_from_text(
     write_html_report(html_path, report)
 
     docx_name = result.destino.name if result.destino else None
+    # Soma violações de modo às violações já existentes (sem duplicar).
+    combined_problems = list(mode_problems) + [
+        p for p in result.problemas if p not in mode_problems
+    ]
     return {
         "status": result.status,
-        "problems": result.problemas,
+        "problems": combined_problems,
         "document": docx_name,
         "download_url": f"/api/v1/documents/{docx_name}/download" if docx_name else None,
         "report_json_url": f"/api/v1/reports/{json_path.name}",
@@ -381,6 +474,8 @@ def _generate_from_text(
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
         "prompt_usage": metadata["prompt_usage"],
+        "mode_requested": mode_requested,
+        "mode_delivered": mode_delivered,
     }
 
 
@@ -393,6 +488,7 @@ async def generate_document(payload: DocumentRequest) -> dict[str, Any]:
         piece_type_id=payload.piece_type_id,
         remetente=payload.remetente,
         assunto=payload.assunto,
+        output_mode=payload.output_mode,
     )
 
 
@@ -402,6 +498,7 @@ async def generate_document_from_upload(
     files: list[UploadFile] | None = File(default=None),
     profile_id: str | None = Form(default=None),
     piece_type_id: str | None = Form(default=None),
+    output_mode: str | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
     assunto: str = Form(default="Geração por upload local"),
 ) -> dict[str, Any]:
@@ -427,6 +524,7 @@ async def generate_document_from_upload(
         remetente=remetente,
         assunto=assunto,
         source_filename=source_names,
+        output_mode=output_mode,
     )
 
 
@@ -450,5 +548,3 @@ def get_report(filename: str) -> FileResponse:
     path = _safe_file(REPORTS_DIR, filename, {".json", ".html"})
     media_type = "text/html" if path.suffix.lower() == ".html" else "application/json"
     return FileResponse(path, filename=path.name, media_type=media_type)
-
-

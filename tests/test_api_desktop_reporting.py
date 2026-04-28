@@ -142,6 +142,70 @@ def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     )
 
 
+def test_api_output_mode_final_bloqueia_marcador_pendente(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+    texto = _texto_valido().replace(
+        "Termos em que, pede deferimento.",
+        "DIB: [DADO FALTANTE: confirmar com cliente]\n\nTermos em que, pede deferimento.",
+    )
+
+    response = client.post(
+        "/api/v1/documents",
+        json={"text": texto, "output_mode": "final"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "invalid_input"
+    assert payload["document"] is None
+    assert payload["download_url"] is None
+    assert payload["mode_requested"] == "final"
+    assert payload["mode_delivered"] == "minuta"
+    assert not any(output_dir.glob("*.docx"))
+
+
+def test_api_output_mode_minuta_aceita_marcador_pendente(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+    texto = _texto_valido().replace(
+        "Termos em que, pede deferimento.",
+        "DIB: [DADO FALTANTE: confirmar com cliente]\n\nTermos em que, pede deferimento.",
+    )
+
+    response = client.post(
+        "/api/v1/documents",
+        json={"text": texto, "output_mode": "minuta"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok_no_outbox"
+    assert payload["document"]
+    assert payload["mode_requested"] == "minuta"
+    assert payload["mode_delivered"] == "minuta"
+    assert any(output_dir.glob("*.docx"))
+
+
+def test_api_output_mode_triagem_nao_gera_docx(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/v1/documents",
+        json={"text": "Caso incompleto. [DADO FALTANTE: DER]", "output_mode": "triagem"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "triagem"
+    assert payload["document"] is None
+    assert payload["download_url"] is None
+    assert payload["mode_requested"] == "triagem"
+    assert payload["mode_delivered"] == "triagem"
+    assert not any(output_dir.glob("*.docx"))
+
+
 def test_api_generates_docx_from_txt_upload(tmp_path, monkeypatch):
     output_dir, reports_dir = _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)
@@ -162,6 +226,29 @@ def test_api_generates_docx_from_txt_upload(tmp_path, monkeypatch):
     assert payload["source_filename"] == "peticao.txt"
     assert (output_dir / payload["document"]).exists()
     assert any(reports_dir.glob("*.json"))
+
+
+def test_api_upload_repassa_output_mode_final(tmp_path, monkeypatch):
+    output_dir, _ = _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+    texto = _texto_valido() + "\nDIB: [DADO FALTANTE: confirmar com cliente]"
+
+    response = client.post(
+        "/api/v1/documents/upload",
+        data={
+            "profile_id": "judicial-inicial-jef",
+            "piece_type_id": "auxilio-incapacidade-temporaria",
+            "output_mode": "final",
+        },
+        files={"file": ("peticao.txt", texto.encode("utf-8"), "text/plain")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "invalid_input"
+    assert payload["mode_requested"] == "final"
+    assert payload["mode_delivered"] == "minuta"
+    assert not any(output_dir.glob("*.docx"))
 
 
 def test_api_generates_docx_from_multiple_uploads(tmp_path, monkeypatch):
@@ -220,6 +307,20 @@ def test_api_rejects_unsupported_upload(tmp_path, monkeypatch):
     )
 
     assert response.status_code == 422
+
+
+def test_api_rejects_non_utf8_text_upload(tmp_path, monkeypatch):
+    _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post(
+        "/api/v1/documents/upload",
+        data={"profile_id": "judicial-inicial-jef"},
+        files={"file": ("peticao.txt", "ação".encode("cp1252"), "text/plain")},
+    )
+
+    assert response.status_code == 422
+    assert "UTF-8" in response.json()["detail"]
 
 
 def test_api_blocks_invalid_text_and_keeps_report(tmp_path, monkeypatch):

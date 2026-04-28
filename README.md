@@ -8,19 +8,21 @@
 [![CI](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml/badge.svg)](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Sistema local em **Python + FastAPI + HTML/CSS/JavaScript** para transformar texto, PDF, Word, Markdown ou imagem em documentos jurídicos `.docx`, com validação formal, detector automático de tipo de peça, relatórios JSON/HTML e interface web/desktop.
+Sistema local em **Python + FastAPI + HTML/CSS/JavaScript** para **validar e renderizar** texto jurídico em documentos `.docx` no padrão forense, com detector automático de tipo de peça, perfis formais por contexto e relatórios JSON/HTML.
 
-> **Uso jurídico supervisionado.** O projeto ajuda na preparação formal e na revisão técnica de documentos, mas não substitui advogado, não valida mérito jurídico e não deve ser usado para protocolo sem revisão humana. Veja [docs/legal-limitations.md](docs/legal-limitations.md).
+> **O sistema não gera texto jurídico com IA.** Ele recebe um texto pronto (digitado, colado ou extraído de PDF/DOCX/imagem via OCR), aplica validações determinísticas (placeholders, OAB, fechamento, valor da causa, seções mínimas) e renderiza um `.docx` no padrão forense. Os prompts em `prompts/` são contratos versionados auditáveis usados como referência para quem prepara o texto, não para chamada a LLM.
+>
+> **Uso jurídico supervisionado.** Não substitui advogado, não valida mérito e não deve ser usado para protocolo sem revisão humana. Veja [docs/legal-limitations.md](docs/legal-limitations.md).
 
 ## Destaques
 
-- **Geração local de DOCX:** saída em `output/*.docx`, sem envio para serviços externos no fluxo padrão.
-- **Entradas flexíveis:** texto colado, `.txt`, `.md`, `.docx`, `.pdf` e imagens com OCR via Tesseract.
+- **Renderização local de DOCX:** saída em `output/*.docx`, sem envio para serviços externos no fluxo padrão.
+- **Entradas flexíveis:** texto colado, `.txt`, `.md`, `.docx`, `.pdf` e imagens com OCR via Tesseract (UTF-8 obrigatório).
 - **API e interface web:** FastAPI em `/api/v1` e front-end local sem build, feito em HTML/CSS/JavaScript modular.
 - **Detector automático:** identifica mais de 70 tipos de peças e escolhe perfil formal quando o usuário deixa em automático.
-- **Validação dupla:** pré-validação textual e validação estrutural do `.docx` com `python-docx`.
-- **Relatórios auditáveis:** JSON e HTML em `reports/`, com histórico local e flags de inferência.
-- **Prompts versionados:** `prompt_peticao.md` guia a preparação da peça e `prompt_formatacao_word.md` guia a formatação Word.
+- **Validação dupla:** pré-validação textual (placeholders, OAB, fechamento, seções) e validação estrutural do `.docx` com `python-docx` (margens, fontes, recuos, linha de assinatura proibida).
+- **Relatórios auditáveis:** JSON e HTML em `reports/`, com histórico local, hash dos prompts e flags de inferência.
+- **Prompts versionados:** `prompt_peticao.md` é contrato de redação para advogado/usuário; `prompt_formatacao_word.md` é contrato do padrão Word. **Nenhum dos dois é enviado a um LLM pelo pipeline.** Ambos têm SHA-256 registrado no relatório.
 - **Arquitetura em camadas:** domínio, infraestrutura, adapters, interfaces e orchestration separados.
 - **Docker e CI:** ambiente reprodutível e testes automatizados no GitHub Actions.
 
@@ -28,11 +30,11 @@ Sistema local em **Python + FastAPI + HTML/CSS/JavaScript** para transformar tex
 
 Fluxo principal:
 
-1. O usuário cola um texto ou envia um arquivo.
-2. O sistema extrai o conteúdo e identifica o tipo de peça.
-3. O pipeline aplica `prompt_peticao.md` para estruturar a minuta.
-4. A geração do Word aplica `prompt_formatacao_word.md`.
-5. O `.docx` é validado e acompanhado por relatório JSON/HTML.
+1. O usuário cola um texto pronto ou envia um arquivo (PDF, DOCX, TXT, MD ou imagem).
+2. O sistema extrai o texto bruto e infere o tipo de peça por regras determinísticas.
+3. A pré-validação textual bloqueia placeholders, dados fictícios, ausência de OAB ou de seções mínimas.
+4. O renderizador aplica o padrão forense determinístico (A4, Times 12, 1,5, recuo 2,5 cm, 7 linhas após endereçamento).
+5. O `.docx` gerado é reaberto e revalidado; relatório JSON/HTML registra perfil, hash dos prompts e violações.
 
 > Demonstração visual recomendada: adicionar um GIF curto da interface web mostrando upload, geração e download.
 
@@ -109,15 +111,16 @@ docker run --rm -p 8000:8000 sistema-peticoes
 ## Como funciona
 
 ```text
-Entrada do usuário
-  -> extração de texto de arquivo ou OCR
-  -> preparação da peça com contrato do prompt_peticao.md
-  -> inferência do tipo de peça e perfil formal
-  -> pré-validação textual
-  -> renderização DOCX com contrato do prompt_formatacao_word.md
-  -> validação estrutural do DOCX
-  -> relatório JSON/HTML + download do documento
+Entrada do usuário (texto pronto)
+  -> extração de texto de arquivo ou OCR (UTF-8 obrigatório)
+  -> inferência determinística do tipo de peça e perfil formal
+  -> pré-validação textual (placeholders, OAB, fechamento, seções, valor da causa)
+  -> renderização DOCX no padrão forense (sem chamada a LLM)
+  -> validação estrutural do DOCX gerado (margens, fontes, recuos, assinatura)
+  -> relatório JSON/HTML com hash dos prompts e download do documento
 ```
+
+> O contrato dos prompts versionados (`prompts/prompt_peticao.md` e `prompts/prompt_formatacao_word.md`) é **carregado e auditado** pelo pipeline (hash SHA-256 no relatório), mas o texto **não é reescrito por IA**. Eles servem como referência humana para quem prepara a minuta e como contrato versionado de formatação.
 
 Se houver falha em etapa crítica, o documento é bloqueado e o relatório explica o motivo.
 

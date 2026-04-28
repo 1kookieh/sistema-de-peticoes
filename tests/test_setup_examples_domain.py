@@ -13,7 +13,8 @@ def test_cli_setup_cria_output_reports_e_verifica_recursos(tmp_path, monkeypatch
     (root / "prompts").mkdir()
     (root / "prompts" / "prompt_peticao.md").write_text("prompt peticao", encoding="utf-8")
     (root / "prompts" / "prompt_formatacao_word.md").write_text("prompt word", encoding="utf-8")
-    (root / "teste_inbox.json").write_text("[]", encoding="utf-8")
+    (root / "examples").mkdir()
+    (root / "examples" / "inbox_smoke.json").write_text("[]", encoding="utf-8")
     (root / "requirements.txt").write_text("python-docx>=1.1.0\n", encoding="utf-8")
     (root / "requirements-dev.txt").write_text("-r requirements.txt\npytest>=8.0.0\n", encoding="utf-8")
 
@@ -35,7 +36,8 @@ def test_setup_verifica_prompts_obrigatorios(tmp_path):
     (root / "prompts").mkdir()
     (root / "prompts" / "prompt_peticao.md").write_text("prompt peticao", encoding="utf-8")
     (root / "prompts" / "prompt_formatacao_word.md").write_text("prompt word", encoding="utf-8")
-    (root / "teste_inbox.json").write_text("[]", encoding="utf-8")
+    (root / "examples").mkdir()
+    (root / "examples" / "inbox_smoke.json").write_text("[]", encoding="utf-8")
     (root / "requirements.txt").write_text("python-docx>=1.1.0\n", encoding="utf-8")
     (root / "requirements-dev.txt").write_text("-r requirements.txt\n", encoding="utf-8")
 

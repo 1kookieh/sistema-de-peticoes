@@ -191,8 +191,13 @@ export function renderResult(container, payload) {
   const hasProblems = Boolean(payload.problems?.length);
   const inferredTag = '<span class="badge badge-ok">detectado</span>';
   const statusKind = hasProblems ? "warn" : (payload.status === "ok_no_outbox" ? "ok" : "neutral");
-  const statusLabel = hasProblems ? "Concluído com alertas" : "Geração concluída com sucesso";
+  const statusLabel = payload.status === "triagem"
+    ? "Triagem técnica concluída"
+    : (hasProblems ? "Concluído com alertas" : "Geração concluída com sucesso");
   const statusBadge = `<span class="badge badge-${statusKind}">${escapeHTML(payload.status)}</span>`;
+  const modeLine = payload.mode_requested
+    ? `<p class="muted"><strong>Modo:</strong> solicitado ${escapeHTML(payload.mode_requested)} · entregue ${escapeHTML(payload.mode_delivered || payload.mode_requested)}</p>`
+    : "";
 
   const pieceLine = payload.piece_type
     ? `<p class="muted"><strong>Tipo detectado:</strong> ${escapeHTML(payload.piece_type.nome)} ${payload.piece_type_inferred ? inferredTag : ""}</p>`
@@ -223,12 +228,13 @@ export function renderResult(container, payload) {
     </div>
     ${pieceLine}
     ${profileLine}
+    ${modeLine}
     ${sourceLine}
     ${problems}
     <div class="link-row">
       ${payload.download_url ? `<button class="link-button primary-link" aria-label="Baixar documento DOCX" data-download="${escapeHTML(payload.download_url)}">⬇ Baixar DOCX</button>` : ""}
-      <button class="link-button" aria-label="Abrir relatório HTML" data-open="${escapeHTML(payload.report_html_url)}">Relatório HTML</button>
-      <button class="link-button" aria-label="Abrir relatório JSON" data-open="${escapeHTML(payload.report_json_url)}">JSON</button>
+      ${payload.report_html_url ? `<button class="link-button" aria-label="Abrir relatório HTML" data-open="${escapeHTML(payload.report_html_url)}">Relatório HTML</button>` : ""}
+      ${payload.report_json_url ? `<button class="link-button" aria-label="Abrir relatório JSON" data-open="${escapeHTML(payload.report_json_url)}">JSON</button>` : ""}
     </div>
   `;
 }

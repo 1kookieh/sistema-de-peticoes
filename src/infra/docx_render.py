@@ -182,7 +182,7 @@ def _is_section_title(linha: str) -> bool:
         return True
     if s.isupper() and 3 <= len(s) <= 80 and not HEADER_RE.match(s) and not TITLE_RE.match(s):
         keywords = ("FATO", "DIREITO", "PEDIDO", "PROVA", "CAUSA", "TUTELA",
-                    "QUESITO", "QUALIDADE", "INCAPACIDADE", "MÃ‰RITO", "MERITO")
+                    "QUESITO", "QUALIDADE", "INCAPACIDADE", "MÉRITO", "MERITO")
         return any(k in s for k in keywords)
     return False
 

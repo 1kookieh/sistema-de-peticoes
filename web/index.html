@@ -101,6 +101,15 @@
             <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado no servidor">
             <span class="field-hint muted">Necessário só quando o backend exige autenticação.</span>
           </label>
+          <label class="field">
+            <span class="field-label">Modo de saída</span>
+            <select id="output-mode">
+              <option value="minuta" selected>Minuta revisável (padrão)</option>
+              <option value="final">Final protocolável - bloqueia pendências</option>
+              <option value="triagem">Triagem técnica - não gera DOCX</option>
+            </select>
+            <span class="field-hint muted">Use "final" apenas quando o texto estiver completo e sem marcadores internos.</span>
+          </label>
         </details>
 
         <header class="card-head">

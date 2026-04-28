@@ -16,8 +16,8 @@ Pipeline Python (3.11+) que transforma texto plano em peças jurídicas `.docx` 
 
 ## Como avaliar em 5 minutos
 
-1. Abra `src/main.py` — orquestra validação, geração, bloqueio e status por item.
-2. Veja o contraste entre `src/formatar_docx.py` (gera) e `src/validar_docx.py` (verifica).
+1. Abra `src/orchestration/pipeline.py` — orquestra validação, renderização, bloqueio e status por item.
+2. Veja o contraste entre `src/infra/docx_render.py` (renderiza) e `src/core/validation/docx.py` (verifica).
 3. Leia `docs/decisions.md` para entender trade-offs explícitos.
 4. Rode `pytest -q`.
 5. Rode `python -m src --inbox ./examples/inbox_valid.json --no-outbox --report reports/demo_report.json` depois de configurar `EMAIL_ADVOGADO`.

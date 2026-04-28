@@ -63,6 +63,7 @@ def processar_email(
     *,
     profile_id: str | None = None,
     no_outbox: bool = False,
+    output_mode: str = "final",
 ) -> ProcessResult:
     profile = get_profile(profile_id)
     logger.info("processando thread %s", email.thread_id, extra={"thread_id": email.thread_id})
@@ -82,7 +83,12 @@ def processar_email(
     formatting_prompt = load_word_formatting_prompt()
     prompt_usage = prompt_audit_payload(petition_prompt, formatting_prompt)
 
-    problemas_pre = validar_texto_protocolavel(texto_peticao, profile.id)
+    allow_pending_markers = output_mode == "minuta"
+    problemas_pre = validar_texto_protocolavel(
+        texto_peticao,
+        profile.id,
+        allow_pending_markers=allow_pending_markers,
+    )
     if problemas_pre:
         logger.warning(
             "entrada bloqueada antes da geração",
@@ -127,7 +133,7 @@ def processar_email(
             prompt_usage=prompt_usage,
         )
 
-    problemas = validar(destino, profile.id)
+    problemas = validar(destino, profile.id, allow_pending_markers=allow_pending_markers)
     docx_report = build_docx_report(destino, profile.id, problems=problemas)
     if problemas:
         logger.warning(
