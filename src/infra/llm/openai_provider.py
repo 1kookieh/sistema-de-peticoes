@@ -75,7 +75,8 @@ class OpenAIProvider(BaseLLMProvider):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:
+            # URL hardcoded and HTTPS-only; user input never controls the scheme/host.
+            with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:  # nosec B310
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             message = _read_http_error(exc)

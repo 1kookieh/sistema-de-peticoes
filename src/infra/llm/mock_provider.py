@@ -41,7 +41,14 @@ class MockLLMProvider(BaseLLMProvider):
             ],
             evidence=["documentos informados pelo usuario e demais provas admitidas em direito."],
             closing=["Termos em que, pede deferimento."],
-            warnings=["Resposta mock usada apenas para desenvolvimento e testes."],
+            warnings=[
+                "Resposta mock usada apenas para desenvolvimento e testes.",
+                "Conteudo nao reflete fatos reais do caso e nao pode ser protocolado.",
+            ],
+            missing_data=[
+                "MOCK: dados reais nao foram fornecidos a um modelo de IA.",
+                "[REVISAR] partes, qualificacao, documentos, datas e fundamentacao juridica antes de qualquer uso.",
+            ],
         )
         metadata = self._base_metadata(request, final_prompt)
         metadata.response_valid = True

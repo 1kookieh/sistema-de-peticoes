@@ -15,10 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
 from config import EMAIL_ADVOGADO, MAX_DOCX_BYTES, OUTPUT_DIR, REMETENTES_AUTORIZADOS
 from src.core.domain import PipelineSummary, ProcessResult
 from src.adapters.inbox.gmail_reader import Email, buscar_emails_pendentes
@@ -35,6 +31,7 @@ from src.infra.llm.base import LLMRequest
 from src.infra.llm.errors import LLMError
 from src.infra.llm.factory import build_llm_provider, fallback_enabled, normalize_provider
 from src.infra.llm.mock_provider import MockLLMProvider
+from src.infra.llm.redaction import redact_text
 from src.infra.llm.rendering import draft_to_petition_text
 from src.infra.llm.schemas import LLMGenerationMetadata
 from src.orchestration.reporting import build_docx_report
@@ -82,6 +79,9 @@ def _safe_llm_error(error: Exception) -> str:
     return str(error).replace("\n", " ")[:500]
 
 
+_EXTERNAL_PROVIDERS = {"openai", "anthropic", "gemini", "openrouter"}
+
+
 def _prepare_with_llm(
     *,
     raw_text: str,
@@ -94,6 +94,7 @@ def _prepare_with_llm(
     llm_enabled: bool | None,
     llm_provider: str | None,
     llm_model: str | None,
+    llm_consent_external: bool | None = None,
 ) -> tuple[str | None, dict, list[str]]:
     """Generate petition text through an LLM provider when explicitly enabled."""
     try:
@@ -112,8 +113,34 @@ def _prepare_with_llm(
     if provider_name == "none":
         return raw_text, _llm_metadata_none(), []
 
+    # Consentimento explicito so e exigido para providers externos.
+    if provider_name in _EXTERNAL_PROVIDERS and not llm_consent_external:
+        metadata = LLMGenerationMetadata(
+            enabled=True,
+            mode="blocked",
+            provider=provider_name,
+            model=llm_model,
+            used=False,
+            error="consentimento externo nao fornecido",
+        ).model_dump()
+        return None, metadata, [
+            "provider externo exige consentimento explicito "
+            "(llm.consent_external_provider=true). O texto seria enviado a um "
+            "servidor externo; cancelado para preservar LGPD."
+        ]
+
+    # Mascarar PII apenas quando o texto sera enviado para fora.
+    sanitized_text = raw_text
+    redaction_counts: dict[str, int] = {}
+    redaction_applied = False
+    if provider_name in _EXTERNAL_PROVIDERS:
+        result = redact_text(raw_text)
+        sanitized_text = result.text
+        redaction_counts = dict(result.counts)
+        redaction_applied = result.applied
+
     request = LLMRequest(
-        case_text=raw_text,
+        case_text=sanitized_text,
         piece_type=piece_type_id,
         profile_id=profile_id,
         profile_description=profile_description,
@@ -126,16 +153,23 @@ def _prepare_with_llm(
         provider = build_llm_provider(provider_name, enabled=True, model=llm_model)
         if provider is None:
             return raw_text, _llm_metadata_none(), []
-        result = provider.generate(request)
-        return draft_to_petition_text(result.draft), result.metadata.model_dump(), []
+        result_llm = provider.generate(request)
+        metadata = result_llm.metadata
+        metadata.redaction_applied = redaction_applied
+        metadata.redaction_counts = redaction_counts
+        metadata.consent_external_provider = bool(llm_consent_external)
+        return draft_to_petition_text(result_llm.draft), metadata.model_dump(), []
     except LLMError as exc:
         if fallback_enabled() and provider_name != "mock":
             fallback = MockLLMProvider(model="mock-fallback")
-            result = fallback.generate(request)
-            metadata = result.metadata
+            result_fb = fallback.generate(request)
+            metadata = result_fb.metadata
             metadata.fallback_used = True
             metadata.error = _safe_llm_error(exc)
-            return draft_to_petition_text(result.draft), metadata.model_dump(), []
+            metadata.redaction_applied = redaction_applied
+            metadata.redaction_counts = redaction_counts
+            metadata.consent_external_provider = bool(llm_consent_external)
+            return draft_to_petition_text(result_fb.draft), metadata.model_dump(), []
         metadata = LLMGenerationMetadata(
             enabled=True,
             mode="api" if provider_name != "mock" else "mock",
@@ -143,6 +177,9 @@ def _prepare_with_llm(
             model=llm_model,
             used=False,
             error=_safe_llm_error(exc),
+            redaction_applied=redaction_applied,
+            redaction_counts=redaction_counts,
+            consent_external_provider=bool(llm_consent_external),
         ).model_dump()
         return None, metadata, [f"falha na geração por IA: {exc}"]
 
@@ -157,6 +194,7 @@ def processar_email(
     llm_enabled: bool | None = None,
     llm_provider: str | None = None,
     llm_model: str | None = None,
+    llm_consent_external: bool | None = None,
 ) -> ProcessResult:
     profile = get_profile(profile_id)
     mode_requested = normalize_mode(output_mode)
@@ -192,6 +230,7 @@ def processar_email(
         llm_enabled=llm_enabled,
         llm_provider=llm_provider,
         llm_model=llm_model,
+        llm_consent_external=llm_consent_external,
     )
     if problemas_llm:
         registrar_item(
@@ -212,6 +251,33 @@ def processar_email(
             mode_requested=mode_requested,
             mode_delivered=mode_delivered,
         )
+
+    # Provider mock nunca produz peca protocolavel; em modo `final` rebaixamos
+    # automaticamente para `minuta` e registramos a violacao para auditoria.
+    if llm_usage.get("mock_used") and mode_requested == "final":
+        problema_mock = (
+            "modo 'final' nao aceita resposta de provider mock; resposta marcada "
+            "como minuta. Use provider real ou mude para output_mode='minuta'."
+        )
+        registrar_item(
+            email.message_id,
+            thread_id=email.thread_id,
+            status="invalid_input",
+            problemas=[problema_mock],
+        )
+        return ProcessResult(
+            thread_id=email.thread_id,
+            message_id=email.message_id,
+            status="invalid_input",
+            destino=None,
+            problemas=[problema_mock],
+            profile_id=profile.id,
+            prompt_usage=prompt_usage,
+            llm_usage=llm_usage,
+            mode_requested=mode_requested,
+            mode_delivered="minuta",
+        )
+
     texto_peticao = texto_ia or texto_peticao
 
     problemas_modo = validar_modo_saida(texto_peticao, mode_requested)
@@ -406,6 +472,7 @@ def executar_pipeline(
     llm_enabled: bool | None = None,
     llm_provider: str | None = None,
     llm_model: str | None = None,
+    llm_consent_external: bool | None = None,
 ) -> dict:
     profile = get_profile(profile_id)
     if not emails:
@@ -435,6 +502,7 @@ def executar_pipeline(
                 llm_enabled=llm_enabled,
                 llm_provider=llm_provider,
                 llm_model=llm_model,
+                llm_consent_external=llm_consent_external,
             )
             violacoes_totais += len(resultado.problemas)
             if resultado.problemas:
@@ -456,7 +524,10 @@ def executar_pipeline(
                     problemas=[str(e)],
                 )
             except Exception:
-                pass
+                logger.exception(
+                    "falha ao registrar erro no estado local para thread %s",
+                    email.thread_id,
+                )
             resultado = ProcessResult(
                 thread_id=email.thread_id,
                 message_id=email.message_id,
@@ -518,5 +589,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
 

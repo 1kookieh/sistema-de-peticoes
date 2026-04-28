@@ -64,6 +64,7 @@ class Settings(BaseSettings):
         alias="API_ALLOWED_ORIGINS",
     )
     max_docx_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_DOCX_BYTES")
+    max_text_chars: int = Field(default=500_000, alias="MAX_TEXT_CHARS")
     rate_limit_window_seconds: int = Field(default=60, alias="RATE_LIMIT_WINDOW_SECONDS")
     rate_limit_max_mutations: int = Field(default=20, alias="RATE_LIMIT_MAX_MUTATIONS")
     remetentes_autorizados: tuple[str, ...] = Field(default=(), alias="REMETENTES_AUTORIZADOS")
@@ -104,12 +105,21 @@ FRONTEND_DIR = ROOT / "web"
 EXAMPLE_DOCX_DIR = ROOT / "examples" / "generated-docx"
 PROMPTS_DIR = ROOT / "prompts"
 
+# Filas/estado MCP — caminhos canônicos (raiz do projeto). Centralizados aqui
+# para evitar divergência entre módulos (gmail_reader, gmail_sender,
+# pipeline_state, retention). Em ambientes especiais o caminho pode ser
+# sobrescrito via variável de ambiente.
+MCP_INBOX_PATH = Path(os.environ.get("MCP_INBOX_PATH", str(ROOT / "mcp_inbox.json")))
+MCP_OUTBOX_PATH = Path(os.environ.get("MCP_OUTBOX_PATH", str(ROOT / "mcp_outbox.json")))
+MCP_STATUS_PATH = Path(os.environ.get("MCP_STATUS_PATH", str(ROOT / "mcp_status.json")))
+
 EMAIL_ADVOGADO = settings.email_advogado.strip()
 GMAIL_LABEL_PROCESSADO = settings.gmail_label_processado
 API_TOKEN = settings.api_token.strip()
 API_REQUIRE_TOKEN = settings.api_require_token
 API_ALLOWED_ORIGINS = settings.api_allowed_origins
 MAX_DOCX_BYTES = settings.max_docx_bytes
+MAX_TEXT_CHARS = settings.max_text_chars
 RATE_LIMIT_WINDOW_SECONDS = settings.rate_limit_window_seconds
 RATE_LIMIT_MAX_MUTATIONS = settings.rate_limit_max_mutations
 REMETENTES_AUTORIZADOS = settings.remetentes_autorizados

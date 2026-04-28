@@ -147,6 +147,7 @@ def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
         output_mode="minuta",
         llm_enabled=True,
         llm_provider="openai",
+        llm_consent_external=True,
     )
 
     serialized = json.dumps(result.to_report_item(), ensure_ascii=False)
@@ -154,3 +155,97 @@ def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
     assert result.destino is None
     assert "OPENAI_API_KEY" in result.problemas[0]
     assert "sk-" not in serialized
+
+
+def test_openai_provider_blocked_without_consent(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "sk-fake-test")
+
+    result = pipeline.processar_email(
+        _email(_case_text()),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_provider="openai",
+        # Sem consentimento explicito.
+    )
+
+    assert result.status == "llm_error"
+    assert result.destino is None
+    assert any("consentimento" in problema.lower() for problema in result.problemas)
+    # Nada foi enviado para a OpenAI: sem latency_ms e sem tokens.
+    assert result.llm_usage["used"] is False
+    assert result.llm_usage["consent_external_provider"] is False
+
+
+def test_redaction_applied_for_external_provider(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+
+    captured: dict[str, str] = {}
+
+    def fake_call(self, final_prompt):
+        captured["prompt"] = final_prompt
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"piece_type":"teste","profile":"forense-basico",'
+                            '"title":"ACAO DE TESTE",'
+                            '"facts_summary":["fato"],'
+                            '"requests":["pedido"]}'
+                        )
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+
+    monkeypatch.setattr(
+        "src.infra.llm.openai_provider.OpenAIProvider._call",
+        fake_call,
+    )
+    monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "sk-fake-test")
+
+    texto = (
+        "Cliente CPF 123.456.789-09, NIT 123.45678.90-1, RG 12.345.678-9, "
+        "email cliente@exemplo.com, telefone (62) 99999-8888."
+    )
+
+    result = pipeline.processar_email(
+        _email(texto),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_provider="openai",
+        llm_consent_external=True,
+    )
+
+    prompt_enviado = captured["prompt"]
+    assert "123.456.789-09" not in prompt_enviado
+    assert "cliente@exemplo.com" not in prompt_enviado
+    assert "<CPF#1>" in prompt_enviado
+    assert "<EMAIL#1>" in prompt_enviado
+    assert result.llm_usage["redaction_applied"] is True
+    assert result.llm_usage["redaction_counts"].get("CPF") == 1
+
+
+def test_mock_provider_blocks_final_mode(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+
+    result = pipeline.processar_email(
+        _email(_case_text()),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="final",
+        piece_type_id="auxilio-incapacidade-temporaria",
+        llm_enabled=True,
+        llm_provider="mock",
+    )
+
+    assert result.status == "invalid_input"
+    assert result.destino is None
+    assert any("mock" in problema.lower() for problema in result.problemas)
+    assert result.mode_delivered == "minuta"

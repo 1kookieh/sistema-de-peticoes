@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import (
+    MCP_INBOX_PATH,
     OUTPUT_DIR,
     REPORTS_DIR,
     RETENTION_OUTPUT_DAYS,
@@ -46,7 +47,7 @@ def cleanup_runtime(policy: RetentionPolicy | None = None) -> list[str]:
     if REPORTS_DIR.exists():
         candidates.extend((path, policy.reports_days) for path in REPORTS_DIR.glob("*.json"))
         candidates.extend((path, policy.reports_days) for path in REPORTS_DIR.glob("*.html"))
-    candidates.extend((path, policy.queue_days) for path in [ROOT / "mcp_inbox.json", OUTBOX])
+    candidates.extend((path, policy.queue_days) for path in [MCP_INBOX_PATH, OUTBOX])
     candidates.append((STATE_FILE, policy.status_days))
     candidates.extend((path, 0) for path in ROOT.glob("*.tmp"))
     candidates.extend((path, 0) for path in ROOT.glob("*.lock"))

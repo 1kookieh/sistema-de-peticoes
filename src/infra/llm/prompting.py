@@ -14,6 +14,45 @@ def prompt_hash(*parts: str) -> str:
     return sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _neutralize_user_text(text: str) -> str:
+    """Neutraliza tentativas obvias de prompt injection no texto do usuario.
+
+    Substitui sequencias `===` (delimitador interno do prompt) e marcadores
+    explicitos como `JSON SCHEMA OBRIGATORIO` por versoes nao acionaveis,
+    sem alterar o conteudo juridico legitimo. Tambem remove caracteres de
+    controle/bidi que poderiam ser usados para enganar parsing posterior.
+    """
+    if not text:
+        return text
+    # Remove caracteres de controle e marcadores bidi explicitos.
+    import unicodedata
+
+    cleaned = []
+    for char in text:
+        if char in ("\n", "\r", "\t"):
+            cleaned.append(char)
+            continue
+        if unicodedata.category(char).startswith("C"):
+            continue
+        if 0x202A <= ord(char) <= 0x202E or 0x2066 <= ord(char) <= 0x2069:
+            continue
+        cleaned.append(char)
+    sanitized = "".join(cleaned)
+    # Quebra qualquer sequencia que tente abrir/fechar nossas secoes internas.
+    sanitized = sanitized.replace("===", "= = =")
+    # Bloqueia frases-padrao de injection no texto.
+    for marker in (
+        "IGNORE PREVIOUS INSTRUCTIONS",
+        "IGNORE ALL PREVIOUS INSTRUCTIONS",
+        "DISREGARD ABOVE",
+        "JSON SCHEMA OBRIGATORIO",
+        "PROMPT JURIDICO VERSIONADO",
+        "PROMPT DE FORMATACAO WORD VERSIONADO",
+    ):
+        sanitized = sanitized.replace(marker, marker.lower().replace(" ", "_"))
+    return sanitized
+
+
 def build_llm_prompt(
     *,
     case_text: str,
@@ -30,6 +69,7 @@ def build_llm_prompt(
     """
     schema = json.dumps(LegalDocumentDraft.model_json_schema(), ensure_ascii=False, indent=2)
     context = json.dumps(extra_context or {}, ensure_ascii=False, indent=2)
+    case_text_safe = _neutralize_user_text(case_text)
     return f"""Você é um assistente jurídico supervisionado.
 
 Responda exclusivamente em JSON válido compatível com o schema informado.
@@ -53,7 +93,7 @@ PERFIL_FORMAL: {profile}
 {context}
 
 === DADOS DO CASO FORNECIDOS PELO USUARIO ===
-{case_text}
+{case_text_safe}
 
 === JSON SCHEMA OBRIGATORIO ===
 {schema}

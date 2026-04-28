@@ -14,11 +14,10 @@ import base64
 import json
 from pathlib import Path
 
-from config import OUTPUT_DIR
+from config import MCP_OUTBOX_PATH, OUTPUT_DIR
 from src.infra.file_lock import exclusive_file_lock
 
-ROOT = Path(__file__).parent.parent
-OUTBOX = ROOT / "mcp_outbox.json"
+OUTBOX = MCP_OUTBOX_PATH
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 
 

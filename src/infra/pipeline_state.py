@@ -6,10 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from config import MCP_STATUS_PATH
 from src.infra.file_lock import exclusive_file_lock
 
-ROOT = Path(__file__).resolve().parent.parent
-STATE_FILE = ROOT / "mcp_status.json"
+STATE_FILE = MCP_STATUS_PATH
 _STATE_CACHE: dict[Path, tuple[float, dict[str, Any]]] = {}
 
 

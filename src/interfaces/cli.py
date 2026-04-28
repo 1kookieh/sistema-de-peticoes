@@ -42,6 +42,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Provider de IA para esta execução.",
     )
     parser.add_argument("--llm-model", default=None, help="Modelo de IA para esta execução.")
+    parser.add_argument(
+        "--llm-consent-external",
+        action="store_true",
+        help=(
+            "Confirma consentimento explicito para enviar dados a provedor externo "
+            "(openai, anthropic, gemini, openrouter). Sem este flag, providers "
+            "externos sao bloqueados para preservar LGPD."
+        ),
+    )
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
     parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
@@ -98,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
             llm_enabled=False if args.no_llm else (True if args.llm else None),
             llm_provider=args.llm_provider,
             llm_model=args.llm_model,
+            llm_consent_external=args.llm_consent_external if args.llm_consent_external else None,
         )
     except Exception as exc:
         print(f"[!] Falha no CLI: {exc}")

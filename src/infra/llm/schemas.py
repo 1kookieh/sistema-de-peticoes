@@ -78,9 +78,13 @@ class LLMGenerationMetadata(BaseModel):
     tokens_output: int | None = None
     latency_ms: int | None = None
     error: str | None = None
+    redaction_applied: bool = False
+    redaction_counts: dict[str, int] = Field(default_factory=dict)
+    consent_external_provider: bool = False
 
 
 class LLMOptions(BaseModel):
     enabled: bool | None = None
     provider: Literal["none", "mock", "openai"] | str | None = None
     model: str | None = None
+    consent_external_provider: bool | None = None

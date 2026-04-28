@@ -23,6 +23,7 @@ from config import (
     LLM_MODEL,
     LLM_PROVIDER,
     MAX_DOCX_BYTES,
+    MAX_TEXT_CHARS,
     OUTPUT_DIR,
     RATE_LIMIT_MAX_MUTATIONS,
     RATE_LIMIT_WINDOW_SECONDS,
@@ -80,14 +81,35 @@ app.add_middleware(
 )
 
 
+_DEFAULT_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; "
+    "img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; "
+    "frame-ancestors 'none'; frame-src 'none'; form-action 'self'"
+)
+# CSP relaxada apenas para o relatório HTML autocontido (servido com <style>
+# inline via Jinja2). O conteúdo é gerado pelo próprio backend a partir de
+# template versionado e nunca recebe input direto do usuário sem autoescape;
+# habilitamos 'unsafe-inline' restrito a este path para que o estilo carregue
+# quando o relatório é aberto fora do blob URL da SPA.
+_REPORT_CSP = (
+    "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; "
+    "frame-ancestors 'none'; frame-src 'none'; form-action 'none'"
+)
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
+    is_html_report = (
+        request.url.path.startswith("/api/v1/reports/")
+        and request.url.path.endswith(".html")
+    )
     response.headers.setdefault(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+        _REPORT_CSP if is_html_report else _DEFAULT_CSP,
     )
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     return response
@@ -113,7 +135,10 @@ async def local_rate_limit(request: Request, call_next):
                 content={"detail": "limite local de requisições atingido"},
             )
         bucket.append(now)
-        _RATE_LIMIT_BUCKETS[client] = bucket
+        if bucket:
+            _RATE_LIMIT_BUCKETS[client] = bucket
+        else:
+            _RATE_LIMIT_BUCKETS.pop(client, None)
     return await call_next(request)
 
 
@@ -125,12 +150,20 @@ class LLMRequestOptions(BaseModel):
     enabled: bool | None = Field(default=None)
     provider: str | None = Field(default=None, max_length=40)
     model: str | None = Field(default=None, max_length=120)
+    consent_external_provider: bool | None = Field(
+        default=None,
+        description=(
+            "Consentimento explicito para enviar o texto a um provedor externo "
+            "(ex.: openai). Obrigatorio quando o provider escolhido nao for "
+            "'none' ou 'mock'."
+        ),
+    )
 
 
 class DocumentRequest(BaseModel):
     text: str = Field(
         min_length=1,
-        max_length=500_000,
+        max_length=MAX_TEXT_CHARS,
         description="Texto da peça a ser formatada.",
     )
     profile_id: str | None = Field(
@@ -284,7 +317,7 @@ def api_limits() -> dict[str, Any]:
     from src.adapters.files.file_extractors import MAX_TOTAL_UPLOAD_BYTES, MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES
 
     return {
-        "max_text_chars": 500_000,
+        "max_text_chars": MAX_TEXT_CHARS,
         "max_file_bytes": MAX_UPLOAD_BYTES,
         "max_total_upload_bytes": MAX_TOTAL_UPLOAD_BYTES,
         "max_upload_files": MAX_UPLOAD_FILES,
@@ -378,6 +411,7 @@ def _generate_from_text(
             llm_enabled=llm.enabled if llm else None,
             llm_provider=llm.provider if llm else None,
             llm_model=llm.model if llm else None,
+            llm_consent_external=llm.consent_external_provider if llm else None,
         )
     except Exception as exc:
         raise HTTPException(
@@ -460,6 +494,7 @@ async def generate_document_from_upload(
     llm_enabled: bool | None = Form(default=None),
     llm_provider: str | None = Form(default=None),
     llm_model: str | None = Form(default=None),
+    llm_consent_external_provider: bool | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
     assunto: str = Form(default="Geração por upload local"),
 ) -> dict[str, Any]:
@@ -486,7 +521,12 @@ async def generate_document_from_upload(
         assunto=assunto,
         source_filename=source_names,
         output_mode=output_mode,
-        llm=LLMRequestOptions(enabled=llm_enabled, provider=llm_provider, model=llm_model),
+        llm=LLMRequestOptions(
+            enabled=llm_enabled,
+            provider=llm_provider,
+            model=llm_model,
+            consent_external_provider=llm_consent_external_provider,
+        ),
     )
 
 

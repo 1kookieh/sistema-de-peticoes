@@ -91,9 +91,15 @@ class DesktopApp(tk.Tk):
         if not path:
             return
         try:
-            content = Path(path).read_text(encoding="utf-8")
+            content = Path(path).read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
-            content = Path(path).read_text(encoding="latin-1")
+            messagebox.showerror(
+                "Encoding inválido",
+                "O arquivo selecionado não está em UTF-8. "
+                "Reabra-o no editor e salve como UTF-8 antes de carregar — "
+                "evita caracteres corrompidos no DOCX final.",
+            )
+            return
         self.text.delete("1.0", tk.END)
         self.text.insert("1.0", content)
 

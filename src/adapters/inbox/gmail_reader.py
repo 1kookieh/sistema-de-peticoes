@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Collection, Iterable
 
-from config import MAX_JSON_BYTES
+from config import MAX_JSON_BYTES, MCP_INBOX_PATH
 
 
 class InboxValidationError(ValueError):
@@ -117,9 +117,8 @@ def buscar_emails_pendentes(
             raise InboxValidationError(f"INBOX_MOCK_PATH aponta para arquivo inexistente: {mock_path}")
         return _filtrar_remetentes(_carregar(mock_path), remetentes_autorizados)
 
-    inbox = Path(__file__).parent.parent / "mcp_inbox.json"
-    if inbox.exists():
-        return _filtrar_remetentes(_carregar(inbox), remetentes_autorizados)
+    if MCP_INBOX_PATH.exists():
+        return _filtrar_remetentes(_carregar(MCP_INBOX_PATH), remetentes_autorizados)
 
     raise RuntimeError(
         "Nenhuma fonte de e-mails. Popule mcp_inbox.json via seu "

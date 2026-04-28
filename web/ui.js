@@ -31,6 +31,9 @@ const dom = {
   outputMode: document.querySelector("#output-mode"),
   llmProvider: document.querySelector("#llm-provider"),
   llmModel: document.querySelector("#llm-model"),
+  llmConsent: document.querySelector("#llm-consent"),
+  llmConsentField: document.querySelector("#llm-consent-field"),
+  llmExternalWarning: document.querySelector("#llm-external-warning"),
   text: document.querySelector("#text"),
   file: document.querySelector("#file"),
   fileInfo: document.querySelector("#file-info"),
@@ -266,10 +269,20 @@ function validateFiles(uploads) {
 
 function validateBeforeGenerate() {
   const uploads = selectedFiles();
+  const provider = dom.llmProvider?.value || "none";
+  if (EXTERNAL_LLM_PROVIDERS.has(provider) && !llmConsentValue()) {
+    return "Provider externo selecionado: marque o consentimento para enviar dados a um servidor externo.";
+  }
   if (uploads.length) return null;
   if (!dom.text.value.trim()) return "Nenhum conteúdo informado. Envie um arquivo ou cole um texto antes de gerar.";
   if (dom.text.value.length > state.limits.max_text_chars) return `Texto acima do limite de ${state.limits.max_text_chars} caracteres.`;
   return null;
+}
+
+const EXTERNAL_LLM_PROVIDERS = new Set(["openai", "anthropic", "gemini", "openrouter"]);
+
+function llmConsentValue() {
+  return Boolean(dom.llmConsent?.checked);
 }
 
 async function generateFromUpload(uploads, outputMode = dom.outputMode?.value || "minuta") {
@@ -281,6 +294,7 @@ async function generateFromUpload(uploads, outputMode = dom.outputMode?.value ||
   body.append("llm_enabled", String(Boolean(dom.llmProvider?.value && dom.llmProvider.value !== "none")));
   body.append("llm_provider", dom.llmProvider?.value || "none");
   body.append("llm_model", dom.llmModel?.value.trim() || "");
+  body.append("llm_consent_external_provider", String(llmConsentValue()));
   body.append("remetente", "frontend.local@example.com");
   body.append("assunto", "Geração por upload local");
   return postForm("/documents/upload", body, authHeaders());
@@ -298,12 +312,21 @@ async function generateFromText(outputMode = dom.outputMode?.value || "minuta") 
         enabled: Boolean(dom.llmProvider?.value && dom.llmProvider.value !== "none"),
         provider: dom.llmProvider?.value || "none",
         model: dom.llmModel?.value.trim() || null,
+        consent_external_provider: llmConsentValue(),
       },
       remetente: "frontend.local@example.com",
       assunto: "Geração pelo painel local",
     },
     authHeaders(),
   );
+}
+
+function syncLLMExternalUI() {
+  const provider = dom.llmProvider?.value || "none";
+  const isExternal = EXTERNAL_LLM_PROVIDERS.has(provider);
+  if (dom.llmExternalWarning) dom.llmExternalWarning.hidden = !isExternal;
+  if (dom.llmConsentField) dom.llmConsentField.hidden = !isExternal;
+  if (!isExternal && dom.llmConsent) dom.llmConsent.checked = false;
 }
 
 function loadStoredToken() {
@@ -408,6 +431,7 @@ function bindEvents() {
     syncGenerateState();
   });
 
+  dom.llmProvider?.addEventListener("change", syncLLMExternalUI);
   dom.profile.addEventListener("change", () => renderProfileDetails(dom.profileDetails, dom.profile.value));
   dom.pieceType.addEventListener("change", () => renderPieceHint(dom.pieceHint, dom.pieceType.value));
   dom.refresh.addEventListener("click", loadHistory);
@@ -517,6 +541,7 @@ export async function initUI() {
   bindEvents();
   renderFileList([]);
   syncGenerateState();
+  syncLLMExternalUI();
   await loadLimits();
   await Promise.all([loadProfiles(), loadPieceTypes(), loadHistory()]);
 }

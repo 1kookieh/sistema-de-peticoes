@@ -123,6 +123,19 @@
             <input id="llm-model" type="text" autocomplete="off" placeholder="Ex.: gpt-4o-mini">
             <span class="field-hint muted">Se vazio, o backend usa LLM_MODEL ou o padrão do provedor.</span>
           </label>
+          <div id="llm-external-warning" class="warning" hidden role="alert" aria-live="polite">
+            <strong>⚠ Atenção — IA externa selecionada.</strong>
+            O texto informado será enviado ao provedor configurado (servidor fora do seu computador).
+            Dados pessoais identificados (CPF, NIT, NB, RG, e-mail, telefone, CEP) serão mascarados antes do envio,
+            mas <strong>nomes, fatos e contexto jurídico ainda saem como estão</strong>. Confirme abaixo para prosseguir.
+          </div>
+          <label class="field" id="llm-consent-field" hidden>
+            <span class="field-label">
+              <input id="llm-consent" type="checkbox">
+              Confirmo que tenho autorização para enviar este texto a um provedor externo
+            </span>
+            <span class="field-hint muted">Obrigatório quando o provider não é <code>none</code> ou <code>mock</code>. Sem este aceite, o pedido é bloqueado para preservar LGPD.</span>
+          </label>
         </details>
 
         <header class="card-head">

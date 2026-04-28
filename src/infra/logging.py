@@ -28,6 +28,17 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(*, json_logs: bool = False, level: str = "INFO") -> None:
+    # Em Windows, o stdout/stderr default usa cp1252 e quebra com acentos
+    # nas mensagens de log. Reconfiguramos UTF-8 aqui (e não no import de
+    # outros módulos) para evitar side-effects globais quando alguém apenas
+    # importa o pipeline.
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+
     formatter = "json" if json_logs else "human"
     dictConfig(
         {
