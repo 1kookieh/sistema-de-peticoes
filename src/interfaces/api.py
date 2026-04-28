@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from config import (
     API_ALLOWED_ORIGINS,
+    API_REQUIRE_TOKEN,
     API_TOKEN,
     FRONTEND_DIR,
     MAX_DOCX_BYTES,
@@ -37,9 +38,7 @@ from src.core.piece_types import get_piece_type, list_piece_types
 from src.core.profiles import PROFILES, get_profile, list_profile_ids
 from src.core.validation.modes import (
     normalize_mode,
-    validar_modo_saida,
 )
-from src.core.validation.docx import validar_texto_protocolavel
 
 
 PROFILE_LABELS_PT = {
@@ -156,6 +155,11 @@ class DocumentRequest(BaseModel):
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
     """Protege rotas sensíveis quando API_TOKEN estiver configurado."""
+    if API_REQUIRE_TOKEN and not API_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="API_TOKEN obrigatório quando API_REQUIRE_TOKEN=true",
+        )
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -328,70 +332,6 @@ def _generate_from_text(
         text, piece_type_id, profile_id
     )
 
-    # Bloqueios específicos do modo (ex.: [DADO FALTANTE] em "final").
-    mode_problems = validar_modo_saida(text, mode_requested)
-
-    # Modo "triagem": não chama pipeline, retorna apenas diagnóstico.
-    if mode_requested == "triagem":
-        diag = list(mode_problems) + validar_texto_protocolavel(text, profile.id)
-        return {
-            "status": "triagem",
-            "problems": diag,
-            "document": None,
-            "download_url": None,
-            "report_json_url": None,
-            "report_html_url": None,
-            "piece_type": {
-                "id": piece_type.id,
-                "nome": piece_type.nome,
-                "grupo": piece_type.grupo,
-                "exige_revisao": piece_type.exige_revisao,
-            } if piece_type else None,
-            "piece_type_inferred": piece_type_inferred,
-            "profile": {
-                "id": profile.id,
-                "label": PROFILE_LABELS_PT.get(profile.id, profile.id),
-                "descricao": profile.descricao,
-            },
-            "profile_inferred": profile_inferred,
-            "source_filename": source_filename,
-            "prompt_usage": {},
-            "mode_requested": mode_requested,
-            "mode_delivered": "triagem",
-        }
-
-    # Violações de modo são bloqueantes antes da renderização. Isso evita gerar
-    # um DOCX "final" com [DADO FALTANTE], marcas de IA ou instruções internas.
-    if mode_problems:
-        mode_delivered = "minuta" if mode_requested == "final" else mode_requested
-        return {
-            "status": "invalid_input",
-            "problems": mode_problems,
-            "document": None,
-            "download_url": None,
-            "report_json_url": None,
-            "report_html_url": None,
-            "piece_type": {
-                "id": piece_type.id,
-                "nome": piece_type.nome,
-                "grupo": piece_type.grupo,
-                "exige_revisao": piece_type.exige_revisao,
-            } if piece_type else None,
-            "piece_type_inferred": piece_type_inferred,
-            "profile": {
-                "id": profile.id,
-                "label": PROFILE_LABELS_PT.get(profile.id, profile.id),
-                "descricao": profile.descricao,
-            },
-            "profile_inferred": profile_inferred,
-            "source_filename": source_filename,
-            "prompt_usage": {},
-            "mode_requested": mode_requested,
-            "mode_delivered": mode_delivered,
-        }
-
-    mode_delivered = mode_requested
-
     metadata = {
         "piece_type": {
             "id": piece_type.id,
@@ -403,8 +343,7 @@ def _generate_from_text(
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
         "mode_requested": mode_requested,
-        "mode_delivered": mode_delivered,
-        "mode_problems": mode_problems,
+        "mode_delivered": mode_requested,
     }
     token = uuid4().hex[:12]
     email = Email(
@@ -419,7 +358,7 @@ def _generate_from_text(
             email,
             profile_id=profile.id,
             no_outbox=True,
-            output_mode=mode_delivered,
+            output_mode=mode_requested,
         )
     except Exception as exc:
         raise HTTPException(
@@ -437,6 +376,7 @@ def _generate_from_text(
     }
     report_item = result.to_report_item()
     metadata["prompt_usage"] = report_item.get("prompt_usage", {})
+    metadata["mode_delivered"] = result.mode_delivered or mode_requested
 
     report = build_run_report(
         profile=profile,
@@ -453,13 +393,9 @@ def _generate_from_text(
     write_html_report(html_path, report)
 
     docx_name = result.destino.name if result.destino else None
-    # Soma violações de modo às violações já existentes (sem duplicar).
-    combined_problems = list(mode_problems) + [
-        p for p in result.problemas if p not in mode_problems
-    ]
     return {
         "status": result.status,
-        "problems": combined_problems,
+        "problems": result.problemas,
         "document": docx_name,
         "download_url": f"/api/v1/documents/{docx_name}/download" if docx_name else None,
         "report_json_url": f"/api/v1/reports/{json_path.name}",
@@ -475,7 +411,7 @@ def _generate_from_text(
         "source_filename": source_filename,
         "prompt_usage": metadata["prompt_usage"],
         "mode_requested": mode_requested,
-        "mode_delivered": mode_delivered,
+        "mode_delivered": result.mode_delivered or mode_requested,
     }
 
 

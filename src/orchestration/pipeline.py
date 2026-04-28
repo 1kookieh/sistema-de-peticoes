@@ -33,6 +33,7 @@ from src.core.prompts import (
 )
 from src.orchestration.reporting import build_docx_report
 from src.core.validation.docx import validar, validar_texto_protocolavel
+from src.core.validation.modes import normalize_mode, validar_modo_saida
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ def processar_email(
     output_mode: str = "final",
 ) -> ProcessResult:
     profile = get_profile(profile_id)
+    mode_requested = normalize_mode(output_mode)
+    mode_delivered = mode_requested
     logger.info("processando thread %s", email.thread_id, extra={"thread_id": email.thread_id})
 
     if ja_processado_ok(email.message_id):
@@ -77,13 +80,67 @@ def processar_email(
             destino=None,
             problemas=[],
             profile_id=profile.id,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
         )
 
     texto_peticao, petition_prompt = prepare_petition_text(email.peticao_texto)
     formatting_prompt = load_word_formatting_prompt()
     prompt_usage = prompt_audit_payload(petition_prompt, formatting_prompt)
 
-    allow_pending_markers = output_mode == "minuta"
+    problemas_modo = validar_modo_saida(texto_peticao, mode_requested)
+    if mode_requested == "triagem":
+        problemas_triagem = validar_texto_protocolavel(
+            texto_peticao,
+            profile.id,
+            allow_pending_markers=True,
+        )
+        problemas = problemas_modo + [
+            problema for problema in problemas_triagem if problema not in problemas_modo
+        ]
+        registrar_item(
+            email.message_id,
+            thread_id=email.thread_id,
+            status="triagem",
+            problemas=problemas,
+        )
+        return ProcessResult(
+            thread_id=email.thread_id,
+            message_id=email.message_id,
+            status="triagem",
+            destino=None,
+            problemas=problemas,
+            profile_id=profile.id,
+            prompt_usage=prompt_usage,
+            mode_requested=mode_requested,
+            mode_delivered="triagem",
+        )
+
+    if problemas_modo:
+        mode_delivered = "minuta" if mode_requested == "final" else mode_requested
+        logger.warning(
+            "entrada bloqueada por modo de saida",
+            extra={"message_id": email.message_id, "status": "invalid_input", "profile_id": profile.id},
+        )
+        registrar_item(
+            email.message_id,
+            thread_id=email.thread_id,
+            status="invalid_input",
+            problemas=problemas_modo,
+        )
+        return ProcessResult(
+            thread_id=email.thread_id,
+            message_id=email.message_id,
+            status="invalid_input",
+            destino=None,
+            problemas=problemas_modo,
+            profile_id=profile.id,
+            prompt_usage=prompt_usage,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
+        )
+
+    allow_pending_markers = mode_requested == "minuta"
     problemas_pre = validar_texto_protocolavel(
         texto_peticao,
         profile.id,
@@ -108,6 +165,8 @@ def processar_email(
             problemas=problemas_pre,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
         )
 
     destino = OUTPUT_DIR / f"peticao_{_timestamp()}_{_safe_token(email.thread_id)}.docx"
@@ -131,6 +190,8 @@ def processar_email(
             problemas=problemas_tamanho,
             profile_id=profile.id,
             prompt_usage=prompt_usage,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
         )
 
     problemas = validar(destino, profile.id, allow_pending_markers=allow_pending_markers)
@@ -156,6 +217,8 @@ def processar_email(
             profile_id=profile.id,
             docx_report=docx_report,
             prompt_usage=prompt_usage,
+            mode_requested=mode_requested,
+            mode_delivered=mode_delivered,
         )
     else:
         logger.info("validação formal ok", extra={"message_id": email.message_id, "profile_id": profile.id})
@@ -195,6 +258,8 @@ def processar_email(
         enfileirado=enfileirado,
         docx_report=docx_report,
         prompt_usage=prompt_usage,
+        mode_requested=mode_requested,
+        mode_delivered=mode_delivered,
     )
 
 def executar_pipeline(
@@ -203,6 +268,7 @@ def executar_pipeline(
     profile_id: str | None = None,
     no_outbox: bool = False,
     strict: bool = False,
+    output_mode: str = "final",
 ) -> dict:
     profile = get_profile(profile_id)
     if not emails:
@@ -224,7 +290,12 @@ def executar_pipeline(
     items: list[dict] = []
     for email in emails:
         try:
-            resultado = processar_email(email, profile_id=profile.id, no_outbox=no_outbox)
+            resultado = processar_email(
+                email,
+                profile_id=profile.id,
+                no_outbox=no_outbox,
+                output_mode=output_mode,
+            )
             violacoes_totais += len(resultado.problemas)
             if resultado.problemas:
                 bloqueados += 1
@@ -253,6 +324,8 @@ def executar_pipeline(
                 destino=None,
                 problemas=[str(e)],
                 profile_id=profile.id,
+                mode_requested=normalize_mode(output_mode),
+                mode_delivered=normalize_mode(output_mode),
             )
         finally:
             items.append(resultado.to_report_item())

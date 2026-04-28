@@ -27,6 +27,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strict", action="store_true", help="Falha se não houver documento novo válido.")
     parser.add_argument("--report", type=Path, help="Grava relatório JSON de conformidade.")
     parser.add_argument("--no-outbox", action="store_true", help="Gera e valida sem gravar mcp_outbox.json.")
+    parser.add_argument(
+        "--output-mode",
+        choices=("final", "minuta", "triagem"),
+        default="final",
+        help="Modo de saida: final bloqueia pendencias; minuta aceita marcadores; triagem nao gera DOCX.",
+    )
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
     parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
@@ -79,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
             profile_id=profile.id,
             no_outbox=args.no_outbox,
             strict=args.strict,
+            output_mode=args.output_mode,
         )
     except Exception as exc:
         print(f"[!] Falha no CLI: {exc}")

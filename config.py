@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     email_advogado: str = Field(default="", alias="EMAIL_ADVOGADO")
     gmail_label_processado: str = Field(default="peticao-gerada", alias="GMAIL_LABEL_PROCESSADO")
     api_token: str = Field(default="", alias="API_TOKEN")
+    api_require_token: bool = Field(default=False, alias="API_REQUIRE_TOKEN")
     api_allowed_origins: tuple[str, ...] = Field(
         default=("http://127.0.0.1:8000", "http://localhost:8000"),
         alias="API_ALLOWED_ORIGINS",
@@ -91,6 +92,7 @@ PROMPTS_DIR = ROOT / "prompts"
 EMAIL_ADVOGADO = settings.email_advogado.strip()
 GMAIL_LABEL_PROCESSADO = settings.gmail_label_processado
 API_TOKEN = settings.api_token.strip()
+API_REQUIRE_TOKEN = settings.api_require_token
 API_ALLOWED_ORIGINS = settings.api_allowed_origins
 MAX_DOCX_BYTES = settings.max_docx_bytes
 RATE_LIMIT_WINDOW_SECONDS = settings.rate_limit_window_seconds

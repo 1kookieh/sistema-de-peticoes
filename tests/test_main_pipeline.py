@@ -79,6 +79,45 @@ def test_processar_email_reusa_relatorio_docx_sem_revalidar(tmp_path, monkeypatc
     assert item["docx_report"] is resultado.docx_report
 
 
+def test_processar_email_final_bloqueia_marcador_pendente_no_pipeline(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
+    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    texto = _texto_valido() + "\nDIB: [DADO FALTANTE: confirmar com cliente]"
+
+    resultado = main.processar_email(
+        _email(texto),
+        no_outbox=True,
+        output_mode="final",
+    )
+
+    assert resultado.status == "invalid_input"
+    assert resultado.destino is None
+    assert resultado.mode_requested == "final"
+    assert resultado.mode_delivered == "minuta"
+    assert not any((tmp_path / "output").glob("*.docx"))
+
+
+def test_processar_email_triagem_nao_renderiza_docx(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
+    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+
+    resultado = main.processar_email(
+        _email("Caso incompleto. [DADO FALTANTE: DER]"),
+        no_outbox=True,
+        output_mode="triagem",
+    )
+
+    assert resultado.status == "triagem"
+    assert resultado.destino is None
+    assert resultado.mode_requested == "triagem"
+    assert resultado.mode_delivered == "triagem"
+    assert not any((tmp_path / "output").glob("*.docx"))
+
+
 def test_processar_email_registra_uso_dos_prompts_obrigatorios(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")

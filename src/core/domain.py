@@ -16,6 +16,8 @@ class ProcessResult:
     enfileirado: bool = False
     docx_report: dict | None = None
     prompt_usage: dict | None = None
+    mode_requested: str | None = None
+    mode_delivered: str | None = None
 
     def to_report_item(self) -> dict:
         item = {
@@ -27,6 +29,10 @@ class ProcessResult:
             "profile_id": self.profile_id,
             "enqueued": self.enfileirado,
         }
+        if self.mode_requested is not None:
+            item["mode_requested"] = self.mode_requested
+        if self.mode_delivered is not None:
+            item["mode_delivered"] = self.mode_delivered
         if self.prompt_usage is not None:
             item["prompt_usage"] = self.prompt_usage
         if self.docx_report is not None:

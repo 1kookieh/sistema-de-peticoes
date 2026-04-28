@@ -46,6 +46,15 @@ class DesktopApp(tk.Tk):
             state="readonly",
         )
         self.profile.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        ttk.Label(header, text="Modo").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        self.output_mode_var = tk.StringVar(value="minuta")
+        self.output_mode = ttk.Combobox(
+            header,
+            textvariable=self.output_mode_var,
+            values=("minuta", "final", "triagem"),
+            state="readonly",
+        )
+        self.output_mode.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(8, 0))
 
         body = ttk.Frame(self, padding=(16, 0, 16, 16))
         body.grid(row=1, column=0, sticky="nsew")
@@ -119,7 +128,12 @@ class DesktopApp(tk.Tk):
                 assunto="Geração desktop local",
                 peticao_texto=texto,
             )
-            result = processar_email(email, profile_id=profile.id, no_outbox=True)
+            result = processar_email(
+                email,
+                profile_id=profile.id,
+                no_outbox=True,
+                output_mode=self.output_mode_var.get(),
+            )
             summary = {
                 "total": 1,
                 "enfileirados": 0,
