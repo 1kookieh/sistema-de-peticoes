@@ -1,6 +1,6 @@
 # Prompts
 
-Os prompts ficam em `prompts/` e são parte do contrato de geração e formatação.
+Os prompts ficam em `prompts/` e fazem parte do contrato de geração AI-first e formatação DOCX.
 
 ## Arquivos
 
@@ -11,19 +11,15 @@ Os prompts ficam em `prompts/` e são parte do contrato de geração e formataç
 
 ## Como São Usados
 
-O pipeline sempre carrega os prompts e registra hashes em `prompt_usage`.
+No fluxo de criação:
 
-No modo sem IA:
+- o backend carrega os prompts versionados;
+- o prompt jurídico e o prompt de formatação são combinados com os dados do caso;
+- o provider LLM deve responder JSON estruturado;
+- a resposta é validada antes da renderização;
+- o DOCX é gerado a partir da estrutura validada.
 
-- os prompts funcionam como contrato versionado;
-- o texto informado pelo usuário é validado e renderizado localmente.
-
-No modo com IA:
-
-- os prompts são combinados com os dados do caso;
-- o sistema exige resposta JSON estruturada;
-- a resposta é validada antes do DOCX;
-- o DOCX é renderizado a partir da estrutura validada.
+O relatório registra hashes em `prompt_usage`; o prompt completo não é salvo por padrão.
 
 ## Como Editar
 
@@ -32,10 +28,7 @@ Ao alterar prompts:
 1. Use apenas dados fictícios.
 2. Não inclua nomes, CPF, RG, OAB, NB, DER ou documentos reais.
 3. Evite instruções contraditórias.
-4. Mantenha separação entre:
-   - conteúdo jurídico;
-   - formatação DOCX;
-   - checklist ou alertas de revisão.
+4. Mantenha separação entre conteúdo jurídico, formatação DOCX e alertas de revisão.
 5. Rode os testes.
 
 ```bash
@@ -49,7 +42,7 @@ pytest -q
 - Não peça para criar documentos inexistentes.
 - Não misture comentários internos com texto final da peça.
 - Não salve prompt completo com dados do caso em relatórios.
-- Marque dados ausentes em campos próprios da resposta estruturada, não dentro do DOCX final.
+- Marque dados ausentes em campos próprios da resposta estruturada.
 
 ## Como Conferir Uso Real
 
@@ -59,6 +52,4 @@ Relatórios JSON incluem:
 - nomes dos prompts;
 - caminho dos prompts;
 - SHA-256;
-- metadados `llm` quando IA é usada.
-
-Isso permite verificar se os prompts versionados participaram do fluxo.
+- metadados `llm`.

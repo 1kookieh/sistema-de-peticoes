@@ -21,7 +21,7 @@ def _texto_valido():
     return TEXTO_VALIDO
 
 
-def test_processar_email_nao_enfileira_entrada_invalida(tmp_path, monkeypatch):
+def test_processar_email_ai_first_reescreve_entrada_e_enfileira_docx(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
@@ -31,9 +31,10 @@ def test_processar_email_nao_enfileira_entrada_invalida(tmp_path, monkeypatch):
         _email(_texto_valido().replace("OAB/GO 12.345", "OAB/UF 00.000"))
     )
 
-    assert resultado.status == "invalid_input"
-    assert not resultado.enfileirado
-    assert not gmail_sender.OUTBOX.exists()
+    assert resultado.status == "ok"
+    assert resultado.enfileirado
+    assert resultado.llm_usage["used"] is True
+    assert gmail_sender.OUTBOX.exists()
 
 
 def test_processar_email_enfileira_apenas_docx_valido(tmp_path, monkeypatch):
@@ -111,10 +112,10 @@ def test_processar_email_minuta_gera_docx_mesmo_com_alertas_formais(tmp_path, mo
         output_mode="minuta",
     )
 
-    assert resultado.status == "draft_with_warnings"
+    assert resultado.status == "ok_no_outbox"
     assert resultado.destino is not None
     assert resultado.destino.exists()
-    assert resultado.problemas
+    assert resultado.llm_usage["used"] is True
     assert resultado.mode_requested == "minuta"
     assert resultado.mode_delivered == "minuta"
 

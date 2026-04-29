@@ -75,8 +75,15 @@ class Settings(BaseSettings):
     retention_reports_days: int = Field(default=30, alias="RETENTION_REPORTS_DAYS")
     retention_queue_days: int = Field(default=7, alias="RETENTION_QUEUE_DAYS")
     retention_status_days: int = Field(default=30, alias="RETENTION_STATUS_DAYS")
-    llm_mode: str = Field(default="none", alias="LLM_MODE")
-    llm_provider: str = Field(default="none", alias="LLM_PROVIDER")
+    llm_required: bool = Field(default=True, alias="LLM_REQUIRED")
+    llm_allow_mock: bool = Field(default=True, alias="LLM_ALLOW_MOCK")
+    llm_allow_client_provider: bool = Field(default=True, alias="LLM_ALLOW_CLIENT_PROVIDER")
+    llm_client_allowed_providers: tuple[str, ...] = Field(
+        default=("mock", "ollama", "openai", "anthropic"),
+        alias="LLM_CLIENT_ALLOWED_PROVIDERS",
+    )
+    llm_mode: str = Field(default="mock", alias="LLM_MODE")
+    llm_provider: str = Field(default="mock", alias="LLM_PROVIDER")
     llm_model: str = Field(default="", alias="LLM_MODEL")
     llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE")
     llm_max_output_tokens: int = Field(default=6000, alias="LLM_MAX_OUTPUT_TOKENS")
@@ -91,7 +98,12 @@ class Settings(BaseSettings):
     openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
 
-    @field_validator("api_allowed_origins", "remetentes_autorizados", mode="before")
+    @field_validator(
+        "api_allowed_origins",
+        "remetentes_autorizados",
+        "llm_client_allowed_providers",
+        mode="before",
+    )
     @classmethod
     def _parse_csv_values(cls, value: Any) -> tuple[str, ...]:
         return _csv(value)
@@ -131,6 +143,14 @@ RETENTION_REPORTS_DAYS = settings.retention_reports_days
 RETENTION_QUEUE_DAYS = settings.retention_queue_days
 RETENTION_STATUS_DAYS = settings.retention_status_days
 LLM_MODE = settings.llm_mode.strip().lower()
+LLM_REQUIRED = settings.llm_required
+LLM_ALLOW_MOCK = settings.llm_allow_mock
+LLM_ALLOW_CLIENT_PROVIDER = settings.llm_allow_client_provider
+LLM_CLIENT_ALLOWED_PROVIDERS = tuple(
+    provider.strip().lower()
+    for provider in settings.llm_client_allowed_providers
+    if provider.strip()
+)
 LLM_PROVIDER = settings.llm_provider.strip().lower()
 LLM_MODEL = settings.llm_model.strip()
 LLM_TEMPERATURE = settings.llm_temperature

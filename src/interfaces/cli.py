@@ -1,4 +1,4 @@
-"""CLI dedicada para execução supervisionada do pipeline."""
+"""CLI dedicada para execucao AI-first do pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -6,11 +6,11 @@ import os
 import sys
 from pathlib import Path
 
-from config import EMAIL_ADVOGADO, OUTPUT_DIR, REMETENTES_AUTORIZADOS, REPORTS_DIR, RETENTION_ENABLED, ROOT
+from config import EMAIL_ADVOGADO, LLM_REQUIRED, OUTPUT_DIR, REMETENTES_AUTORIZADOS, REPORTS_DIR, RETENTION_ENABLED, ROOT
 from src.adapters.inbox.gmail_reader import buscar_emails_pendentes
+from src.core.profiles import get_profile, list_profile_ids
 from src.infra.logging import configure_logging
 from src.orchestration.pipeline import executar_pipeline
-from src.core.profiles import get_profile, list_profile_ids
 from src.orchestration.reporting import build_run_report, write_json_report
 from src.orchestration.retention import RetentionPolicy, cleanup_runtime
 from src.orchestration.setup import setup_runtime
@@ -19,41 +19,41 @@ from src.orchestration.setup import setup_runtime
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m src",
-        description="Pipeline supervisionado para gerar e validar petições .docx.",
+        description="Pipeline AI-first para criar minutas juridicas .docx.",
     )
-    parser.add_argument("--profile", default=None, help="Perfil de validação formal.")
-    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponíveis.")
+    parser.add_argument("--profile", default=None, help="Perfil formal.")
+    parser.add_argument("--list-profiles", action="store_true", help="Lista perfis disponiveis.")
     parser.add_argument("--inbox", type=Path, help="Caminho de um JSON de entrada.")
-    parser.add_argument("--strict", action="store_true", help="Falha se não houver documento novo válido.")
-    parser.add_argument("--report", type=Path, help="Grava relatório JSON de conformidade.")
-    parser.add_argument("--no-outbox", action="store_true", help="Gera e valida sem gravar mcp_outbox.json.")
+    parser.add_argument("--strict", action="store_true", help="Falha se nao houver documento novo valido.")
+    parser.add_argument("--report", type=Path, help="Grava relatorio JSON de conformidade.")
+    parser.add_argument("--no-outbox", action="store_true", help="Gera sem gravar mcp_outbox.json.")
     parser.add_argument(
         "--output-mode",
-        choices=("final", "minuta", "triagem"),
-        default="final",
-        help="Modo de saida: final bloqueia pendencias; minuta aceita marcadores; triagem nao gera DOCX.",
+        choices=("final", "minuta"),
+        default="minuta",
+        help="Modo de saida: minuta e o padrao; final aplica bloqueios mais rigidos.",
     )
-    parser.add_argument("--llm", action="store_true", help="Ativa geração por IA usando o provedor configurado.")
-    parser.add_argument("--no-llm", action="store_true", help="Força modo local sem IA.")
+    parser.add_argument("--mock", action="store_true", help="Usa provider mock nesta execucao local/teste.")
     parser.add_argument(
         "--llm-provider",
-        choices=("none", "mock", "openai"),
+        choices=("mock", "ollama", "openai", "anthropic"),
         default=None,
-        help="Provider de IA para esta execução.",
+        help="Escolhe provider liberado pelo backend para esta execucao.",
     )
-    parser.add_argument("--llm-model", default=None, help="Modelo de IA para esta execução.")
+    parser.add_argument("--llm-model", default=None, help="Modelo opcional para o provider escolhido.")
+    parser.add_argument("--llm", action="store_true", help="Legado: IA ja e usada por padrao.")
+    parser.add_argument("--no-llm", action="store_true", help="Legado: bloqueado quando LLM_REQUIRED=true.")
     parser.add_argument(
         "--llm-consent-external",
         action="store_true",
         help=(
-            "Confirma consentimento explicito para enviar dados a provedor externo "
-            "(openai, anthropic, gemini, openrouter). Sem este flag, providers "
-            "externos sao bloqueados para preservar LGPD."
+            "Confirma consentimento explicito para enviar dados ao provider "
+            "externo configurado no backend."
         ),
     )
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
     parser.add_argument("--apply-retention", action="store_true", help="Aplica expurgo configurado de runtime.")
-    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a política de retenção.")
+    parser.add_argument("--cleanup-only", action="store_true", help="Executa apenas a politica de retencao.")
     return parser
 
 
@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [{status}] {check.name}: {check.path}")
         print("\nProximos passos:")
         print("  1. Defina EMAIL_ADVOGADO em variavel de ambiente ou .env local.")
-        print("  2. Rode: python -m src --inbox examples/inbox_valid.json --no-outbox --report reports/demo_report.json")
+        print("  2. Rode: python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json")
         print("  3. Abra o .docx gerado em output/ e revise manualmente antes de qualquer uso real.")
         return 0 if all(check.ok for check in checks) else 1
 
@@ -91,6 +91,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.cleanup_only:
             return 0
 
+    if args.no_llm and LLM_REQUIRED:
+        print("[!] Este projeto usa IA obrigatoria no fluxo principal. Use --mock para teste local.")
+        return 2
+
     if not EMAIL_ADVOGADO:
         print("[!] EMAIL_ADVOGADO nao configurado. Defina em `.env` ou no ambiente.")
         return 2
@@ -104,8 +108,8 @@ def main(argv: list[str] | None = None) -> int:
             no_outbox=args.no_outbox,
             strict=args.strict,
             output_mode=args.output_mode,
-            llm_enabled=False if args.no_llm else (True if args.llm else None),
-            llm_provider=args.llm_provider,
+            llm_enabled=True,
+            llm_provider="mock" if args.mock else args.llm_provider,
             llm_model=args.llm_model,
             llm_consent_external=args.llm_consent_external if args.llm_consent_external else None,
         )
@@ -129,5 +133,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-

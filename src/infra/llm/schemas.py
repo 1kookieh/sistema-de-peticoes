@@ -85,6 +85,6 @@ class LLMGenerationMetadata(BaseModel):
 
 class LLMOptions(BaseModel):
     enabled: bool | None = None
-    provider: Literal["none", "mock", "openai"] | str | None = None
+    provider: Literal["none", "mock", "openai", "anthropic", "ollama"] | str | None = None
     model: str | None = None
     consent_external_provider: bool | None = None

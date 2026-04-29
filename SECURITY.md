@@ -37,7 +37,7 @@ API_TOKEN
 
 ## IA Externa
 
-Quando `LLM_PROVIDER=openai`, o texto informado pode ser enviado ao provedor configurado.
+Quando `LLM_PROVIDER=openai` ou `LLM_PROVIDER=anthropic`, o texto informado pode ser enviado ao provedor configurado. `LLM_PROVIDER=ollama` usa endpoint local (`OLLAMA_BASE_URL`) e nao exige chave externa, mas ainda deve ser usado somente com modelos e ambientes confiaveis.
 
 Antes de usar IA externa:
 
@@ -60,7 +60,7 @@ Recomendações:
 - não exponha a API publicamente sem autenticação, TLS, logging controlado e política de retenção;
 - revise `API_ALLOWED_ORIGINS`.
 
-Para testes e desenvolvimento sem envio externo, use `LLM_PROVIDER=mock` com dados fictícios.
+Para testes e desenvolvimento sem envio externo, use `LLM_PROVIDER=mock` com dados fictícios. Para IA local sem chave externa, use `LLM_PROVIDER=ollama` com dados autorizados e revise o ambiente local antes de processar casos reais.
 
 ## Retenção
 

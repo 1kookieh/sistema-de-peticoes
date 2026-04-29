@@ -9,6 +9,9 @@ Todas as mudanças relevantes deste projeto são documentadas aqui.
 - Camada `src/infra/llm/` para geração opcional com LLM.
 - Provider `mock` para testes e desenvolvimento.
 - Provider `openai` via HTTP, ativado somente com `OPENAI_API_KEY`.
+- Provider `anthropic` via Anthropic Messages API, ativado somente com `ANTHROPIC_API_KEY`.
+- Provider `ollama` para IA local via `OLLAMA_BASE_URL`, sem chave externa.
+- Allowlist `LLM_CLIENT_ALLOWED_PROVIDERS` para escolha segura de provider/modelo pela interface/API sem permitir `none`.
 - Schemas Pydantic para resposta estruturada da IA.
 - Metadados `llm` em respostas da API e relatórios.
 - Mascaramento de CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail antes de chamadas a providers externos.
@@ -23,6 +26,10 @@ Todas as mudanças relevantes deste projeto são documentadas aqui.
 
 ### Changed
 
+- Fluxo principal refatorado para AI-first: criação passa por LLM configurado no backend.
+- Interface web simplificada para `Criar documento com IA`, sem seletor de provider, histórico recente ou validação/triagem como ação principal.
+- API passou a tratar `llm.enabled/provider/model` como campos legados e usar `LLM_REQUIRED`/`LLM_PROVIDER` do backend.
+- CLI passou a usar IA por padrão, com `--mock` para desenvolvimento/testes e sem opção principal de triagem.
 - README reestruturado para refletir o fluxo real com e sem IA.
 - Documentação de API e arquitetura atualizada para `/api/v1` e camada LLM.
 - Documentação de Docker atualizada para refletir `API_REQUIRE_TOKEN=1` por padrão.

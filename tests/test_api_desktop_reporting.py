@@ -60,6 +60,9 @@ def test_api_limits_exposes_runtime_limits():
     assert payload["max_text_chars"] == 500_000
     assert payload["max_upload_files"] == 20
     assert payload["max_docx_bytes"] > 0
+    assert "anthropic" in payload["llm_allowed_providers"]
+    assert "ollama" in payload["llm_allowed_providers"]
+    assert "none" not in payload["llm_allowed_providers"]
 
 
 def test_api_blocks_untrusted_origin(tmp_path, monkeypatch):
@@ -225,10 +228,11 @@ def test_api_output_mode_minuta_entrega_docx_com_alertas_formais(tmp_path, monke
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "draft_with_warnings"
+    assert payload["status"] == "ok_no_outbox"
     assert payload["document"]
     assert payload["download_url"]
-    assert payload["problems"]
+    assert payload["llm"]["used"] is True
+    assert payload["llm"]["mock_used"] is True
     assert any(output_dir.glob("*.docx"))
 
 
@@ -241,13 +245,8 @@ def test_api_output_mode_triagem_nao_gera_docx(tmp_path, monkeypatch):
         json={"text": "Caso incompleto. [DADO FALTANTE: DER]", "output_mode": "triagem"},
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "triagem"
-    assert payload["document"] is None
-    assert payload["download_url"] is None
-    assert payload["mode_requested"] == "triagem"
-    assert payload["mode_delivered"] == "triagem"
+    assert response.status_code == 422
+    assert "triagem" in response.json()["detail"]
     assert not any(output_dir.glob("*.docx"))
 
 
@@ -377,8 +376,9 @@ def test_api_blocks_invalid_text_and_keeps_report(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "invalid_input"
-    assert payload["download_url"] is None
+    assert payload["status"] == "ok_no_outbox"
+    assert payload["download_url"]
+    assert payload["llm"]["used"] is True
     assert any(reports_dir.glob("*.json"))
     assert any(reports_dir.glob("*.html"))
 
@@ -456,18 +456,21 @@ def test_frontend_uses_only_api_v1_routes():
     assert "api-client" not in content
 
 
-def test_frontend_separates_generate_and_validate_actions():
+def test_frontend_focuses_on_ai_document_creation():
     web_dir = Path(__file__).resolve().parents[1] / "web"
     html = (web_dir / "index.html").read_text(encoding="utf-8")
     ui_js = (web_dir / "ui.js").read_text(encoding="utf-8")
 
     assert 'id="generate"' in html
-    assert 'id="validate"' in html
-    assert "Gerar DOCX" in html
-    assert "Validar texto" in html
+    assert 'id="validate"' not in html
+    assert 'id="llm-provider"' in html
+    assert 'value="none"' not in html
+    assert 'id="card-history"' not in html
+    assert "Criar documento com IA" in html
+    assert "Validar texto" not in html
     assert "Gerar e validar DOCX" not in html
-    assert 'generateFromText("triagem")' in ui_js
-    assert 'generateFromUpload(uploads, "triagem")' in ui_js
+    assert 'generateFromText("triagem")' not in ui_js
+    assert 'generateFromUpload(uploads, "triagem")' not in ui_js
 
 
 def test_service_worker_does_not_cache_sensitive_routes():

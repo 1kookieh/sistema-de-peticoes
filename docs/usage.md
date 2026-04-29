@@ -1,6 +1,6 @@
 # Guia de Uso
 
-Este guia mostra os fluxos principais para usar o sistema localmente.
+Este guia descreve o fluxo atual do sistema: criacao de minutas juridicas DOCX com IA obrigatoria no pipeline principal.
 
 ## 1. Iniciar API e Web
 
@@ -14,74 +14,78 @@ Abra:
 http://127.0.0.1:8000
 ```
 
-## 2. Gerar DOCX pela Interface Web
+## 2. Criar DOCX pela Interface Web
 
-1. Em `Peça desejada`, escolha uma peça ou deixe `Detectar automaticamente`.
-2. Em `Perfil formal`, escolha um perfil ou deixe automático.
-3. Em `Configurações avançadas`, escolha:
-   - `Minuta revisável`;
-   - ou `Final protocolável`.
-4. Cole o texto do caso ou envie arquivo.
-5. Clique em `Gerar DOCX`.
-6. Baixe o arquivo pelo card de resultado.
+1. Escolha o tipo de documento ou deixe `Detectar automaticamente`.
+2. Escolha o perfil formal ou deixe automatico.
+3. Escolha o provider liberado pelo backend: `mock`, `ollama`, `openai` ou `anthropic`.
+4. Cole o relato do caso ou envie arquivo.
+5. Se escolher provider externo (`openai` ou `anthropic`), marque o consentimento.
+6. Clique em `Criar documento com IA`.
+7. Baixe o DOCX no card de resultado e revise manualmente.
 
-Use `Validar texto` quando quiser apenas checar pendências sem criar DOCX.
+Nao ha mais botao principal de triagem/validacao separada. As validacoes continuam internas ao fluxo de criacao.
 
-## 3. Usar Sem IA
+## 3. Configuracao de IA
 
-No `.env`:
-
-```env
-LLM_PROVIDER=none
-```
-
-Esse modo usa o texto informado pelo usuário e não chama provedor externo.
-
-## 4. Usar IA Mock
-
-No `.env`:
+O backend continua sendo a fonte da verdade para IA. A interface so mostra providers permitidos pela allowlist:
 
 ```env
+LLM_REQUIRED=true
+LLM_ALLOW_MOCK=true
+LLM_ALLOW_CLIENT_PROVIDER=true
+LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
 LLM_PROVIDER=mock
+LLM_MODEL=
 ```
 
-Ou pela API:
+Use `mock` em desenvolvimento e testes. Ele nao representa IA real e nao deve ser usado como prova de qualidade juridica.
 
-```json
-{
-  "text": "texto do caso",
-  "output_mode": "minuta",
-  "llm": {
-    "enabled": true,
-    "provider": "mock"
-  }
-}
+## 4. Usar Ollama Local
+
+Use `ollama` quando quiser IA local sem chave de API externa. Instale o Ollama, baixe um modelo e mantenha o servico ativo:
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.1:8b
+OLLAMA_BASE_URL=http://localhost:11434
 ```
-
-O mock serve para validar o fluxo técnico. Ele não representa IA real.
 
 ## 5. Usar OpenAI
 
-No `.env`:
+No `.env` local/controlado:
 
 ```env
+LLM_REQUIRED=true
+LLM_ALLOW_MOCK=false
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-4o-mini
 OPENAI_API_KEY=sua-chave-local
 LLM_FALLBACK_ENABLED=false
 ```
 
-Depois reinicie o servidor.
+## 6. Usar Anthropic / Claude
 
-Cuidados:
+No `.env` local/controlado:
 
-- Não use chave real em arquivos versionados.
-- Não envie dados reais sem autorização.
-- A interface e a API exigem consentimento explícito antes de enviar dados para provider externo.
-- O backend mascara padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail antes do envio externo, mas isso é uma proteção parcial: não garante anonimização completa e não dispensa revisão humana.
-- Revise a peça antes de qualquer uso profissional.
+```env
+LLM_REQUIRED=true
+LLM_ALLOW_MOCK=false
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-5-haiku-latest
+ANTHROPIC_API_KEY=sua-chave-local
+LLM_FALLBACK_ENABLED=false
+```
 
-## 6. Usar CLI
+Cuidados para providers externos:
+
+- nao use chave real em arquivos versionados;
+- nao envie dados reais sem base legal/autorizacao;
+- a interface e a API exigem consentimento explicito antes de enviar dados para provider externo;
+- redaction e parcial e nao garante anonimizacao completa;
+- revise a minuta antes de qualquer uso profissional.
+
+## 7. Usar CLI
 
 Ajuda:
 
@@ -89,56 +93,35 @@ Ajuda:
 python -m src --help
 ```
 
-Processar exemplo sem outbox:
+Processar exemplo com mock e sem outbox:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --report reports/demo_report.json
+python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json
 ```
 
-Com IA mock:
+Processar com Ollama local:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --llm --llm-provider mock --output-mode minuta
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider ollama --llm-model llama3.1:8b
 ```
 
-## 7. Validar DOCX Gerado
+Processar com Anthropic exige `ANTHROPIC_API_KEY` no `.env` e consentimento:
+
+```bash
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider anthropic --llm-consent-external
+```
+
+## 8. Validar DOCX Gerado
 
 ```bash
 python -m src.core.validation.docx output/nome-do-arquivo.docx --profile judicial-inicial-jef
 ```
 
-## 8. Rodar Testes
+Essa validacao e auxiliar; a experiencia principal e criacao do documento.
+
+## 9. Rodar Testes
 
 ```bash
 python -m compileall config.py src tests
 pytest -q
 ```
-
-No Windows, se `python` global não estiver no PATH:
-
-```powershell
-.\.venv\Scripts\python.exe -m compileall config.py src tests
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-## 9. Rodar com Docker
-
-```bash
-docker build -t sistema-peticoes .
-docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
-```
-
-O container exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` ao chamar rotas sensíveis.
-
-```bash
-curl http://127.0.0.1:8000/api/v1/health
-curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
-```
-
-Para uma demonstração local isolada, você pode desativar explicitamente a exigência de token:
-
-```bash
-docker run --rm -p 8000:8000 -e API_REQUIRE_TOKEN=false sistema-peticoes
-```
-
-Não use `API_REQUIRE_TOKEN=false` se expuser a API fora do seu computador.

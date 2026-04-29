@@ -4,9 +4,9 @@ Instrucoes para Codex e outros agentes de IA trabalhando neste repositorio.
 
 ## Project Overview
 
-Este projeto e um sistema local de geracao, validacao, renderizacao e auditoria de documentos juridicos `.docx`.
+Este projeto e um sistema local AI-first de criacao, validacao, renderizacao e auditoria de documentos juridicos `.docx`.
 
-O pipeline recebe texto pronto ou texto extraido de arquivos, detecta tipo de peca/perfil formal, opcionalmente chama LLM configurado, valida riscos formais, renderiza DOCX com `python-docx` e grava relatorios JSON/HTML. O fluxo padrao usa `LLM_PROVIDER=none` e nao envia dados para servicos externos.
+O pipeline recebe texto ou arquivos, detecta tipo de peca/perfil formal, chama a camada LLM configurada no backend, valida a resposta estruturada, renderiza DOCX com `python-docx` e grava relatorio JSON/HTML. O fluxo de desenvolvimento usa `LLM_PROVIDER=mock`; providers externos exigem consentimento.
 
 Modulos principais:
 
@@ -157,7 +157,7 @@ Fluxo principal:
 entrada do usuario/arquivo
 -> extracao de texto ou OCR
 -> inferencia de tipo de peca e perfil
--> opcional: LLM provider gera JSON estruturado validado
+-> LLM provider configurado no backend gera JSON estruturado validado
 -> validacao textual
 -> renderizacao DOCX
 -> validacao estrutural do DOCX
@@ -187,10 +187,13 @@ Variaveis confirmadas em `.env.example` e `config.py`:
 - `VALIDATION_PROFILE`: perfil formal padrao.
 - `RETENTION_ENABLED` e `RETENTION_*_DAYS`: politica de retencao de runtime.
 - `LLM_MODE`, `LLM_PROVIDER`, `LLM_MODEL`: selecionam modo/provedor/modelo de IA.
+- `LLM_ALLOW_CLIENT_PROVIDER`, `LLM_CLIENT_ALLOWED_PROVIDERS`: controlam se UI/API podem escolher provider dentro de uma allowlist segura.
 - `LLM_TEMPERATURE`, `LLM_MAX_OUTPUT_TOKENS`, `LLM_TIMEOUT_SECONDS`, `LLM_RETRY_ATTEMPTS`: parametros do provider.
 - `LLM_REQUIRE_STRUCTURED_OUTPUT`, `LLM_FALLBACK_ENABLED`, `LLM_LOG_PROMPT`: controles de seguranca/auditoria.
 - `OPENAI_API_KEY`: chave para provider `openai`; nunca versionar.
-- `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_BASE_URL`: reservados para providers futuros/opcionais.
+- `ANTHROPIC_API_KEY`: chave para provider `anthropic`; nunca versionar.
+- `OLLAMA_BASE_URL`: endpoint local do provider `ollama`, usado sem chave externa.
+- `GEMINI_API_KEY`, `OPENROUTER_API_KEY`: reservados para providers futuros/opcionais.
 
 Nunca leia, copie ou versione `.env` real. Use apenas placeholders de `.env.example`.
 
@@ -242,6 +245,61 @@ Ao alterar UI:
 - Nao exponha CPF, NIT, endereco, e-mail ou conteudo juridico real em logs, screenshots, fixtures ou README.
 - Revise novas dependencias com cautela; mantenha a superficie minima.
 - Nao execute acoes destrutivas como limpar runtime real, apagar relatorios ou resetar estado sem pedido explicito.
+
+## Behavioral Guidelines
+
+These guidelines reduce common LLM coding mistakes. They bias toward caution over speed; for trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+Do not assume, do not hide confusion, and surface tradeoffs before implementing:
+
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them instead of picking silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop, name what is confusing, and ask.
+
+### 2. Simplicity First
+
+Use the minimum code that solves the problem. Do not add speculative features.
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No flexibility or configurability that was not requested.
+- No error handling for impossible scenarios.
+- If a change becomes much larger than necessary, simplify before continuing.
+
+Ask: would a senior engineer consider this overcomplicated? If yes, reduce it.
+
+### 3. Surgical Changes
+
+Touch only what is required and clean up only your own mess.
+
+- Do not improve adjacent code, comments, or formatting just because you noticed it.
+- Do not refactor unrelated code.
+- Match existing style, even if you would write it differently.
+- If you notice unrelated dead code, mention it instead of deleting it.
+- Remove imports, variables, functions, and files that your own changes made unused.
+
+Every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+Turn tasks into verifiable goals and loop until verified.
+
+- "Add validation" means write or update tests for invalid inputs, then make them pass.
+- "Fix the bug" means reproduce it with a test or targeted check, then make it pass.
+- "Refactor X" means preserve behavior and run relevant tests before finishing.
+
+For multi-step work, state a short plan with verification:
+
+```text
+1. [Step] -> verify: [check]
+2. [Step] -> verify: [check]
+3. [Step] -> verify: [check]
+```
+
+These guidelines are working when diffs stay smaller, rewrites are rarer, and clarifying questions happen before implementation mistakes.
 
 ## Agent Workflow
 

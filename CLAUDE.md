@@ -1,6 +1,6 @@
 ﻿# CLAUDE.md — Integração Supervisionada com Claude
 
-Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **gera, valida e renderiza** documentos jurídicos `.docx` em ambiente local. O fluxo padrão não usa LLM externo (`LLM_PROVIDER=none`), mas o pipeline possui integração opcional com provedores em `src/infra/llm/` (`mock` e `openai` nesta versão).
+Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **cria, valida e renderiza** documentos jurídicos `.docx` em ambiente local. O fluxo principal é AI-first: `LLM_REQUIRED=true` e o provider vem da configuração/allowlist do backend (`mock` para desenvolvimento/testes, `ollama` para IA local e `openai`/`anthropic` para uso externo controlado).
 
 Quando IA estiver ativada, `prompt_peticao.md` e `prompt_formatacao_word.md` compõem o prompt final, a resposta deve ser JSON estruturado e o DOCX é renderizado a partir dessa estrutura validada. A revisão humana por advogado responsável continua obrigatória antes de qualquer protocolo.
 
@@ -24,7 +24,7 @@ O pipeline Python carrega e audita esses dois prompts. O relatório registra `pr
 
 ## Redaction e consentimento de IA externa
 
-Providers externos, como `openai`, exigem consentimento explícito por requisição (`llm.consent_external_provider=true`, campo de upload `llm_consent_external_provider=true` ou flag CLI `--llm-consent-external`). Sem isso, o pipeline retorna `llm_error` e não chama a API externa.
+Providers externos, como `openai` e `anthropic`, exigem consentimento explícito por requisição (`llm.consent_external_provider=true`, campo de upload `llm_consent_external_provider=true` ou flag CLI `--llm-consent-external`). Sem isso, o pipeline retorna `llm_error` e não chama a API externa. `ollama` é tratado como provider local e não exige chave externa.
 
 Antes de chamar um provider externo, o backend aplica mascaramento textual em padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail. Isso reduz exposição acidental, mas não remove nomes próprios nem todos os fatos sensíveis. Agentes não devem afirmar anonimização completa.
 
@@ -32,7 +32,7 @@ Antes de chamar um provider externo, o backend aplica mascaramento textual em pa
 
 ```text
 Entrada do usuário ou arquivo
-  -> opcional: provider LLM gera JSON estruturado usando os prompts versionados
+  -> provider LLM configurado no backend gera JSON estruturado usando os prompts versionados
   -> Sistema detecta tipo de peça e perfil formal
   -> Sistema valida texto antes de renderizar
   -> Sistema aplica prompt_formatacao_word.md como contrato de formatação
@@ -81,6 +81,61 @@ src/
   interfaces/      API, CLI e desktop
   orchestration/   pipeline, relatórios, retenção e setup
 ```
+
+## Diretrizes comportamentais para agentes
+
+Estas diretrizes reduzem erros comuns de agentes LLM. Elas priorizam cautela sobre velocidade; para tarefas triviais, use julgamento.
+
+### 1. Pense antes de codar
+
+Nao assuma, nao esconda confusao e explicite tradeoffs antes de implementar:
+
+- Declare suposicoes explicitamente. Se estiver incerto, pergunte.
+- Se houver multiplas interpretacoes, apresente-as em vez de escolher silenciosamente.
+- Se existir uma abordagem mais simples, diga. Conteste quando fizer sentido.
+- Se algo estiver confuso, pare, nomeie a duvida e pergunte.
+
+### 2. Simplicidade primeiro
+
+Use o minimo de codigo que resolve o problema. Nada especulativo.
+
+- Nao adicione funcionalidades alem do pedido.
+- Nao crie abstracoes para codigo de uso unico.
+- Nao adicione flexibilidade ou configurabilidade que nao foi solicitada.
+- Nao escreva tratamento de erro para cenarios impossiveis.
+- Se uma mudanca ficar muito maior do que precisa, simplifique antes de continuar.
+
+Pergunte: um engenheiro senior acharia isto overengineering? Se sim, reduza.
+
+### 3. Mudancas cirurgicas
+
+Toque somente no necessario e limpe apenas a sujeira criada pela propria mudanca.
+
+- Nao melhore codigo, comentarios ou formatacao adjacente sem relacao com o pedido.
+- Nao refatore codigo nao relacionado.
+- Siga o estilo existente, mesmo que voce fizesse diferente.
+- Se notar codigo morto nao relacionado, mencione em vez de apagar.
+- Remova imports, variaveis, funcoes e arquivos que suas proprias mudancas tornaram inutilizados.
+
+Cada linha alterada deve apontar diretamente para o pedido do usuario.
+
+### 4. Execucao orientada por objetivo
+
+Transforme tarefas em metas verificaveis e itere ate validar.
+
+- "Adicionar validacao" significa criar ou ajustar testes para entradas invalidas e faze-los passar.
+- "Corrigir bug" significa reproduzir com teste ou checagem direcionada e depois validar a correcao.
+- "Refatorar X" significa preservar comportamento e rodar os testes relevantes antes de finalizar.
+
+Para tarefas em varias etapas, declare um plano curto com verificacao:
+
+```text
+1. [Etapa] -> verificar: [checagem]
+2. [Etapa] -> verificar: [checagem]
+3. [Etapa] -> verificar: [checagem]
+```
+
+Estas diretrizes estao funcionando quando os diffs ficam menores, reescritas sao menos frequentes e perguntas de esclarecimento acontecem antes de erros de implementacao.
 
 ## Regras para agentes Claude
 

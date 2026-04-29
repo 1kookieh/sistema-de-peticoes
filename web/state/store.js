@@ -12,6 +12,13 @@ export const state = {
     max_file_bytes: 25 * 1024 * 1024,
     max_total_upload_bytes: 200 * 1024 * 1024,
     max_upload_files: 20,
+    llm_required: true,
+    llm_allow_client_provider: true,
+    llm_allowed_providers: ["mock", "ollama", "openai", "anthropic"],
+    llm_default_provider: "mock",
+    llm_default_model: "",
+    llm_external_provider: false,
+    llm_requires_external_consent: false,
   },
   theme: "system",
 };

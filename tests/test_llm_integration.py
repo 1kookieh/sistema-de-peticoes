@@ -121,7 +121,7 @@ def test_pipeline_with_mock_llm_generates_docx_from_mock_content(tmp_path, monke
     assert "teste local" in doc_text
 
 
-def test_pipeline_without_llm_keeps_local_behavior(tmp_path, monkeypatch):
+def test_pipeline_uses_llm_even_when_legacy_payload_disables_it(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
 
     result = pipeline.processar_email(
@@ -132,12 +132,14 @@ def test_pipeline_without_llm_keeps_local_behavior(tmp_path, monkeypatch):
         llm_enabled=False,
     )
 
-    assert result.llm_usage["used"] is False
-    assert result.llm_usage["provider"] == "none"
+    assert result.llm_usage["used"] is True
+    assert result.llm_usage["provider"] == "mock"
+    assert result.destino is not None
 
 
 def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
     monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "")
 
     result = pipeline.processar_email(
@@ -157,8 +159,116 @@ def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
     assert "sk-" not in serialized
 
 
+def test_anthropic_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.ANTHROPIC_API_KEY", "")
+
+    result = pipeline.processar_email(
+        _email(_case_text()),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_provider="anthropic",
+        llm_consent_external=True,
+    )
+
+    serialized = json.dumps(result.to_report_item(), ensure_ascii=False)
+    assert result.status == "llm_error"
+    assert result.destino is None
+    assert "ANTHROPIC_API_KEY" in result.problemas[0]
+    assert "sk-" not in serialized
+
+
+def test_anthropic_provider_generates_with_valid_structured_response(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.ANTHROPIC_API_KEY", "sk-ant-fake-test")
+
+    captured: dict[str, str] = {}
+
+    def fake_call(self, final_prompt):
+        captured["prompt"] = final_prompt
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        '{"piece_type":"teste","profile":"forense-basico",'
+                        '"title":"ACAO DE TESTE ANTHROPIC",'
+                        '"facts_summary":["fato gerado pelo Claude"],'
+                        '"requests":["pedido do Claude"]}'
+                    ),
+                }
+            ],
+            "usage": {"input_tokens": 11, "output_tokens": 7},
+        }
+
+    monkeypatch.setattr(
+        "src.infra.llm.anthropic_provider.AnthropicProvider._call",
+        fake_call,
+    )
+
+    result = pipeline.processar_email(
+        _email("Cliente CPF 123.456.789-09 relata indeferimento."),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_provider="anthropic",
+        llm_consent_external=True,
+    )
+
+    assert result.status in {"ok_no_outbox", "draft_with_warnings"}
+    assert result.destino is not None
+    assert result.llm_usage["provider"] == "anthropic"
+    assert result.llm_usage["tokens_input"] == 11
+    assert result.llm_usage["tokens_output"] == 7
+    assert "123.456.789-09" not in captured["prompt"]
+    assert "<CPF#1>" in captured["prompt"]
+
+
+def test_ollama_provider_generates_without_external_consent(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+
+    def fake_call(self, final_prompt):
+        assert "JSON SCHEMA OBRIGATORIO" in final_prompt
+        return {
+            "response": (
+                '{"piece_type":"teste","profile":"forense-basico",'
+                '"title":"ACAO DE TESTE OLLAMA",'
+                '"facts_summary":["fato local"],'
+                '"requests":["pedido local"]}'
+            ),
+            "prompt_eval_count": 9,
+            "eval_count": 6,
+        }
+
+    monkeypatch.setattr(
+        "src.infra.llm.ollama_provider.OllamaProvider._call",
+        fake_call,
+    )
+
+    result = pipeline.processar_email(
+        _email(_case_text()),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_provider="ollama",
+        llm_model="llama3.1:8b",
+    )
+
+    assert result.status in {"ok_no_outbox", "draft_with_warnings"}
+    assert result.destino is not None
+    assert result.llm_usage["provider"] == "ollama"
+    assert result.llm_usage["model"] == "llama3.1:8b"
+    assert result.llm_usage["consent_external_provider"] is False
+    assert result.llm_usage["tokens_input"] == 9
+
+
 def test_openai_provider_blocked_without_consent(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
     monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "sk-fake-test")
 
     result = pipeline.processar_email(
@@ -181,6 +291,7 @@ def test_openai_provider_blocked_without_consent(tmp_path, monkeypatch):
 
 def test_redaction_applied_for_external_provider(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
 
     captured: dict[str, str] = {}
 

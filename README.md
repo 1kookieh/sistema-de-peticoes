@@ -7,7 +7,7 @@
 [![CI](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml/badge.svg)](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Sistema local para gerar, validar e renderizar peças jurídicas em `.docx`, com API FastAPI, interface web, CLI, prompts versionados e integração opcional com IA/LLM.
+Sistema local AI-first para criar minutas jurídicas em `.docx`, com API FastAPI, interface web, CLI, prompts versionados e camada LLM obrigatória no fluxo principal.
 
 > Uso supervisionado: este projeto não substitui advogado, não decide mérito jurídico e não deve ser usado para protocolo sem revisão humana.
 
@@ -15,7 +15,7 @@ Sistema local para gerar, validar e renderizar peças jurídicas em `.docx`, com
 
 O projeto resolve um problema prático: transformar texto do caso, arquivos ou uma resposta estruturada de IA em um documento Word com padrão forense, validações automáticas e relatório de auditoria.
 
-O fluxo padrão não envia dados para serviços externos. A integração com IA é opcional e explícita.
+O fluxo principal sempre passa pela camada de IA configurada no backend. O padrão de desenvolvimento usa provider `mock`, sem envio externo; providers reais, como `openai` e `anthropic`, exigem configuração de chave e consentimento explícito por requisição.
 
 ## Principais Funcionalidades
 
@@ -26,8 +26,8 @@ O fluxo padrão não envia dados para serviços externos. A integração com IA 
 - Interface desktop simples com Tkinter.
 - Upload de `.txt`, `.md`, `.docx`, `.pdf` e imagens para OCR.
 - Detecção automática do tipo de peça e do perfil formal.
-- Modos de saída: `minuta`, `final` e `triagem`.
-- Integração opcional com LLM nos modos `none`, `mock` e `openai`.
+- Modos de saída de criação: `minuta` e `final`.
+- Camada LLM obrigatória no fluxo principal, com providers `mock`, `ollama`, `openai` e `anthropic`.
 - Prompts versionados em `prompts/`.
 - Validação textual e validação estrutural do DOCX.
 - Relatórios JSON/HTML em `reports/`.
@@ -39,7 +39,7 @@ O fluxo padrão não envia dados para serviços externos. A integração com IA 
 Entrada do usuário ou upload
   -> extração/normalização do texto
   -> inferência do tipo de peça e perfil formal
-  -> opcional: geração por IA com JSON estruturado
+  -> geração por IA com JSON estruturado
   -> validação textual
   -> renderização DOCX
   -> validação estrutural do DOCX
@@ -52,7 +52,7 @@ Entrada do usuário ou upload
 | Área | Tecnologias |
 |---|---|
 | Backend | Python 3.11+, FastAPI, Pydantic Settings |
-| IA/LLM | Camada de providers, mock local, OpenAI via HTTP |
+| IA/LLM | Camada de providers, mock local, Ollama local, OpenAI e Anthropic via HTTP |
 | DOCX | python-docx |
 | Extração | pypdf, Pillow, pytesseract |
 | Front-end | HTML, CSS, JavaScript ES Modules, Service Worker |
@@ -83,7 +83,7 @@ examples/          exemplos fictícios
 - Windows PowerShell, Linux ou macOS.
 - Tesseract OCR instalado apenas se você quiser extrair texto de imagens.
 - Docker opcional.
-- Chave de API somente se você ativar IA externa (`openai`).
+- Chave de API somente se você ativar IA externa (`openai` ou `anthropic`).
 
 ## Instalação
 
@@ -135,23 +135,24 @@ Na tela web:
 2. Escolha o perfil formal ou deixe em detecção automática.
 3. Cole o texto do caso ou envie arquivos.
 4. Escolha o modo de saída.
-5. Clique em `Gerar DOCX` para criar o arquivo.
-6. Clique em `Validar texto` para fazer triagem sem gerar DOCX.
+5. Clique em `Criar documento com IA` para gerar a minuta DOCX.
 
-## Uso Sem IA
-
-Este é o modo padrão e recomendado para demonstrações seguras.
+## Configuração AI-first
 
 ```env
-LLM_MODE=none
-LLM_PROVIDER=none
+LLM_REQUIRED=true
+LLM_ALLOW_MOCK=true
+LLM_ALLOW_CLIENT_PROVIDER=true
+LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
+LLM_MODE=mock
+LLM_PROVIDER=mock
 ```
 
-Nesse modo, o sistema usa o texto informado pelo usuário, aplica validações e renderiza o DOCX localmente.
+Com `LLM_REQUIRED=true`, o endpoint principal de criação sempre chama a camada LLM. O cliente não precisa enviar `llm.enabled=true`; o backend define allowlist, modelo padrão, temperatura, timeout e prompts. Quando `LLM_ALLOW_CLIENT_PROVIDER=true`, a interface permite escolher apenas providers liberados em `LLM_CLIENT_ALLOWED_PROVIDERS`; `none` não é oferecido no fluxo principal.
 
 ## Uso Com IA/LLM
 
-A IA é opcional. Quando ativada, o sistema monta um prompt final usando:
+Quando cria um documento, o sistema monta um prompt final usando:
 
 - `prompts/prompt_peticao.md`;
 - `prompts/prompt_formatacao_word.md`;
@@ -164,9 +165,10 @@ A resposta da IA deve ser JSON estruturado validável. O DOCX é renderizado a p
 
 | Provider | Descrição | Requer chave |
 |---|---|---|
-| `none` | Não usa IA externa | Não |
 | `mock` | Simula resposta estruturada para testes | Não |
 | `openai` | Usa API da OpenAI | Sim |
+| `anthropic` | Usa API da Anthropic/Claude | Sim |
+| `ollama` | Usa modelo local via Ollama em `OLLAMA_BASE_URL` | Não |
 
 ### IA mock
 
@@ -186,6 +188,27 @@ LLM_PROVIDER=openai
 LLM_MODEL=gpt-4o-mini
 OPENAI_API_KEY=coloque-sua-chave-no-env-local
 LLM_FALLBACK_ENABLED=false
+```
+
+### Anthropic / Claude
+
+Use apenas em ambiente local/controlado:
+
+```env
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-5-haiku-latest
+ANTHROPIC_API_KEY=coloque-sua-chave-no-env-local
+LLM_FALLBACK_ENABLED=false
+```
+
+### Ollama local
+
+Use quando quiser IA local sem enviar dados para API externa. Instale o Ollama, baixe um modelo compatível e mantenha o serviço ativo:
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.1:8b
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 Cuidados:
@@ -244,7 +267,7 @@ Exemplo com IA mock:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"enabled\":true,\"provider\":\"mock\"}}"
+  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"provider\":\"mock\"}}"
 ```
 
 Veja mais em [docs/api.md](docs/api.md).
@@ -266,7 +289,7 @@ python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef -
 Usar IA mock pela CLI:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --llm --llm-provider mock --output-mode minuta
+python -m src --inbox examples/inbox_valid.json --no-outbox --mock --output-mode minuta
 ```
 
 Interface desktop:
@@ -390,12 +413,13 @@ Recomendações:
 - Não pesquisa jurisprudência em tempo real.
 - Não valida estratégia processual.
 - Não garante que dados fornecidos pelo usuário sejam verdadeiros.
-- O provider real implementado nesta versão é OpenAI; Anthropic, Gemini, OpenRouter e Ollama estão apenas previstos como evolução.
+
+Nota atual: providers implementados nesta versão: `mock`, `ollama`, `openai` e `anthropic`. Gemini/OpenRouter seguem como evolução futura.
 
 ## Roadmap
 
 - Adicionar screenshots/GIFs reais da interface.
-- Expandir providers LLM.
+- Evoluir providers futuros como Gemini/OpenRouter e melhorar suporte local via Ollama.
 - Melhorar validações jurídicas específicas por tipo de peça.
 - Adicionar paginação/filtros avançados em relatórios.
 - Evoluir exportação PDF opcional via ferramenta local.

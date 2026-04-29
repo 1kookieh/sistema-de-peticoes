@@ -20,8 +20,11 @@ from config import (
     API_REQUIRE_TOKEN,
     API_TOKEN,
     FRONTEND_DIR,
+    LLM_ALLOW_CLIENT_PROVIDER,
+    LLM_CLIENT_ALLOWED_PROVIDERS,
     LLM_MODEL,
     LLM_PROVIDER,
+    LLM_REQUIRED,
     MAX_DOCX_BYTES,
     MAX_TEXT_CHARS,
     OUTPUT_DIR,
@@ -153,9 +156,24 @@ class LLMRequestOptions(BaseModel):
     consent_external_provider: bool | None = Field(
         default=None,
         description=(
+            "Campo mantido para compatibilidade. A configuracao de IA vem do "
+            "backend; quando LLM_ALLOW_CLIENT_PROVIDER=true, o cliente pode "
+            "escolher provider/model dentro da allowlist do servidor. Provider "
+            "externo exige consentimento."
+        ),
+    )
+
+
+class DeprecatedLLMRequestOptions(BaseModel):
+    enabled: bool | None = Field(default=None)
+    provider: str | None = Field(default=None, max_length=40)
+    model: str | None = Field(default=None, max_length=120)
+    consent_external_provider: bool | None = Field(
+        default=None,
+        description=(
             "Consentimento explicito para enviar o texto a um provedor externo "
-            "(ex.: openai). Obrigatorio quando o provider escolhido nao for "
-            "'none' ou 'mock'."
+            "(ex.: openai/anthropic). Obrigatorio quando o provider escolhido "
+            "enviar dados para fora."
         ),
     )
 
@@ -184,17 +202,23 @@ class DocumentRequest(BaseModel):
         default=None,
         max_length=16,
         description=(
-            "Modo de saída. ``final`` exige texto pronto para protocolo (sem "
-            "[DADO FALTANTE], 'inserir aqui', marcas de IA etc.). ``minuta`` "
-            "(padrão) aceita marcadores de revisão pendente. ``triagem`` retorna "
-            "apenas diagnóstico, sem gerar DOCX."
+            "Modo de saída. ``minuta`` é o padrão de criação com IA. ``final`` "
+            "mantém bloqueios formais mais rígidos. ``triagem`` foi depreciado "
+            "no fluxo principal e não é aceito pela API de criação."
         ),
+    )
+    consent_external_provider: bool | None = Field(
+        default=None,
+        description="Consentimento para provider externo configurado no backend.",
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
     assunto: str = Field(default="Geração local", max_length=200)
-    llm: LLMRequestOptions | None = Field(
+    llm: DeprecatedLLMRequestOptions | None = Field(
         default=None,
-        description="Opções de geração por IA. Ausente mantém o modo local sem IA.",
+        description=(
+            "Campo legado. Provider/model/enabled são ignorados no fluxo AI-first; "
+            "use apenas llm.consent_external_provider por compatibilidade."
+        ),
     )
 
 
@@ -324,6 +348,13 @@ def api_limits() -> dict[str, Any]:
         "max_docx_bytes": MAX_DOCX_BYTES,
         "llm_default_provider": LLM_PROVIDER,
         "llm_default_model": LLM_MODEL,
+        "llm_required": LLM_REQUIRED,
+        "llm_allow_client_provider": LLM_ALLOW_CLIENT_PROVIDER,
+        "llm_allowed_providers": list(LLM_CLIENT_ALLOWED_PROVIDERS),
+        "llm_external_providers": ["openai", "anthropic", "gemini", "openrouter"],
+        "llm_local_providers": ["mock", "ollama"],
+        "llm_external_provider": LLM_PROVIDER in {"openai", "anthropic", "gemini", "openrouter"},
+        "llm_requires_external_consent": LLM_PROVIDER in {"openai", "anthropic", "gemini", "openrouter"},
     }
 
 
@@ -376,6 +407,11 @@ def _generate_from_text(
     llm: LLMRequestOptions | None = None,
 ) -> dict[str, Any]:
     mode_requested = normalize_mode(output_mode)
+    if mode_requested == "triagem":
+        raise HTTPException(
+            status_code=422,
+            detail="modo 'triagem' foi desativado no fluxo principal de criação; use 'minuta'",
+        )
     piece_type, profile, piece_type_inferred, profile_inferred = _resolve_piece_and_profile(
         text, piece_type_id, profile_id
     )
@@ -408,7 +444,7 @@ def _generate_from_text(
             no_outbox=True,
             output_mode=mode_requested,
             piece_type_id=piece_type.id if piece_type else None,
-            llm_enabled=llm.enabled if llm else None,
+            llm_enabled=True,
             llm_provider=llm.provider if llm else None,
             llm_model=llm.model if llm else None,
             llm_consent_external=llm.consent_external_provider if llm else None,
@@ -480,7 +516,15 @@ async def generate_document(payload: DocumentRequest) -> dict[str, Any]:
         remetente=payload.remetente,
         assunto=payload.assunto,
         output_mode=payload.output_mode,
-        llm=payload.llm,
+        llm=LLMRequestOptions(
+            provider=payload.llm.provider if payload.llm else None,
+            model=payload.llm.model if payload.llm else None,
+            consent_external_provider=(
+                payload.consent_external_provider
+                if payload.consent_external_provider is not None
+                else (payload.llm.consent_external_provider if payload.llm else None)
+            )
+        ),
     )
 
 
@@ -491,9 +535,9 @@ async def generate_document_from_upload(
     profile_id: str | None = Form(default=None),
     piece_type_id: str | None = Form(default=None),
     output_mode: str | None = Form(default=None),
-    llm_enabled: bool | None = Form(default=None),
-    llm_provider: str | None = Form(default=None),
-    llm_model: str | None = Form(default=None),
+    llm_enabled: bool | None = Form(default=None),  # legado: ignorado no fluxo AI-first
+    llm_provider: str | None = Form(default=None),  # legado: ignorado no fluxo AI-first
+    llm_model: str | None = Form(default=None),  # legado: ignorado no fluxo AI-first
     llm_consent_external_provider: bool | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
     assunto: str = Form(default="Geração por upload local"),
@@ -522,7 +566,6 @@ async def generate_document_from_upload(
         source_filename=source_names,
         output_mode=output_mode,
         llm=LLMRequestOptions(
-            enabled=llm_enabled,
             provider=llm_provider,
             model=llm_model,
             consent_external_provider=llm_consent_external_provider,

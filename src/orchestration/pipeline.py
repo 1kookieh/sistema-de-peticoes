@@ -15,7 +15,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from config import EMAIL_ADVOGADO, MAX_DOCX_BYTES, OUTPUT_DIR, REMETENTES_AUTORIZADOS
+from config import (
+    EMAIL_ADVOGADO,
+    LLM_ALLOW_CLIENT_PROVIDER,
+    LLM_REQUIRED,
+    MAX_DOCX_BYTES,
+    OUTPUT_DIR,
+    REMETENTES_AUTORIZADOS,
+)
 from src.core.domain import PipelineSummary, ProcessResult
 from src.adapters.inbox.gmail_reader import Email, buscar_emails_pendentes
 from src.infra.docx_render import renderizar
@@ -96,9 +103,14 @@ def _prepare_with_llm(
     llm_model: str | None,
     llm_consent_external: bool | None = None,
 ) -> tuple[str | None, dict, list[str]]:
-    """Generate petition text through an LLM provider when explicitly enabled."""
+    """Generate petition text through the backend-configured LLM provider."""
+    provider_override = llm_provider if LLM_ALLOW_CLIENT_PROVIDER else None
+    model_override = llm_model if LLM_ALLOW_CLIENT_PROVIDER else None
     try:
-        provider_name = normalize_provider(llm_provider, enabled=llm_enabled)
+        provider_name = normalize_provider(
+            provider_override if LLM_REQUIRED else llm_provider,
+            enabled=True if LLM_REQUIRED else llm_enabled,
+        )
     except LLMError as exc:
         metadata = LLMGenerationMetadata(
             enabled=bool(llm_enabled),
@@ -110,7 +122,7 @@ def _prepare_with_llm(
         ).model_dump()
         return None, metadata, [f"configuração de IA inválida: {exc}"]
 
-    if provider_name == "none":
+    if provider_name == "none" and not LLM_REQUIRED:
         return raw_text, _llm_metadata_none(), []
 
     # Consentimento explicito so e exigido para providers externos.
@@ -147,10 +159,14 @@ def _prepare_with_llm(
         output_mode=output_mode,
         legal_prompt=petition_prompt,
         docx_prompt=formatting_prompt,
-        model=llm_model,
+        model=model_override if LLM_REQUIRED else llm_model,
     )
     try:
-        provider = build_llm_provider(provider_name, enabled=True, model=llm_model)
+        provider = build_llm_provider(
+            provider_name,
+            enabled=True,
+            model=model_override if LLM_REQUIRED else llm_model,
+        )
         if provider is None:
             return raw_text, _llm_metadata_none(), []
         result_llm = provider.generate(request)
@@ -189,7 +205,7 @@ def processar_email(
     *,
     profile_id: str | None = None,
     no_outbox: bool = False,
-    output_mode: str = "final",
+    output_mode: str = "minuta",
     piece_type_id: str | None = None,
     llm_enabled: bool | None = None,
     llm_provider: str | None = None,
@@ -468,7 +484,7 @@ def executar_pipeline(
     profile_id: str | None = None,
     no_outbox: bool = False,
     strict: bool = False,
-    output_mode: str = "final",
+    output_mode: str = "minuta",
     llm_enabled: bool | None = None,
     llm_provider: str | None = None,
     llm_model: str | None = None,
@@ -589,4 +605,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

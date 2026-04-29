@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LexDoc — Gerador Jurídico de DOCX</title>
-  <meta name="description" content="Gere peças jurídicas em DOCX a partir de texto, PDF, Word ou imagem com validação supervisionada.">
+  <title>LexDoc - Criador Juridico com IA</title>
+  <meta name="description" content="Crie minutas juridicas em DOCX com IA configurada no backend e revisao humana obrigatoria.">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Pular para o conteúdo principal</a>
+  <a class="skip-link" href="#main">Pular para o conteudo principal</a>
 
   <header class="topbar" role="banner">
     <div class="topbar-inner">
-      <a class="brand" href="/" aria-label="LexDoc, gerador jurídico">
+      <a class="brand" href="/" aria-label="LexDoc, criador juridico com IA">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 32 32" width="28" height="28">
             <rect x="4" y="3" width="22" height="26" rx="3" fill="currentColor" opacity=".18"/>
@@ -22,16 +22,15 @@
         </span>
         <span class="brand-text">
           <strong>LexDoc</strong>
-          <small>Gerador Jurídico de DOCX</small>
+          <small>Criador Juridico com IA</small>
         </span>
       </a>
 
-      <nav class="topnav" aria-label="Navegação principal">
-        <a class="topnav-item active" href="#main">Início</a>
-        <a class="topnav-item" href="#card-result">Documentos</a>
-        <a class="topnav-item" href="#card-piece">Modelos</a>
-        <a class="topnav-item" href="#card-history">Histórico</a>
-        <a class="topnav-item" href="#card-advanced">Configurações</a>
+      <nav class="topnav" aria-label="Navegacao principal">
+        <a class="topnav-item active" href="#main">Inicio</a>
+        <a class="topnav-item" href="#card-piece">Dados</a>
+        <a class="topnav-item" href="#card-result">Resultado</a>
+        <a class="topnav-item" href="#card-advanced">Configuracoes</a>
       </nav>
 
       <div class="topbar-actions">
@@ -45,24 +44,24 @@
     <section class="hero">
       <span class="eyebrow">
         <span class="dot" aria-hidden="true"></span>
-        Uso jurídico supervisionado · Processamento local · Revisão obrigatória
+        Criacao com IA · Processamento local · Revisao humana obrigatoria
       </span>
-      <h1>Gerador Jurídico de DOCX</h1>
-      <p class="hero-sub">Transforme texto, PDF, Word ou imagem em peças jurídicas revisáveis, com validação automática e uso supervisionado.</p>
-      <p id="step-helper" class="step-helper" aria-live="polite">Etapa 1 de 3 — escolha o tipo e o perfil da peça.</p>
+      <h1>Criar documento juridico com IA</h1>
+      <p class="hero-sub">Envie os dados do caso; o backend monta os prompts versionados, chama o provider configurado, valida a resposta e gera um DOCX revisavel.</p>
+      <p id="step-helper" class="step-helper" aria-live="polite">Etapa 1 de 3 - escolha o tipo e informe os dados do caso.</p>
 
       <ol class="stepper" aria-label="Etapas do fluxo">
         <li class="step-node is-active" data-step="1">
           <span class="step-num">1</span>
-          <span class="step-label">Tipo de peça</span>
+          <span class="step-label">Dados <small class="step-status">ativo</small></span>
         </li>
         <li class="step-node" data-step="2">
           <span class="step-num">2</span>
-          <span class="step-label">Entrada</span>
+          <span class="step-label">IA <small class="step-status">pendente</small></span>
         </li>
         <li class="step-node" data-step="3">
           <span class="step-num">3</span>
-          <span class="step-label">Revisão e resultado</span>
+          <span class="step-label">DOCX <small class="step-status">pendente</small></span>
         </li>
       </ol>
     </section>
@@ -70,21 +69,31 @@
     <section class="layout">
       <form id="generator-form" class="card form-card stack" novalidate>
         <header id="card-piece" class="card-head">
-          <h2><span class="num-chip">1</span> Tipo de peça</h2>
-          <p class="muted">Escolha manualmente ou deixe o sistema detectar pelo conteúdo.</p>
+          <h2><span class="num-chip">1</span> Documento</h2>
+          <p class="muted">Escolha manualmente ou deixe o backend detectar pelo conteudo.</p>
         </header>
 
         <div class="grid">
           <label class="field">
-            <span class="field-label">Peça desejada <em class="optional-tag">opcional</em></span>
+            <span class="field-label">Tipo de documento <em class="optional-tag">opcional</em></span>
             <select id="piece-type"></select>
-            <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> e o sistema reconhece pela estrutura do texto.</span>
+            <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> para inferir pelo texto.</span>
           </label>
           <label class="field">
             <span class="field-label">Perfil formal <em class="optional-tag">opcional</em></span>
             <select id="profile"></select>
-            <span class="field-hint muted">Padrão: Inicial JEF/Federal — usado em PJE e Projudi.</span>
+            <span class="field-hint muted">Define o modelo e as regras formais usadas no DOCX.</span>
           </label>
+        </div>
+
+        <div class="quick-type-bar" aria-label="Escolhas rapidas por tipo de peca">
+          <span class="muted small">Atalhos:</span>
+          <button class="quick-chip" type="button" data-piece-quick="auxilio-incapacidade-temporaria">Inicial</button>
+          <button class="quick-chip" type="button" data-piece-quick="recurso-inominado">Recurso</button>
+          <button class="quick-chip" type="button" data-piece-quick="juntada-documentos">Juntada</button>
+          <button class="quick-chip" type="button" data-piece-quick="cumprimento-sentenca-implantacao">Cumprimento</button>
+          <button class="quick-chip" type="button" data-piece-quick="impugnacao-cumprimento-sentenca">Impugnacao</button>
+          <button class="quick-chip" type="button" data-piece-quick="mandado-seguranca-previdenciario">MS</button>
         </div>
 
         <div id="profile-details" class="profile-details" aria-live="polite"></div>
@@ -92,55 +101,55 @@
 
         <details id="card-advanced" class="advanced">
           <summary>
-            <span class="adv-icon" aria-hidden="true">⚙</span>
-            <span>Configurações avançadas</span>
-            <span class="muted adv-sub">Token da API e preferências do servidor local.</span>
+            <span class="adv-icon" aria-hidden="true">*</span>
+            <span>Configuracoes avancadas</span>
+            <span class="muted adv-sub">Configure token local e autorizacao para uso de IA externa.</span>
           </summary>
           <label class="field">
             <span class="field-label">Token da API <em class="optional-tag">opcional</em></span>
             <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado no servidor">
-            <span class="field-hint muted">Necessário só quando o backend exige autenticação.</span>
+            <span class="field-hint muted">Necessario quando o backend exige autenticacao.</span>
           </label>
           <label class="field">
-            <span class="field-label">Modo de saída</span>
+            <span class="field-label">Modo de saida</span>
             <select id="output-mode">
-              <option value="minuta" selected>Minuta revisável (padrão)</option>
-              <option value="final">Final protocolável - bloqueia pendências</option>
+              <option value="minuta" selected>Minuta revisavel</option>
+              <option value="final">Final com bloqueios formais rigidos</option>
             </select>
-            <span class="field-hint muted">Use "final" apenas quando o texto estiver completo e sem marcadores internos.</span>
+            <span class="field-hint muted">Use "final" apenas quando todos os dados estiverem completos.</span>
           </label>
-          <label class="field">
-            <span class="field-label">IA / LLM</span>
-            <select id="llm-provider">
-              <option value="none" selected>Sem IA - usar texto informado</option>
-              <option value="mock">Mock local - testes e desenvolvimento</option>
-              <option value="openai">OpenAI - API externa configurada</option>
-            </select>
-            <span class="field-hint muted">Ao ativar IA externa, o texto informado poderá ser enviado ao provedor configurado. Revise dados sensíveis antes de prosseguir.</span>
-          </label>
-          <label class="field">
-            <span class="field-label">Modelo de IA <em class="optional-tag">opcional</em></span>
-            <input id="llm-model" type="text" autocomplete="off" placeholder="Ex.: gpt-4o-mini">
-            <span class="field-hint muted">Se vazio, o backend usa LLM_MODEL ou o padrão do provedor.</span>
-          </label>
+          <div class="hint">
+            <strong>IA configurada no backend</strong>
+            <p class="muted">A IA e obrigatoria no fluxo principal. O servidor define a allowlist de providers; voce pode escolher entre as opcoes liberadas abaixo.</p>
+          </div>
+          <div class="grid">
+            <label class="field">
+              <span class="field-label">Provider de IA</span>
+              <select id="llm-provider" aria-describedby="llm-provider-hint"></select>
+              <span id="llm-provider-hint" class="field-hint muted">Use Mock para testes, Ollama para IA local sem chave, ou OpenAI/Anthropic com chave no servidor.</span>
+            </label>
+            <label class="field">
+              <span class="field-label">Modelo <em class="optional-tag">opcional</em></span>
+              <input id="llm-model" type="text" autocomplete="off" placeholder="Ex.: llama3.1:8b, gpt-4o-mini, claude-3-5-haiku-latest">
+              <span class="field-hint muted">Se vazio, o backend usa LLM_MODEL ou o padrao do provider.</span>
+            </label>
+          </div>
           <div id="llm-external-warning" class="warning" hidden role="alert" aria-live="polite">
-            <strong>⚠ Atenção — IA externa selecionada.</strong>
-            O texto informado será enviado ao provedor configurado (servidor fora do seu computador).
-            Dados pessoais identificados (CPF, NIT, NB, RG, e-mail, telefone, CEP) serão mascarados antes do envio,
-            mas <strong>nomes, fatos e contexto jurídico ainda saem como estão</strong>. Confirme abaixo para prosseguir.
+            <strong>Atencao - IA externa configurada.</strong>
+            O texto pode ser enviado ao provider escolhido fora do seu computador. O backend aplica redaction parcial, mas nomes, fatos e contexto juridico ainda podem permanecer.
           </div>
           <label class="field" id="llm-consent-field" hidden>
             <span class="field-label">
               <input id="llm-consent" type="checkbox">
-              Confirmo que tenho autorização para enviar este texto a um provedor externo
+              Confirmo que tenho autorizacao para enviar este texto ao provider externo configurado
             </span>
-            <span class="field-hint muted">Obrigatório quando o provider não é <code>none</code> ou <code>mock</code>. Sem este aceite, o pedido é bloqueado para preservar LGPD.</span>
+            <span class="field-hint muted">Obrigatorio quando o backend estiver configurado com OpenAI ou outro provider externo.</span>
           </label>
         </details>
 
         <header class="card-head">
-          <h2><span class="num-chip">2</span> Entrada</h2>
-          <p class="muted">Cole texto ou envie arquivos para extração automática.</p>
+          <h2><span class="num-chip">2</span> Dados do caso</h2>
+          <p class="muted">Cole texto ou envie arquivos para extracao automatica.</p>
         </header>
 
         <label id="upload-box" class="upload-box" tabindex="0">
@@ -152,98 +161,81 @@
           </span>
           <strong>Arraste arquivos aqui ou clique para selecionar</strong>
           <span class="muted">Formatos: PDF, DOCX, TXT, MD ou imagens (JPG, PNG, WEBP)</span>
-          <span class="muted small">Até <strong>20 arquivos</strong> · 25 MB por arquivo · 200 MB no total</span>
+          <span class="muted small">Ate 20 arquivos · 25 MB por arquivo · 200 MB no total</span>
         </label>
 
-        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usará o texto colado abaixo.</div>
+        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usara o texto colado abaixo.</div>
         <button id="clear-file" class="ghost-btn small" type="button" hidden>Remover arquivos e usar texto colado</button>
 
         <label class="field">
-          <span class="field-label">Texto da peça ou conteúdo base</span>
-          <span class="quick-actions" aria-label="Ações rápidas do texto">
+          <span class="field-label">Texto ou relato do caso</span>
+          <span class="quick-actions" aria-label="Acoes rapidas do texto">
             <button id="paste-text" class="ghost-btn small" type="button">Colar texto</button>
             <button id="clear-text" class="ghost-btn small" type="button">Limpar</button>
             <button id="insert-example" class="ghost-btn small" type="button">Exemplo</button>
           </span>
-          <textarea id="text" rows="8" placeholder="Cole aqui o texto da peça, ou envie um arquivo para extração automática..."></textarea>
+          <textarea id="text" rows="8" placeholder="Cole aqui o relato do caso, dados fornecidos pelo cliente ou conteudo base para a IA..."></textarea>
         </label>
+
+        <div id="form-alert" class="inline-alert" role="alert" aria-live="polite" hidden></div>
 
         <div class="actions">
           <button id="generate" class="primary-btn" type="submit">
             <span class="btn-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6zM14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <span class="btn-label">Gerar DOCX</span>
+            <span class="btn-label">Criar documento com IA</span>
           </button>
-          <button id="validate" class="secondary-btn" type="button">
-            <span class="btn-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 12l2 2 4-5M12 3a9 9 0 109 9 9 0 00-9-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="btn-label">Validar texto</span>
-          </button>
-          <span class="muted">Gere o DOCX para baixar a minuta. Use validar para conferir pendências sem criar arquivo.</span>
+          <span class="muted">A resposta da IA e validada antes da geracao do DOCX.</span>
         </div>
 
         <p class="warning">
-          <strong>Atenção:</strong> A saída não substitui advogado. Revise mérito, documentos, assinatura, OAB, procuração e regras locais antes de qualquer uso real.
+          <strong>Aviso:</strong> o sistema gera minuta. Revise merito, competencia, prazos, OAB, procuracao, anexos e valor da causa antes de qualquer uso profissional.
         </p>
       </form>
 
       <aside class="panel">
         <section id="card-result" class="card result-card">
           <header class="card-head compact">
-            <h2><span class="num-chip">3</span> Resultado da geração</h2>
-            <p class="muted">Downloads, alertas e relatórios aparecem aqui.</p>
+            <h2><span class="num-chip">3</span> Resultado</h2>
+            <p class="muted">Downloads, alertas e relatorio da execucao atual aparecem aqui.</p>
           </header>
           <div id="result" class="result" aria-live="polite">
             <div class="empty-state">
               <span class="empty-illu" aria-hidden="true">
                 <svg viewBox="0 0 48 48" width="48" height="48"><path d="M14 6h14l8 8v22a4 4 0 01-4 4H14a4 4 0 01-4-4V10a4 4 0 014-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M28 6v8h8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 22h16M16 28h16M16 34h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               </span>
-              <p><strong>Nenhum documento gerado ainda.</strong></p>
-              <p class="muted">Envie um texto ou arquivo e escolha <em>Gerar DOCX</em> ou <em>Validar texto</em>. O resultado, alertas e downloads aparecem aqui.</p>
+              <p><strong>Nenhum documento criado ainda.</strong></p>
+              <p class="muted">Apos a geracao, voce vera:</p>
+              <ul class="empty-result-list">
+                <li>Arquivo DOCX para baixar</li>
+                <li>Alertas formais encontrados</li>
+                <li>Resumo da validacao</li>
+                <li>Relatorio da execucao</li>
+              </ul>
             </div>
           </div>
         </section>
 
         <section class="card">
           <header class="card-head compact">
-            <h2>Checklist de revisão</h2>
-            <p class="muted">Verifique antes de protocolar.</p>
+            <h2>Conferencia obrigatoria</h2>
+            <p class="muted">Antes de gerar, confirme pelo menos um item revisado.</p>
+            <strong id="checklist-status" class="checklist-status">Conferencia pendente</strong>
           </header>
           <ul class="checklist">
-            <li class="done"><span class="chk" aria-hidden="true"></span> Conferir parte autora e ré</li>
-            <li><span class="chk" aria-hidden="true"></span> Verificar DER, NB e fundamentos legais</li>
-            <li class="warn"><span class="chk" aria-hidden="true"></span> Competência e valor da causa</li>
-            <li><span class="chk" aria-hidden="true"></span> OAB, procuração e documentos anexos</li>
+            <li><label><input class="preflight-check" type="checkbox"> Dados das partes preenchidos</label></li>
+            <li><label><input class="preflight-check" type="checkbox"> Competencia, prazos e valor da causa revisados</label></li>
+            <li><label><input class="preflight-check" type="checkbox"> OAB, procuracao e anexos conferidos</label></li>
+            <li><label><input class="preflight-check" type="checkbox"> Merito validado por profissional habilitado</label></li>
           </ul>
-        </section>
-
-        <section id="card-history" class="card">
-          <header class="card-head compact spaced">
-            <div>
-              <h2>Histórico recente</h2>
-              <p class="muted">Últimos documentos salvos nesta máquina.</p>
-            </div>
-            <button id="refresh" class="ghost-btn small" type="button">Atualizar</button>
-          </header>
-          <div class="history-tools">
-            <input id="history-search" type="search" placeholder="Buscar no histórico">
-            <select id="history-filter" aria-label="Filtrar histórico">
-              <option value="all">Todos</option>
-              <option value="valid">Válidos</option>
-              <option value="blocked">Bloqueados</option>
-              <option value="failed">Falhas</option>
-            </select>
-          </div>
-          <div id="history" aria-live="polite"></div>
         </section>
       </aside>
     </section>
 
     <footer class="page-foot muted">
-      <span>LexDoc · Sistema de Petições</span>
-      <span>Ambiente seguro e responsável — dados tratados com confidencialidade e sem armazenamento externo.</span>
+      <span>LexDoc · Sistema de Peticoes</span>
+      <span>IA supervisionada: nao substitui advogado e nao dispensa revisao humana.</span>
     </footer>
   </main>
 

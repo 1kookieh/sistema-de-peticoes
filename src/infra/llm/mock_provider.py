@@ -24,7 +24,9 @@ class MockLLMProvider(BaseLLMProvider):
             profile=request.profile_id,
             title=title,
             court_addressing=_detect_addressing(source) or "EXCELENTISSIMO(A) SENHOR(A) JUIZ(A) COMPETENTE",
-            qualification=["Parte autora qualificada conforme os dados fornecidos no caso."],
+            qualification=[
+                "AUTOR(A), qualificado(a) conforme os dados fornecidos no caso, vem propor a presente demanda."
+            ],
             facts_summary=facts,
             legal_grounds=[
                 LegalDocumentSection(
@@ -40,7 +42,18 @@ class MockLLMProvider(BaseLLMProvider):
                 "a procedencia dos pedidos apos revisao juridica humana.",
             ],
             evidence=["documentos informados pelo usuario e demais provas admitidas em direito."],
-            closing=["Termos em que, pede deferimento."],
+            sections=[
+                LegalDocumentSection(
+                    title="DO VALOR DA CAUSA",
+                    paragraphs=["Da-se a causa o valor estimado informado nos dados do caso, sujeito a revisao."],
+                )
+            ],
+            closing=[
+                "Termos em que, pede deferimento.",
+                "Goiania/GO, 24 de abril de 2026.",
+                "Advogado Exemplo",
+                "OAB/GO 12.345",
+            ],
             warnings=[
                 "Resposta mock usada apenas para desenvolvimento e testes.",
                 "Conteudo nao reflete fatos reais do caso e nao pode ser protocolado.",
