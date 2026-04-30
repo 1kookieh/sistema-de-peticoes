@@ -2,90 +2,100 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-local-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![JavaScript](https://img.shields.io/badge/JavaScript-ESM-F7DF1E?logo=javascript&logoColor=black)](web/)
+[![JavaScript](https://img.shields.io/badge/Frontend-HTML%2FCSS%2FJS-F7DF1E?logo=javascript&logoColor=black)](web/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
 [![CI](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml/badge.svg)](https://github.com/1kookieh/sistema-de-peticoes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Sistema local AI-first para criar minutas jurídicas em `.docx`, com API FastAPI, interface web, CLI, prompts versionados e camada LLM obrigatória no fluxo principal.
+Sistema local para criar, revisar e baixar minutas jurídicas em `.docx` com apoio de IA, API FastAPI, interface web, CLI, prompts versionados e relatórios de auditoria.
 
-> Uso supervisionado: este projeto não substitui advogado, não decide mérito jurídico e não deve ser usado para protocolo sem revisão humana.
+> **Uso supervisionado:** este projeto não substitui advogado, não decide estratégia processual e não deve ser usado para protocolo sem revisão humana.
 
 ## Visão Geral
 
-O projeto resolve um problema prático: transformar texto do caso, arquivos ou uma resposta estruturada de IA em um documento Word com padrão forense, validações automáticas e relatório de auditoria.
+O projeto transforma relatos de caso e arquivos anexados em documentos Word com padrão forense. O fluxo principal usa uma camada LLM configurada no backend, gera uma resposta estruturada, renderiza o DOCX e registra relatórios JSON/HTML em disco.
 
-O fluxo principal sempre passa pela camada de IA configurada no backend. O padrão de desenvolvimento usa provider `mock`, sem envio externo; providers reais, como `openai` e `anthropic`, exigem configuração de chave e consentimento explícito por requisição.
+A interface web atual é um workspace local com:
 
-## Principais Funcionalidades
+- aba **Início**, com métricas operacionais e gráficos;
+- aba **IA**, com conversa, anexos e seleção de provider;
+- aba **Peças**, com listagem de peças geradas e ações de visualizar/baixar;
+- aba **Configurações**, com preferências locais e dados públicos da configuração do backend.
 
-- Geração de `.docx` jurídico com `python-docx`.
-- Interface web local em HTML, CSS e JavaScript puro.
+O projeto foi desenhado para execução local/controlada. Para uso em rede, produção ou multiusuário, ainda são necessárias camadas adicionais de autenticação, autorização, persistência e observabilidade.
+
+## Funcionalidades Implementadas
+
+- Geração de minutas `.docx` com `python-docx`.
 - API REST versionada em `/api/v1`.
-- CLI para uso em lote com inbox JSON.
-- Interface desktop simples com Tkinter.
-- Upload de `.txt`, `.md`, `.docx`, `.pdf` e imagens para OCR.
-- Detecção automática do tipo de peça e do perfil formal.
-- Modos de saída de criação: `minuta` e `final`.
-- Camada LLM obrigatória no fluxo principal, com providers `mock`, `ollama`, `openai` e `anthropic`.
+- Interface web estática servida pelo FastAPI.
+- Chat local com IA para conversa livre.
+- Geração de peça a partir de texto ou arquivos.
+- Upload de `.txt`, `.md`, `.docx`, `.pdf` e imagens com OCR.
+- Dashboard local com métricas, evolução mensal, top tipos de peça e peças por cidade/UF.
+- Lista de peças geradas a partir dos relatórios locais.
+- Inferência automática de tipo de peça e perfil formal.
+- Providers LLM: `mock`, `ollama`, `openai` e `anthropic`.
+- Redaction parcial antes de envio para providers externos.
 - Prompts versionados em `prompts/`.
-- Validação textual e validação estrutural do DOCX.
+- Validações textuais e estruturais do DOCX.
 - Relatórios JSON/HTML em `reports/`.
-- Dockerfile e CI com testes automatizados.
+- CLI para processamento por inbox JSON.
+- Interface desktop simples com Tkinter.
+- Dockerfile e CI com validações automatizadas.
 
-## Fluxo de Uso
+## Estado Atual Importante
 
-```text
-Entrada do usuário ou upload
-  -> extração/normalização do texto
-  -> inferência do tipo de peça e perfil formal
-  -> geração por IA com JSON estruturado
-  -> validação textual
-  -> renderização DOCX
-  -> validação estrutural do DOCX
-  -> relatório JSON/HTML
-  -> download do documento
-```
+- O fluxo principal de criação de documentos é **AI-first**: por padrão, documentos passam pela camada LLM.
+- O provider `mock` é o caminho mais seguro para testes e desenvolvimento.
+- O provider `ollama` usa IA local via `OLLAMA_BASE_URL`.
+- Providers externos (`openai` e `anthropic`) exigem chave e consentimento explícito.
+- O chat direto da API local está implementado para `mock` e `ollama`. A geração de documentos usa a camada LLM completa.
+- Não há banco de dados relacional: peças e métricas são derivadas de arquivos locais em `reports/` e `output/`.
 
-## Tecnologias Utilizadas
+## Tecnologias
 
 | Área | Tecnologias |
 |---|---|
-| Backend | Python 3.11+, FastAPI, Pydantic Settings |
-| IA/LLM | Camada de providers, mock local, Ollama local, OpenAI e Anthropic via HTTP |
-| DOCX | python-docx |
+| Backend/API | Python 3.11+, FastAPI, Uvicorn, Pydantic Settings |
+| IA/LLM | Mock local, Ollama, OpenAI, Anthropic/Claude |
+| Documentos | python-docx |
 | Extração | pypdf, Pillow, pytesseract |
-| Front-end | HTML, CSS, JavaScript ES Modules, Service Worker |
+| Front-end | HTML, CSS e JavaScript puro |
 | Desktop | Tkinter |
-| Testes | pytest, FastAPI TestClient |
+| Testes | pytest, FastAPI TestClient, pytest-cov |
+| Qualidade | ruff, mypy, bandit, pip-audit |
 | DevOps | Docker, GitHub Actions |
 
-## Estrutura do Projeto
+## Estrutura Do Projeto
 
 ```text
 src/
-  core/            domínio, perfis, tipos de peça, prompts e validações
   adapters/        inbox, outbox e extração de arquivos
+  core/            domínio, perfis, tipos de peça, prompts e validações
   infra/           DOCX, LLM, locks, logging e estado local
-  interfaces/      API, CLI e desktop
+  interfaces/      API FastAPI, CLI e interface desktop
   orchestration/   pipeline, relatórios, retenção e setup
-web/               interface local
-templates/         template HTML de relatório
+web/               interface web local
 prompts/           prompts jurídicos e de formatação
-docs/              documentação técnica
-tests/             testes automatizados
+templates/         template HTML de relatório
+docs/              documentação técnica complementar
 examples/          exemplos fictícios
+tests/             testes automatizados
+output/            DOCX gerados em runtime
+reports/           relatórios JSON/HTML em runtime
 ```
 
-## Pré-requisitos
+## Pré-Requisitos
 
 - Python 3.11 ou superior.
-- Windows PowerShell, Linux ou macOS.
-- Tesseract OCR instalado apenas se você quiser extrair texto de imagens.
+- `pip`.
+- Tesseract OCR instalado somente se for usar OCR em imagens.
+- Ollama opcional, apenas para provider local real.
 - Docker opcional.
-- Chave de API somente se você ativar IA externa (`openai` ou `anthropic`).
+- Chave OpenAI ou Anthropic opcional, apenas para provider externo.
 
-## Instalação
+## Instalação Local
 
 ```bash
 git clone https://github.com/1kookieh/sistema-de-peticoes.git
@@ -115,9 +125,64 @@ Prepare as pastas locais:
 python -m src --setup
 ```
 
-## Como Rodar
+## Configuração De Ambiente
 
-API + interface web:
+As configurações ficam em `.env`. O arquivo real não deve ser versionado.
+
+| Variável | Uso |
+|---|---|
+| `EMAIL_ADVOGADO` | E-mail usado nos fluxos de outbox/CLI. |
+| `API_TOKEN` | Token opcional para proteger rotas sensíveis. |
+| `API_REQUIRE_TOKEN` | Quando `true`, exige token mesmo que o ambiente tente rodar sem ele. |
+| `API_ALLOWED_ORIGINS` | Origens permitidas para chamadas mutadoras. |
+| `MAX_TEXT_CHARS` | Limite de caracteres para entrada textual. |
+| `MAX_JSON_BYTES` | Limite de payload JSON. |
+| `REMETENTES_AUTORIZADOS` | Allowlist opcional para fluxos de inbox. |
+| `MCP_INBOX_PATH` | Caminho do inbox local JSON. |
+| `MCP_OUTBOX_PATH` | Caminho do outbox local JSON. |
+| `MCP_STATUS_PATH` | Caminho do status local JSON. |
+| `RETENTION_ENABLED` | Ativa limpeza por retenção. |
+| `RETENTION_OUTPUT_DAYS` | Retenção de arquivos em `output/`. |
+| `RETENTION_REPORTS_DAYS` | Retenção de relatórios em `reports/`. |
+| `LLM_REQUIRED` | Mantém IA obrigatória no fluxo principal. |
+| `LLM_ALLOW_MOCK` | Permite provider mock. |
+| `LLM_ALLOW_CLIENT_PROVIDER` | Permite o cliente escolher provider dentro da allowlist. |
+| `LLM_CLIENT_ALLOWED_PROVIDERS` | Providers permitidos para seleção pelo cliente. |
+| `LLM_PROVIDER` | Provider padrão: `mock`, `ollama`, `openai` ou `anthropic`. |
+| `LLM_MODEL` | Modelo padrão do provider. |
+| `LLM_TEMPERATURE` | Temperatura do modelo. |
+| `LLM_MAX_OUTPUT_TOKENS` | Limite de tokens da resposta. |
+| `LLM_TIMEOUT_SECONDS` | Timeout das chamadas LLM. |
+| `LLM_RETRY_ATTEMPTS` | Tentativas de retry. |
+| `LLM_REQUIRE_STRUCTURED_OUTPUT` | Exige saída estruturada para geração. |
+| `LLM_FALLBACK_ENABLED` | Permite fallback para mock quando configurado. |
+| `LLM_LOG_PROMPT` | Controla logging de prompt. Deve ficar `false` para dados sensíveis. |
+| `OPENAI_API_KEY` | Chave da OpenAI. |
+| `ANTHROPIC_API_KEY` | Chave da Anthropic/Claude. |
+| `OLLAMA_BASE_URL` | URL local do Ollama. |
+
+Exemplo seguro para desenvolvimento:
+
+```env
+LLM_REQUIRED=true
+LLM_ALLOW_MOCK=true
+LLM_ALLOW_CLIENT_PROVIDER=true
+LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
+LLM_PROVIDER=mock
+LLM_MODEL=
+```
+
+Exemplo com Ollama local:
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.1:8b
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+## Como Executar
+
+API + web:
 
 ```bash
 uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
@@ -126,151 +191,78 @@ uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 Abra:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8000/
 ```
 
-Na tela web:
-
-1. Escolha o tipo de peça ou deixe em detecção automática.
-2. Escolha o perfil formal ou deixe em detecção automática.
-3. Cole o texto do caso ou envie arquivos.
-4. Escolha o modo de saída.
-5. Clique em `Criar documento com IA` para gerar a minuta DOCX.
-
-## Configuração AI-first
-
-```env
-LLM_REQUIRED=true
-LLM_ALLOW_MOCK=true
-LLM_ALLOW_CLIENT_PROVIDER=true
-LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
-LLM_MODE=mock
-LLM_PROVIDER=mock
-```
-
-Com `LLM_REQUIRED=true`, o endpoint principal de criação sempre chama a camada LLM. O cliente não precisa enviar `llm.enabled=true`; o backend define allowlist, modelo padrão, temperatura, timeout e prompts. Quando `LLM_ALLOW_CLIENT_PROVIDER=true`, a interface permite escolher apenas providers liberados em `LLM_CLIENT_ALLOWED_PROVIDERS`; `none` não é oferecido no fluxo principal.
-
-## Uso Com IA/LLM
-
-Quando cria um documento, o sistema monta um prompt final usando:
-
-- `prompts/prompt_peticao.md`;
-- `prompts/prompt_formatacao_word.md`;
-- texto do caso;
-- tipo de peça;
-- perfil formal;
-- instruções de segurança e saída JSON.
-
-A resposta da IA deve ser JSON estruturado validável. O DOCX é renderizado a partir dessa estrutura, não do texto livre cru.
-
-| Provider | Descrição | Requer chave |
-|---|---|---|
-| `mock` | Simula resposta estruturada para testes | Não |
-| `openai` | Usa API da OpenAI | Sim |
-| `anthropic` | Usa API da Anthropic/Claude | Sim |
-| `ollama` | Usa modelo local via Ollama em `OLLAMA_BASE_URL` | Não |
-
-### IA mock
-
-Use para testar o fluxo sem enviar dados para fora:
-
-```env
-LLM_PROVIDER=mock
-LLM_MODEL=
-```
-
-### OpenAI
-
-Use apenas em ambiente local/controlado:
-
-```env
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4o-mini
-OPENAI_API_KEY=coloque-sua-chave-no-env-local
-LLM_FALLBACK_ENABLED=false
-```
-
-### Anthropic / Claude
-
-Use apenas em ambiente local/controlado:
-
-```env
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-3-5-haiku-latest
-ANTHROPIC_API_KEY=coloque-sua-chave-no-env-local
-LLM_FALLBACK_ENABLED=false
-```
-
-### Ollama local
-
-Use quando quiser IA local sem enviar dados para API externa. Instale o Ollama, baixe um modelo compatível e mantenha o serviço ativo:
-
-```env
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1:8b
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-Cuidados:
-
-- Nunca commite `.env` real.
-- Nunca coloque chave de API no README, issue, print ou log.
-- Ao usar IA externa, o texto informado pode ser enviado ao provedor configurado.
-- A API exige consentimento explícito por requisição para providers externos, via
-  `llm.consent_external_provider=true` ou campo de upload `llm_consent_external_provider=true`.
-- Antes do envio a provider externo, o pipeline mascara identificadores como CPF,
-  CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados.
-- Esse mascaramento é parcial e não garante anonimização completa: nomes, fatos,
-  contexto jurídico e outros dados sensíveis podem permanecer no texto enviado.
-- O fallback para mock só ocorre se `LLM_FALLBACK_ENABLED=true`.
-
-## Geração de DOCX
-
-Os arquivos gerados ficam em:
-
-```text
-output/
-```
-
-Os relatórios ficam em:
-
-```text
-reports/
-```
-
-Essas pastas são runtime local. Não versione documentos reais, relatórios reais ou dados de clientes.
-
-## API
-
-Documentação interativa:
+Documentação interativa da API:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Endpoints principais:
+No Windows, se `python` global não estiver no PATH, use o Python da venv:
 
-```text
-GET    /api/v1/health
-GET    /api/v1/profiles
-GET    /api/v1/piece-types
-GET    /api/v1/limits
-POST   /api/v1/documents
-POST   /api/v1/documents/upload
-GET    /api/v1/documents/{filename}/download
-GET    /api/v1/reports
-GET    /api/v1/reports/{filename}
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Exemplo com IA mock:
+## Interface Web
+
+A interface web fica em `web/` e é servida pelo próprio FastAPI. Não há build front-end separado nem `package.json`.
+
+Fluxo básico:
+
+1. Acesse `http://127.0.0.1:8000/`.
+2. Use a aba **IA** para conversar, anexar arquivos e pedir uma peça.
+3. Quando a peça for gerada, baixe o DOCX ou abra o relatório.
+4. Use a aba **Peças** para consultar resultados locais.
+5. Use a aba **Início** para acompanhar métricas da máquina local.
+
+## API REST
+
+Endpoints principais:
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/` | Serve a interface web. |
+| `GET` | `/api/v1/health` | Healthcheck. |
+| `POST` | `/api/v1/setup` | Cria/verifica pastas locais. |
+| `GET` | `/api/v1/profiles` | Lista perfis formais. |
+| `GET` | `/api/v1/piece-types` | Lista tipos de peça. |
+| `GET` | `/api/v1/limits` | Retorna limites e configuração pública da IA. |
+| `POST` | `/api/v1/chat` | Conversa livre com IA local. |
+| `POST` | `/api/v1/chat/upload` | Conversa livre com arquivos anexados. |
+| `POST` | `/api/v1/documents` | Gera DOCX a partir de texto. |
+| `POST` | `/api/v1/documents/upload` | Extrai arquivos e gera DOCX. |
+| `GET` | `/api/v1/documents/{filename}/download` | Baixa DOCX gerado. |
+| `GET` | `/api/v1/pieces` | Lista peças locais derivadas de relatórios. |
+| `GET` | `/api/v1/dashboard` | Métricas operacionais locais. |
+| `GET` | `/api/v1/reports` | Lista relatórios locais. |
+| `GET` | `/api/v1/reports/{filename}` | Abre relatório JSON ou HTML. |
+
+Criar documento com provider mock:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"provider\":\"mock\"}}"
+  -d "{\"text\":\"Cliente relata indeferimento de benefício pelo INSS. Dados fictícios para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"provider\":\"mock\",\"consent_external_provider\":false}}"
 ```
 
-Veja mais em [docs/api.md](docs/api.md).
+Upload:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
+  -F "files=@relato.pdf" \
+  -F "output_mode=minuta" \
+  -F "llm_provider=mock" \
+  -F "llm_consent_external_provider=false"
+```
+
+Se `API_TOKEN` estiver configurado, envie:
+
+```http
+X-API-Token: valor-do-token
+```
 
 ## CLI
 
@@ -280,16 +272,22 @@ Ajuda:
 python -m src --help
 ```
 
-Processar inbox fictício sem outbox:
+Processar exemplo fictício com mock e sem outbox:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json
+python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json
 ```
 
-Usar IA mock pela CLI:
+Processar com Ollama:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --mock --output-mode minuta
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider ollama --llm-model llama3.1:8b
+```
+
+Validar DOCX gerado:
+
+```bash
+python -m src.core.validation.docx output/nome-do-arquivo.docx --profile judicial-inicial-jef
 ```
 
 Interface desktop:
@@ -298,79 +296,30 @@ Interface desktop:
 python -m src.interfaces.desktop
 ```
 
-Guia passo a passo: [docs/usage.md](docs/usage.md).
-
-## Prompts
-
-Os prompts ficam em [prompts/](prompts/):
-
-| Arquivo | Função |
-|---|---|
-| `prompt_peticao.md` | Regras jurídicas, limites, estrutura e cautelas de geração |
-| `prompt_formatacao_word.md` | Regras de formatação esperadas para Word/DOCX |
-
-Ao alterar prompts, rode os testes e gere um DOCX fictício para revisar o resultado.
-
-Veja [docs/prompts.md](docs/prompts.md).
-
-## Documentação Complementar
-
-| Documento | Conteúdo |
-|---|---|
-| [docs/usage.md](docs/usage.md) | Guia prático de uso |
-| [docs/api.md](docs/api.md) | API, payloads e exemplos |
-| [docs/architecture.md](docs/architecture.md) | Arquitetura e fluxo interno |
-| [docs/prompts.md](docs/prompts.md) | Uso e manutenção dos prompts |
-| [docs/legal-limitations.md](docs/legal-limitations.md) | Limitações jurídicas e LGPD |
-| [SECURITY.md](SECURITY.md) | Segurança e dados sensíveis |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribuição |
-| [CLAUDE.md](CLAUDE.md) | Orientações para agentes Claude |
-
-## Testes
-
-Instale dependências de desenvolvimento:
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-Execute:
-
-```bash
-python -m compileall config.py src tests
-pytest -q
-```
-
-Validações de qualidade usadas no CI:
-
-```bash
-ruff check .
-mypy config.py src/infra/llm
-pip-audit -r requirements.txt --strict
-bandit -q -r src
-```
-
-O type-check ainda é gradual: o projeto valida `config.py` e `src/infra/llm` no CI.
-
-No Windows deste projeto, caso `python` global não esteja no PATH, use:
-
-```powershell
-.\.venv\Scripts\python.exe -m compileall config.py src tests
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
 ## Docker
+
+Build:
 
 ```bash
 docker build -t sistema-peticoes .
+```
+
+Executar com token:
+
+```bash
 docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token sistema-peticoes
 ```
 
-O `Dockerfile` exige token por padrão (`API_REQUIRE_TOKEN=1`). Use o mesmo valor em `X-API-Token` para rotas sensíveis:
+O Dockerfile define `API_REQUIRE_TOKEN=1` por padrão. Para acessar rotas sensíveis, use o header `X-API-Token`.
+
+Com volumes para preservar documentos e relatórios:
 
 ```bash
-curl http://127.0.0.1:8000/api/v1/health
-curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
+docker run --rm -p 8000:8000 \
+  -e API_TOKEN=troque-este-token \
+  -v ./output:/app/output \
+  -v ./reports:/app/reports \
+  sistema-peticoes
 ```
 
 Para demonstração local isolada, é possível desativar explicitamente:
@@ -379,56 +328,103 @@ Para demonstração local isolada, é possível desativar explicitamente:
 docker run --rm -p 8000:8000 -e API_REQUIRE_TOKEN=false sistema-peticoes
 ```
 
-Para dados reais, monte volumes locais protegidos:
+Não use `API_REQUIRE_TOKEN=false` em rede pública.
+
+## Testes E Qualidade
+
+Instale dependências de desenvolvimento:
 
 ```bash
-docker run --rm -p 8000:8000 -e API_TOKEN=troque-este-token -v ./output:/app/output -v ./reports:/app/reports sistema-peticoes
+pip install -r requirements-dev.txt
 ```
 
-## Segurança e Privacidade
+Validações principais:
+
+```bash
+python -m compileall config.py src tests
+pytest -q
+ruff check .
+mypy config.py src/infra/llm
+bandit -q -r src
+pip-audit -r requirements.txt --strict
+```
+
+No Windows, use a venv se necessário:
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall config.py src tests
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Observação: a suíte de testes deve rodar em ambiente controlado com provider mock. Se o `.env` local estiver apontando para Ollama ou provider externo, force as variáveis do processo de teste para `LLM_PROVIDER=mock`.
+
+## Segurança E Privacidade
 
 Considere sensíveis:
 
 - `.env`;
+- chaves de API;
 - `output/*.docx`;
 - `reports/*.json`;
 - `reports/*.html`;
-- inbox, outbox e status locais;
-- textos jurídicos enviados para IA externa.
+- arquivos de inbox/outbox/status;
+- textos jurídicos e anexos enviados para IA.
 
-Recomendações:
+Cuidados:
 
-- Use dados fictícios em demonstrações públicas.
-- Configure `API_TOKEN` se expuser a API fora do loopback.
-- Não envie dados reais para IA externa sem autorização e sem marcar o consentimento explícito no fluxo.
-- Mesmo com mascaramento automático parcial, revise manualmente o texto antes de usar provider externo.
-- Não trate redaction como anonimização jurídica, técnica ou operacional.
-- Revise sempre mérito, competência, prazo, OAB, procuração, anexos e valor da causa.
-- Leia [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
+- Use dados fictícios em testes, demonstrações e CI.
+- Não versione `.env` real.
+- Não envie dados reais a provider externo sem autorização e consentimento.
+- Redaction é parcial: CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail podem ser mascarados, mas nomes, fatos e contexto sensível podem permanecer.
+- Não exponha a API publicamente sem autenticação forte, TLS, autorização, logs controlados e política de retenção.
+- Revise sempre mérito, competência, prazo, procuração, valor da causa, anexos e pedidos antes de qualquer uso profissional.
 
-## Limitações
+Mais detalhes em [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/legal-limitations.md).
 
-- Não substitui advogado.
-- Não garante aceitação por tribunal, cartório ou órgão administrativo.
+## Limitações Atuais
+
+- Não substitui advogado nem revisão jurídica humana.
 - Não pesquisa jurisprudência em tempo real.
-- Não valida estratégia processual.
-- Não garante que dados fornecidos pelo usuário sejam verdadeiros.
+- Não garante tese correta nem aceitação por tribunais.
+- Não há banco de dados relacional ou autenticação multiusuário.
+- A listagem de peças e o dashboard dependem de arquivos locais de relatório.
+- OCR depende de Tesseract configurado no ambiente.
+- Chat direto externo ainda não é o fluxo principal; use providers externos principalmente na geração estruturada e com consentimento.
+- Gemini/OpenRouter aparecem como chaves de configuração futura, mas não são providers completos implementados no pipeline atual.
 
-Nota atual: providers implementados nesta versão: `mock`, `ollama`, `openai` e `anthropic`. Gemini/OpenRouter seguem como evolução futura.
+## Documentação Complementar
+
+| Documento | Conteúdo |
+|---|---|
+| [docs/api.md](docs/api.md) | API, payloads e exemplos. |
+| [docs/architecture.md](docs/architecture.md) | Arquitetura e fluxo interno. |
+| [docs/usage.md](docs/usage.md) | Guia prático de uso. |
+| [docs/prompts.md](docs/prompts.md) | Prompts e manutenção. |
+| [docs/legal-limitations.md](docs/legal-limitations.md) | Limitações jurídicas e LGPD. |
+| [SECURITY.md](SECURITY.md) | Segurança e dados sensíveis. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribuição. |
 
 ## Roadmap
 
-- Adicionar screenshots/GIFs reais da interface.
-- Evoluir providers futuros como Gemini/OpenRouter e melhorar suporte local via Ollama.
-- Melhorar validações jurídicas específicas por tipo de peça.
-- Adicionar paginação/filtros avançados em relatórios.
-- Evoluir exportação PDF opcional via ferramenta local.
+Melhorias futuras coerentes com o estado atual:
 
-Veja [docs/roadmap.md](docs/roadmap.md).
+- Persistir conversas, peças e métricas em banco de dados.
+- Adicionar autenticação e autorização reais.
+- Melhorar suporte de chat para providers externos.
+- Adicionar paginação, filtros e busca avançada em peças.
+- Ampliar validações jurídicas por tipo de peça.
+- Evoluir preview visual de DOCX/PDF.
+- Adicionar screenshots reais da interface ao repositório.
+- Melhorar cobertura de testes do front-end.
 
 ## Contribuição
 
-Leia [CONTRIBUTING.md](CONTRIBUTING.md). Contribuições devem preservar revisão humana obrigatória, não expor dados sensíveis e incluir testes quando alterarem geração, validação, API ou prompts.
+Leia [CONTRIBUTING.md](CONTRIBUTING.md). Contribuições devem preservar:
+
+- revisão humana obrigatória;
+- proteção de dados sensíveis;
+- uso de dados fictícios em testes;
+- testes para mudanças em geração, validação, API, prompts ou segurança.
 
 ## Licença
 
