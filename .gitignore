@@ -75,6 +75,11 @@ reports/*
 
 # ---------- Configurações locais do orquestrador ----------
 .claude/
+.agents/
+.aidesigner/
+.codex/
+.cursor/
+.mcp.json
 
 # ---------- SO / editores ----------
 .DS_Store

@@ -33,6 +33,9 @@ def list_reports(reports_dir: Path = REPORTS_DIR) -> list[dict[str, Any]]:
             "profile": (payload.get("profile") or {}).get("id"),
             "summary": payload.get("summary", {}),
             "first_docx": first_item.get("docx") if isinstance(first_item, dict) else None,
+            "first_status": first_item.get("status") if isinstance(first_item, dict) else None,
+            "first_llm": first_item.get("llm", {}) if isinstance(first_item, dict) else {},
+            "metadata": payload.get("metadata", {}),
         })
     return reports
 

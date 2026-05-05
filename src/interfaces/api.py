@@ -2,10 +2,15 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from collections import Counter
 from datetime import datetime
+import json
 from pathlib import Path
 from time import monotonic
 from typing import Any
+import urllib.error
+import urllib.parse
+import urllib.request
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
@@ -22,11 +27,15 @@ from config import (
     FRONTEND_DIR,
     LLM_ALLOW_CLIENT_PROVIDER,
     LLM_CLIENT_ALLOWED_PROVIDERS,
+    LLM_MAX_OUTPUT_TOKENS,
     LLM_MODEL,
     LLM_PROVIDER,
     LLM_REQUIRED,
+    LLM_TEMPERATURE,
+    LLM_TIMEOUT_SECONDS,
     MAX_DOCX_BYTES,
     MAX_TEXT_CHARS,
+    OLLAMA_BASE_URL,
     OUTPUT_DIR,
     RATE_LIMIT_MAX_MUTATIONS,
     RATE_LIMIT_WINDOW_SECONDS,
@@ -55,6 +64,11 @@ PROFILE_LABELS_PT = {
     "instrumento-mandato": "Procuração / Substabelecimento / Declaração",
     "forense-basico": "Forense básico (mínimo formal)",
 }
+
+MONTH_LABELS_PT = [
+    "jan.", "fev.", "mar.", "abr.", "mai.", "jun.",
+    "jul.", "ago.", "set.", "out.", "nov.", "dez.",
+]
 
 DEFAULT_PROFILE_ID = "judicial-inicial-jef"
 
@@ -115,6 +129,8 @@ async def security_headers(request: Request, call_next):
         _REPORT_CSP if is_html_report else _DEFAULT_CSP,
     )
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
 
@@ -156,7 +172,7 @@ class LLMRequestOptions(BaseModel):
     consent_external_provider: bool | None = Field(
         default=None,
         description=(
-            "Campo mantido para compatibilidade. A configuracao de IA vem do "
+            "Campo mantido para compatibilidade. A configuração de IA vem do "
             "backend; quando LLM_ALLOW_CLIENT_PROVIDER=true, o cliente pode "
             "escolher provider/model dentro da allowlist do servidor. Provider "
             "externo exige consentimento."
@@ -171,8 +187,8 @@ class DeprecatedLLMRequestOptions(BaseModel):
     consent_external_provider: bool | None = Field(
         default=None,
         description=(
-            "Consentimento explicito para enviar o texto a um provedor externo "
-            "(ex.: openai/anthropic). Obrigatorio quando o provider escolhido "
+            "Consentimento explícito para enviar o texto a um provedor externo "
+            "(ex.: openai/anthropic). Obrigatório quando o provider escolhido "
             "enviar dados para fora."
         ),
     )
@@ -213,6 +229,9 @@ class DocumentRequest(BaseModel):
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
     assunto: str = Field(default="Geração local", max_length=200)
+    person_name: str | None = Field(default=None, max_length=180)
+    case_number: str | None = Field(default=None, max_length=80)
+    location: str | None = Field(default=None, max_length=120)
     llm: DeprecatedLLMRequestOptions | None = Field(
         default=None,
         description=(
@@ -220,6 +239,13 @@ class DocumentRequest(BaseModel):
             "use apenas llm.consent_external_provider por compatibilidade."
         ),
     )
+
+
+class ChatRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    provider: str | None = Field(default=None, max_length=40)
+    model: str | None = Field(default=None, max_length=120)
+    consent_external_provider: bool = False
 
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
@@ -336,6 +362,54 @@ def piece_types() -> dict[str, Any]:
     return {"groups": groups, "items": items}
 
 
+@app.post("/api/v1/chat", dependencies=[Depends(require_api_token), Depends(require_allowed_origin)])
+async def chat(payload: ChatRequest) -> dict[str, Any]:
+    """Conversa livre com IA; não gera DOCX."""
+    return await run_in_threadpool(
+        _chat_response,
+        payload.text,
+        provider=payload.provider,
+        model=payload.model,
+        consent=payload.consent_external_provider,
+    )
+
+
+@app.post("/api/v1/chat/upload", dependencies=[Depends(require_api_token), Depends(require_allowed_origin)])
+async def chat_with_upload(
+    files: list[UploadFile] | None = File(default=None),
+    text: str = Form(default=""),
+    provider: str | None = Form(default=None),
+    model: str | None = Form(default=None),
+    consent_external_provider: bool = Form(default=False),
+) -> dict[str, Any]:
+    """Conversa livre com IA usando texto extraído de anexos; não gera DOCX."""
+    uploads = list(files or [])
+    if not text.strip() and not uploads:
+        raise HTTPException(status_code=422, detail="envie uma mensagem ou anexe arquivo")
+    payloads: list[tuple[str, bytes]] = []
+    for upload in uploads:
+        payloads.append((upload.filename or "arquivo", await upload.read()))
+    extracted = ""
+    if payloads:
+        try:
+            extracted = extract_text_from_uploads(payloads)
+        except FileExtractionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    names = ", ".join(filename for filename, _ in payloads)
+    combined = text.strip()
+    if extracted:
+        combined = (
+            f"{combined}\n\n" if combined else ""
+        ) + f"Anexos enviados: {names}\n\nConteúdo extraído dos anexos:\n{extracted[:MAX_TEXT_CHARS]}"
+    return await run_in_threadpool(
+        _chat_response,
+        combined[:MAX_TEXT_CHARS],
+        provider=provider,
+        model=model,
+        consent=consent_external_provider,
+    )
+
+
 @app.get("/api/v1/limits")
 def api_limits() -> dict[str, Any]:
     from src.adapters.files.file_extractors import MAX_TOTAL_UPLOAD_BYTES, MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES
@@ -395,6 +469,92 @@ def _resolve_piece_and_profile(
     return piece_type, profile, piece_type_inferred, profile_inferred
 
 
+def _resolve_chat_provider(provider: str | None) -> str:
+    resolved = (provider or LLM_PROVIDER or "mock").strip().lower()
+    if not resolved:
+        resolved = "mock"
+    if resolved not in LLM_CLIENT_ALLOWED_PROVIDERS:
+        raise HTTPException(status_code=422, detail=f"provider não permitido: {resolved}")
+    return resolved
+
+
+def _mock_chat_response(text: str) -> str:
+    lowered = text.lower()
+    if any(term in lowered for term in ("prazo", "competência", "competencia", "valor da causa")):
+        return (
+            "Posso ajudar a organizar esses pontos. Para revisão humana, confira competência, "
+            "prazo, valor da causa, legitimidade das partes, procuração e documentos essenciais. "
+            "Se quiser, peça: \"gere uma minuta com esses dados\"."
+        )
+    return (
+        "Entendi. Posso conversar sobre estratégia, estruturar fatos, listar documentos, revisar "
+        "argumentos ou preparar um roteiro da peça. Para gerar DOCX, peça explicitamente para "
+        "gerar uma minuta ou peça processual."
+    )
+
+
+def _ollama_chat(text: str, *, model: str | None = None) -> str:
+    endpoint = urllib.parse.urljoin(f"{OLLAMA_BASE_URL.rstrip('/')}/", "api/chat")
+    body = {
+        "model": model or LLM_MODEL or "llama3.1:8b",
+        "stream": False,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Você é um assistente jurídico brasileiro dentro de um sistema de peças "
+                    "processuais. Converse de forma objetiva, ajude a organizar fatos, teses, "
+                    "riscos e próximos passos. Não afirme que protocolou nada e não diga que "
+                    "gerou DOCX; a geração de documento é feita por outro fluxo quando o usuário "
+                    "pede explicitamente."
+                ),
+            },
+            {"role": "user", "content": text},
+        ],
+        "options": {
+            "temperature": LLM_TEMPERATURE,
+            "num_predict": min(LLM_MAX_OUTPUT_TOKENS, 1200),
+        },
+    }
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:  # nosec B310
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:300]
+        raise HTTPException(status_code=502, detail=f"falha Ollama HTTP {exc.code}: {detail}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise HTTPException(status_code=502, detail="falha ao conversar com Ollama local") from exc
+    message = payload.get("message") if isinstance(payload, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    if not content:
+        raise HTTPException(status_code=502, detail="Ollama retornou resposta vazia")
+    return str(content).strip()
+
+
+def _chat_response(text: str, *, provider: str | None, model: str | None, consent: bool) -> dict[str, Any]:
+    resolved = _resolve_chat_provider(provider)
+    if resolved in {"openai", "anthropic", "gemini", "openrouter"} and not consent:
+        raise HTTPException(status_code=422, detail="provider externo exige consentimento explícito")
+    if resolved == "mock":
+        answer = _mock_chat_response(text)
+        used_model = model or "mock-local"
+    elif resolved == "ollama":
+        answer = _ollama_chat(text, model=model)
+        used_model = model or LLM_MODEL or "llama3.1:8b"
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="chat direto está disponível para mock e ollama nesta instalação local",
+        )
+    return {"answer": answer, "provider": resolved, "model": used_model}
+
+
 def _generate_from_text(
     *,
     text: str,
@@ -402,6 +562,9 @@ def _generate_from_text(
     piece_type_id: str | None,
     remetente: str,
     assunto: str,
+    person_name: str | None = None,
+    case_number: str | None = None,
+    location: str | None = None,
     source_filename: str | None = None,
     output_mode: str | None = None,
     llm: LLMRequestOptions | None = None,
@@ -426,6 +589,9 @@ def _generate_from_text(
         "piece_type_inferred": piece_type_inferred,
         "profile_inferred": profile_inferred,
         "source_filename": source_filename,
+        "person_name": person_name,
+        "case_number": case_number,
+        "location": location,
         "mode_requested": mode_requested,
         "mode_delivered": mode_requested,
     }
@@ -515,6 +681,9 @@ async def generate_document(payload: DocumentRequest) -> dict[str, Any]:
         piece_type_id=payload.piece_type_id,
         remetente=payload.remetente,
         assunto=payload.assunto,
+        person_name=payload.person_name,
+        case_number=payload.case_number,
+        location=payload.location,
         output_mode=payload.output_mode,
         llm=LLMRequestOptions(
             provider=payload.llm.provider if payload.llm else None,
@@ -541,6 +710,9 @@ async def generate_document_from_upload(
     llm_consent_external_provider: bool | None = Form(default=None),
     remetente: str = Form(default="upload.local@example.com"),
     assunto: str = Form(default="Geração por upload local"),
+    person_name: str | None = Form(default=None),
+    case_number: str | None = Form(default=None),
+    location: str | None = Form(default=None),
 ) -> dict[str, Any]:
     uploads = list(files or [])
     if file is not None:
@@ -563,6 +735,9 @@ async def generate_document_from_upload(
         piece_type_id=piece_type_id,
         remetente=remetente,
         assunto=assunto,
+        person_name=person_name,
+        case_number=case_number,
+        location=location,
         source_filename=source_names,
         output_mode=output_mode,
         llm=LLMRequestOptions(
@@ -581,6 +756,124 @@ def download_document(filename: str) -> FileResponse:
         filename=path.name,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
+
+
+def _piece_type_label(report: dict[str, Any]) -> str:
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+    piece_type = metadata.get("piece_type")
+    if isinstance(piece_type, dict):
+        return str(piece_type.get("nome") or piece_type.get("id") or "Peça processual")
+    profile_id = str(report.get("profile") or "")
+    return PROFILE_LABELS_PT.get(profile_id, profile_id or "Peça processual")
+
+
+def _parse_report_month(value: Any) -> str:
+    if not value:
+        return "Sem data"
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return "Sem data"
+    return f"{MONTH_LABELS_PT[parsed.month - 1]} {parsed.strftime('%y')}"
+
+
+def _generated_report_items() -> list[dict[str, Any]]:
+    reports_payload = list_reports()
+    generated: list[dict[str, Any]] = []
+    for report in reports_payload:
+        summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+        falhas = int(summary.get("falhas") or 0)
+        if not report.get("first_docx") or falhas:
+            continue
+        generated.append(report)
+    return generated
+
+
+def _piece_from_report(report: dict[str, Any]) -> dict[str, Any]:
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+    first_docx = report.get("first_docx")
+    validos = int(summary.get("validos") or 0)
+    bloqueados = int(summary.get("bloqueados") or 0)
+    status_label = "Finalizado" if first_docx and validos and not bloqueados else "Em andamento"
+    llm = report.get("first_llm") if isinstance(report.get("first_llm"), dict) else {}
+    return {
+        "id": Path(str(report.get("name") or uuid4())).stem,
+        "person": metadata.get("person_name") or "Registro local",
+        "process": metadata.get("case_number") or "Não informado",
+        "type": _piece_type_label(report),
+        "status": status_label,
+        "provider": llm.get("provider") or LLM_PROVIDER,
+        "model": llm.get("model") or LLM_MODEL,
+        "location": metadata.get("location") or "Cidade/UF não informada",
+        "created_at": report.get("generated_at"),
+        "document": first_docx,
+        "download_url": f"/api/v1/documents/{first_docx}/download" if first_docx else None,
+        "report_json_url": f"/api/v1/reports/{report.get('name')}" if report.get("name") else None,
+        "report_html_url": f"/api/v1/reports/{report.get('html_name')}" if report.get("html_name") else None,
+        "summary": summary,
+    }
+
+
+@app.get("/api/v1/pieces", dependencies=[Depends(require_api_token)])
+def pieces() -> dict[str, Any]:
+    """Lista simplificada para o novo workspace web."""
+    return {"items": [_piece_from_report(report) for report in _generated_report_items()]}
+
+
+@app.get("/api/v1/dashboard", dependencies=[Depends(require_api_token)])
+def dashboard() -> dict[str, Any]:
+    """Métricas operacionais para a tela inicial do novo workspace."""
+    reports_payload = _generated_report_items()
+    items = [_piece_from_report(report) for report in reports_payload]
+    total = len(items)
+    finalized = sum(1 for item in items if item["status"] == "Finalizado")
+    in_progress = max(0, total - finalized)
+    by_month: Counter[str] = Counter()
+    month_order: list[str] = []
+    for report in reversed(reports_payload):
+        month_label = _parse_report_month(report.get("generated_at"))
+        if month_label not in by_month:
+            month_order.append(month_label)
+        by_month[month_label] += 1
+    top_piece_types = Counter(_piece_type_label(report) for report in reports_payload)
+    by_location = Counter(
+        str(item.get("location") or "Cidade/UF não informada")
+        for item in items
+    )
+    return {
+        "metrics": {
+            "total": total,
+            "in_progress": in_progress,
+            "finalized": finalized,
+        },
+        "provider": {
+            "default_provider": LLM_PROVIDER,
+            "default_model": LLM_MODEL,
+            "allowed_providers": list(LLM_CLIENT_ALLOWED_PROVIDERS),
+            "allow_client_provider": LLM_ALLOW_CLIENT_PROVIDER,
+            "required": LLM_REQUIRED,
+        },
+        "recent": items[:5],
+        "monthly_evolution": [
+            {"label": label, "total": total_count}
+            for label in month_order[-6:]
+            for total_count in [by_month[label]]
+        ],
+        "top_piece_types": [
+            {"label": label, "total": total_count}
+            for label, total_count in top_piece_types.most_common(5)
+        ],
+        "by_location": [
+            {"label": label, "total": total_count}
+            for label, total_count in by_location.most_common(5)
+        ],
+        "warnings": [
+            "Revise competência, prazos, OAB, procuração, anexos e valor da causa.",
+            "Use provider externo apenas com consentimento explícito.",
+            "A minuta gerada exige revisão humana antes de qualquer protocolo.",
+        ],
+    }
 
 
 @app.get("/api/v1/reports", dependencies=[Depends(require_api_token)])

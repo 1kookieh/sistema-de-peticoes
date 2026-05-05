@@ -3,242 +3,312 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LexDoc - Criador Juridico com IA</title>
-  <meta name="description" content="Crie minutas juridicas em DOCX com IA configurada no backend e revisao humana obrigatoria.">
+  <title>LexDoc - IA Jurídica</title>
+  <meta name="description" content="Workspace com IA para gerar, revisar e baixar peças processuais em DOCX.">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Pular para o conteudo principal</a>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M8.5 4.5a3 3 0 0 0-3 3v.2A3.6 3.6 0 0 0 3 11.2c0 1.5.9 2.8 2.1 3.3A3.2 3.2 0 0 0 8.5 20V4.5Z"/><path d="M15.5 4.5a3 3 0 0 1 3 3v.2a3.6 3.6 0 0 1 2.5 3.5c0 1.5-.9 2.8-2.1 3.3a3.2 3.2 0 0 1-3.4 5.5V4.5Z"/><path d="M8.5 8.5H7"/><path d="M15.5 8.5H17"/><path d="M8.5 14H7"/><path d="M15.5 14H17"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .4 2.2-2.3 2.3-2.2-.5a7.7 7.7 0 0 1-1.5.7L13 22h-3l-.8-2.3a7.7 7.7 0 0 1-1.5-.7l-2.2.5-2.3-2.3.4-2.2A8 8 0 0 1 3 13.5L1 12l2-1.5A8 8 0 0 1 3.6 9l-.4-2.2 2.3-2.3 2.2.5c.5-.3 1-.5 1.5-.7L10 2h3l.8 2.3c.5.2 1 .4 1.5.7l2.2-.5 2.3 2.3-.4 2.2c.3.5.5 1 .6 1.5l2 1.5-2 1.5c-.1.5-.3 1-.6 1.5Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/><path d="M8 7h.01"/><path d="M8 17h.01"/><path d="M12 7h4"/><path d="M12 17h4"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 19V9"/><path d="M12 19V5"/><path d="M19 19v-7"/><path d="M3 19h18"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="m12 3 10 18H2Z"/><path d="M12 9v5"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l9.3-9.3a4 4 0 1 1 5.7 5.7l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.8-8.8"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  </svg>
 
-  <header class="topbar" role="banner">
-    <div class="topbar-inner">
-      <a class="brand" href="/" aria-label="LexDoc, criador juridico com IA">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="28" height="28">
-            <rect x="4" y="3" width="22" height="26" rx="3" fill="currentColor" opacity=".18"/>
-            <rect x="4" y="3" width="22" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
-            <path d="M9 11h12M9 15h12M9 19h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span class="brand-text">
+  <a class="skip-link" href="#main">Pular para o conteúdo principal</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="/" aria-label="LexDoc">
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <span>
           <strong>LexDoc</strong>
-          <small>Criador Juridico com IA</small>
+          <small>IA jurídica</small>
         </span>
       </a>
 
-      <nav class="topnav" aria-label="Navegacao principal">
-        <a class="topnav-item active" href="#main">Inicio</a>
-        <a class="topnav-item" href="#card-piece">Dados</a>
-        <a class="topnav-item" href="#card-result">Resultado</a>
-        <a class="topnav-item" href="#card-advanced">Configuracoes</a>
+      <nav class="tabs" aria-label="Abas do aplicativo">
+        <button class="tab-button is-active" type="button" data-tab-target="dashboard">
+          <svg class="tab-icon" aria-hidden="true"><use href="#i-home"></use></svg>
+          <span>Início</span>
+        </button>
+        <button class="tab-button" type="button" data-tab-target="ai">
+          <svg class="tab-icon" aria-hidden="true"><use href="#i-brain"></use></svg>
+          <span>IA</span>
+        </button>
+        <button class="tab-button" type="button" data-tab-target="pieces">
+          <svg class="tab-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+          <span>Peças</span>
+        </button>
+        <button class="tab-button" type="button" data-tab-target="settings">
+          <svg class="tab-icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+          <span>Configurações</span>
+        </button>
       </nav>
 
-      <div class="topbar-actions">
-        <button id="theme-toggle" class="ghost-btn" type="button" aria-pressed="false">Modo escuro</button>
-        <span class="avatar" aria-hidden="true">IG</span>
-      </div>
-    </div>
-  </header>
+      <section class="side-card">
+        <span class="eyebrow">Sessão local</span>
+        <strong id="side-provider">Provider carregando</strong>
+        <p>Use Mock para testes, Ollama para IA local e providers externos somente com consentimento.</p>
+      </section>
 
-  <main id="main" class="shell">
-    <section class="hero">
-      <span class="eyebrow">
-        <span class="dot" aria-hidden="true"></span>
-        Criacao com IA · Processamento local · Revisao humana obrigatoria
-      </span>
-      <h1>Criar documento juridico com IA</h1>
-      <p class="hero-sub">Envie os dados do caso; o backend monta os prompts versionados, chama o provider configurado, valida a resposta e gera um DOCX revisavel.</p>
-      <p id="step-helper" class="step-helper" aria-live="polite">Etapa 1 de 3 - escolha o tipo e informe os dados do caso.</p>
-
-      <ol class="stepper" aria-label="Etapas do fluxo">
-        <li class="step-node is-active" data-step="1">
-          <span class="step-num">1</span>
-          <span class="step-label">Dados <small class="step-status">ativo</small></span>
-        </li>
-        <li class="step-node" data-step="2">
-          <span class="step-num">2</span>
-          <span class="step-label">IA <small class="step-status">pendente</small></span>
-        </li>
-        <li class="step-node" data-step="3">
-          <span class="step-num">3</span>
-          <span class="step-label">DOCX <small class="step-status">pendente</small></span>
-        </li>
-      </ol>
-    </section>
-
-    <section class="layout">
-      <form id="generator-form" class="card form-card stack" novalidate>
-        <header id="card-piece" class="card-head">
-          <h2><span class="num-chip">1</span> Documento</h2>
-          <p class="muted">Escolha manualmente ou deixe o backend detectar pelo conteudo.</p>
-        </header>
-
-        <div class="grid">
-          <label class="field">
-            <span class="field-label">Tipo de documento <em class="optional-tag">opcional</em></span>
-            <select id="piece-type"></select>
-            <span class="field-hint muted">Deixe em <em>Detectar automaticamente</em> para inferir pelo texto.</span>
-          </label>
-          <label class="field">
-            <span class="field-label">Perfil formal <em class="optional-tag">opcional</em></span>
-            <select id="profile"></select>
-            <span class="field-hint muted">Define o modelo e as regras formais usadas no DOCX.</span>
-          </label>
+      <section class="side-status">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <div>
+          <strong>Backend local</strong>
+          <span id="api-health-label">Verificando...</span>
         </div>
+      </section>
+    </aside>
 
-        <div class="quick-type-bar" aria-label="Escolhas rapidas por tipo de peca">
-          <span class="muted small">Atalhos:</span>
-          <button class="quick-chip" type="button" data-piece-quick="auxilio-incapacidade-temporaria">Inicial</button>
-          <button class="quick-chip" type="button" data-piece-quick="recurso-inominado">Recurso</button>
-          <button class="quick-chip" type="button" data-piece-quick="juntada-documentos">Juntada</button>
-          <button class="quick-chip" type="button" data-piece-quick="cumprimento-sentenca-implantacao">Cumprimento</button>
-          <button class="quick-chip" type="button" data-piece-quick="impugnacao-cumprimento-sentenca">Impugnacao</button>
-          <button class="quick-chip" type="button" data-piece-quick="mandado-seguranca-previdenciario">MS</button>
+    <main id="main" class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Sistema de petições com IA</span>
+          <h1 id="page-title">Início</h1>
         </div>
-
-        <div id="profile-details" class="profile-details" aria-live="polite"></div>
-        <div id="piece-hint" class="hint"></div>
-
-        <details id="card-advanced" class="advanced">
-          <summary>
-            <span class="adv-icon" aria-hidden="true">*</span>
-            <span>Configuracoes avancadas</span>
-            <span class="muted adv-sub">Configure token local e autorizacao para uso de IA externa.</span>
-          </summary>
-          <label class="field">
-            <span class="field-label">Token da API <em class="optional-tag">opcional</em></span>
-            <input id="api-token" type="password" autocomplete="off" placeholder="Use apenas se API_TOKEN estiver configurado no servidor">
-            <span class="field-hint muted">Necessario quando o backend exige autenticacao.</span>
-          </label>
-          <label class="field">
-            <span class="field-label">Modo de saida</span>
-            <select id="output-mode">
-              <option value="minuta" selected>Minuta revisavel</option>
-              <option value="final">Final com bloqueios formais rigidos</option>
-            </select>
-            <span class="field-hint muted">Use "final" apenas quando todos os dados estiverem completos.</span>
-          </label>
-          <div class="hint">
-            <strong>IA configurada no backend</strong>
-            <p class="muted">A IA e obrigatoria no fluxo principal. O servidor define a allowlist de providers; voce pode escolher entre as opcoes liberadas abaixo.</p>
-          </div>
-          <div class="grid">
-            <label class="field">
-              <span class="field-label">Provider de IA</span>
-              <select id="llm-provider" aria-describedby="llm-provider-hint"></select>
-              <span id="llm-provider-hint" class="field-hint muted">Use Mock para testes, Ollama para IA local sem chave, ou OpenAI/Anthropic com chave no servidor.</span>
-            </label>
-            <label class="field">
-              <span class="field-label">Modelo <em class="optional-tag">opcional</em></span>
-              <input id="llm-model" type="text" autocomplete="off" placeholder="Ex.: llama3.1:8b, gpt-4o-mini, claude-3-5-haiku-latest">
-              <span class="field-hint muted">Se vazio, o backend usa LLM_MODEL ou o padrao do provider.</span>
-            </label>
-          </div>
-          <div id="llm-external-warning" class="warning" hidden role="alert" aria-live="polite">
-            <strong>Atencao - IA externa configurada.</strong>
-            O texto pode ser enviado ao provider escolhido fora do seu computador. O backend aplica redaction parcial, mas nomes, fatos e contexto juridico ainda podem permanecer.
-          </div>
-          <label class="field" id="llm-consent-field" hidden>
-            <span class="field-label">
-              <input id="llm-consent" type="checkbox">
-              Confirmo que tenho autorizacao para enviar este texto ao provider externo configurado
-            </span>
-            <span class="field-hint muted">Obrigatorio quando o backend estiver configurado com OpenAI ou outro provider externo.</span>
-          </label>
-        </details>
-
-        <header class="card-head">
-          <h2><span class="num-chip">2</span> Dados do caso</h2>
-          <p class="muted">Cole texto ou envie arquivos para extracao automatica.</p>
-        </header>
-
-        <label id="upload-box" class="upload-box" tabindex="0">
-          <input id="file" type="file" multiple accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp">
-          <span class="upload-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="36" height="36">
-              <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <strong>Arraste arquivos aqui ou clique para selecionar</strong>
-          <span class="muted">Formatos: PDF, DOCX, TXT, MD ou imagens (JPG, PNG, WEBP)</span>
-          <span class="muted small">Ate 20 arquivos · 25 MB por arquivo · 200 MB no total</span>
-        </label>
-
-        <div id="file-info" class="file-info muted">Nenhum arquivo selecionado. O sistema usara o texto colado abaixo.</div>
-        <button id="clear-file" class="ghost-btn small" type="button" hidden>Remover arquivos e usar texto colado</button>
-
-        <label class="field">
-          <span class="field-label">Texto ou relato do caso</span>
-          <span class="quick-actions" aria-label="Acoes rapidas do texto">
-            <button id="paste-text" class="ghost-btn small" type="button">Colar texto</button>
-            <button id="clear-text" class="ghost-btn small" type="button">Limpar</button>
-            <button id="insert-example" class="ghost-btn small" type="button">Exemplo</button>
-          </span>
-          <textarea id="text" rows="8" placeholder="Cole aqui o relato do caso, dados fornecidos pelo cliente ou conteudo base para a IA..."></textarea>
-        </label>
-
-        <div id="form-alert" class="inline-alert" role="alert" aria-live="polite" hidden></div>
-
-        <div class="actions">
-          <button id="generate" class="primary-btn" type="submit">
-            <span class="btn-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6zM14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="btn-label">Criar documento com IA</span>
+        <div class="top-actions">
+          <button class="ghost-btn icon-btn" type="button" data-tab-target="ai">
+            <svg aria-hidden="true"><use href="#i-plus"></use></svg>
+            <span>Nova peça</span>
           </button>
-          <span class="muted">A resposta da IA e validada antes da geracao do DOCX.</span>
+        </div>
+      </header>
+
+      <section id="tab-dashboard" class="tab-panel is-active" aria-labelledby="page-title">
+        <div class="dashboard-grid">
+          <article class="metric-card">
+            <span class="metric-icon amber"><svg aria-hidden="true"><use href="#i-file"></use></svg></span>
+            <span>Total de peças</span>
+            <strong id="metric-total">0</strong>
+            <small>Registradas nesta máquina</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon blue"><svg aria-hidden="true"><use href="#i-clock"></use></svg></span>
+            <span>Em andamento</span>
+            <strong id="metric-progress">0</strong>
+            <small>Aguardando revisão ou ajustes</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-icon green"><svg aria-hidden="true"><use href="#i-check"></use></svg></span>
+            <span>Finalizadas</span>
+            <strong id="metric-final">0</strong>
+            <small>Com DOCX gerado</small>
+          </article>
+          <article class="metric-card accent">
+            <span class="metric-icon dark"><svg aria-hidden="true"><use href="#i-server"></use></svg></span>
+            <span>Provider padrão</span>
+            <strong id="metric-provider">--</strong>
+            <small id="metric-model">Modelo não carregado</small>
+          </article>
         </div>
 
-        <p class="warning">
-          <strong>Aviso:</strong> o sistema gera minuta. Revise merito, competencia, prazos, OAB, procuracao, anexos e valor da causa antes de qualquer uso profissional.
-        </p>
-      </form>
+        <div class="two-column">
+          <section class="panel-card">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Atividade</span>
+                <h2><svg aria-hidden="true"><use href="#i-file"></use></svg> Últimas peças</h2>
+              </div>
+              <button class="link-btn icon-btn" type="button" data-tab-target="pieces">
+                <span>Ver todas</span>
+              </button>
+            </div>
+            <div id="recent-list" class="activity-list"></div>
+          </section>
 
-      <aside class="panel">
-        <section id="card-result" class="card result-card">
-          <header class="card-head compact">
-            <h2><span class="num-chip">3</span> Resultado</h2>
-            <p class="muted">Downloads, alertas e relatorio da execucao atual aparecem aqui.</p>
-          </header>
-          <div id="result" class="result" aria-live="polite">
-            <div class="empty-state">
-              <span class="empty-illu" aria-hidden="true">
-                <svg viewBox="0 0 48 48" width="48" height="48"><path d="M14 6h14l8 8v22a4 4 0 01-4 4H14a4 4 0 01-4-4V10a4 4 0 014-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M28 6v8h8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 22h16M16 28h16M16 34h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-              </span>
-              <p><strong>Nenhum documento criado ainda.</strong></p>
-              <p class="muted">Apos a geracao, voce vera:</p>
-              <ul class="empty-result-list">
-                <li>Arquivo DOCX para baixar</li>
-                <li>Alertas formais encontrados</li>
-                <li>Resumo da validacao</li>
-                <li>Relatorio da execucao</li>
-              </ul>
+          <section class="panel-card review-alert-panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Operação</span>
+                <h2><svg aria-hidden="true"><use href="#i-warning"></use></svg> Alertas de revisão</h2>
+              </div>
+            </div>
+            <ul class="warning-list">
+              <li><svg aria-hidden="true"><use href="#i-warning"></use></svg><span>Conferir competência, prazo, valor da causa e procuração antes de protocolar.</span></li>
+              <li><svg aria-hidden="true"><use href="#i-info"></use></svg><span>Providers externos podem receber dados do caso; use apenas com autorização.</span></li>
+              <li><svg aria-hidden="true"><use href="#i-shield"></use></svg><span>O sistema gera minuta e não substitui revisão profissional.</span></li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="analytics-grid">
+          <section class="panel-card analytic-card wide">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Evolução</span>
+                <h2><svg aria-hidden="true"><use href="#i-chart"></use></svg> Evolução Mensal</h2>
+              </div>
+            </div>
+            <div id="monthly-chart" class="monthly-chart" aria-label="Quantidade de peças geradas por mês"></div>
+          </section>
+
+          <section class="panel-card analytic-card">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Localidade</span>
+                <h2><svg aria-hidden="true"><use href="#i-map"></use></svg> Peças por Cidade/UF</h2>
+              </div>
+            </div>
+            <div id="location-chart" class="bar-list" aria-label="Peças agrupadas por cidade e estado"></div>
+          </section>
+
+          <section class="panel-card analytic-card">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Ranking</span>
+                <h2><svg aria-hidden="true"><use href="#i-bars"></use></svg> Top 5 Tipos de Peça</h2>
+              </div>
+            </div>
+            <div id="top-types-chart" class="bar-list" aria-label="Tipos de peças mais gerados"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="tab-ai" class="tab-panel">
+        <div class="ai-conversation-shell">
+          <section class="chat-card conversation-card" aria-label="Conversa com IA">
+            <div class="chat-head conversation-head">
+              <div>
+                <span class="eyebrow">Assistente jurídico</span>
+                <h2><svg aria-hidden="true"><use href="#i-brain"></use></svg> Conversa com IA</h2>
+                <p>Converse com a IA, anexe arquivos e peça a ela para organizar fatos, revisar teses ou gerar peças.</p>
+              </div>
+              <span id="generation-state" class="status-chip neutral">Pronto</span>
+            </div>
+
+            <div id="chat-thread" class="chat-thread conversation-thread" aria-live="polite"></div>
+
+            <div class="attachment-list" id="attachment-list"></div>
+            <form id="chat-form" class="composer conversation-composer">
+              <label class="composer-square attachment-btn" title="Anexar arquivos" aria-label="Anexar arquivos">
+                <input id="file-input" type="file" multiple accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp">
+                <svg aria-hidden="true"><use href="#i-paperclip"></use></svg>
+              </label>
+              <div class="provider-picker">
+                <button class="composer-square provider-tool" id="provider-button" type="button" title="Selecionar IA" aria-label="Selecionar IA" aria-expanded="false">
+                  <span id="provider-icon" class="provider-brand provider-brand-generic" aria-hidden="true">IA</span>
+                </button>
+                <select id="provider-select" class="sr-only" aria-label="Selecionar IA"></select>
+                <div id="provider-menu" class="provider-menu" hidden></div>
+              </div>
+              <textarea id="chat-input" rows="2" placeholder="Converse com a IA, peça uma tese, revise um argumento ou solicite uma peça processual..."></textarea>
+              <button id="send-button" class="primary-btn icon-btn" type="submit">
+                <svg aria-hidden="true"><use href="#i-send"></use></svg>
+                <span>Enviar</span>
+              </button>
+            </form>
+            <div class="ai-options-strip">
+              <label id="external-consent-row" class="check-row compact-consent" hidden>
+                <input id="external-consent" type="checkbox">
+                <span>Autorizo envio para provider externo</span>
+              </label>
+              <p id="provider-note" class="note">Carregando configuração do backend...</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="tab-pieces" class="tab-panel">
+        <section class="panel-card full">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Acervo local</span>
+              <h2><svg aria-hidden="true"><use href="#i-file"></use></svg> Peças geradas</h2>
+            </div>
+            <div class="table-tools">
+              <input id="piece-search" type="search" placeholder="Buscar pessoa, processo ou tipo">
+              <button class="ghost-btn icon-btn" type="button" id="refresh-pieces">
+                <svg aria-hidden="true"><use href="#i-search"></use></svg>
+                <span>Atualizar</span>
+              </button>
             </div>
           </div>
+          <div class="table-wrap">
+            <table class="pieces-table">
+              <thead>
+                <tr>
+                  <th>Pessoa</th>
+                  <th>Processo</th>
+                  <th>Tipo</th>
+                  <th>Status</th>
+                  <th>IA</th>
+                  <th class="actions-col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pieces-table-body"></tbody>
+            </table>
+          </div>
         </section>
+      </section>
 
-        <section class="card">
-          <header class="card-head compact">
-            <h2>Conferencia obrigatoria</h2>
-            <p class="muted">Antes de gerar, confirme pelo menos um item revisado.</p>
-            <strong id="checklist-status" class="checklist-status">Conferencia pendente</strong>
-          </header>
-          <ul class="checklist">
-            <li><label><input class="preflight-check" type="checkbox"> Dados das partes preenchidos</label></li>
-            <li><label><input class="preflight-check" type="checkbox"> Competencia, prazos e valor da causa revisados</label></li>
-            <li><label><input class="preflight-check" type="checkbox"> OAB, procuracao e anexos conferidos</label></li>
-            <li><label><input class="preflight-check" type="checkbox"> Merito validado por profissional habilitado</label></li>
-          </ul>
-        </section>
-      </aside>
-    </section>
+      <section id="tab-settings" class="tab-panel">
+        <div class="settings-grid">
+          <section class="panel-card">
+            <span class="eyebrow">Aparência</span>
+            <h2>Tema</h2>
+            <div class="segmented" role="group" aria-label="Tema">
+              <button type="button" data-theme-choice="light">Claro</button>
+              <button type="button" data-theme-choice="dark">Escuro</button>
+              <button type="button" data-theme-choice="system">Sistema</button>
+            </div>
+          </section>
 
-    <footer class="page-foot muted">
-      <span>LexDoc · Sistema de Peticoes</span>
-      <span>IA supervisionada: nao substitui advogado e nao dispensa revisao humana.</span>
-    </footer>
-  </main>
+          <section class="panel-card">
+            <span class="eyebrow">Credenciais</span>
+            <h2>Token da API</h2>
+            <label class="field">
+              <span>X-API-Token</span>
+              <input id="api-token" type="password" autocomplete="off" placeholder="Use somente se o backend exigir token">
+            </label>
+            <p class="note">O token fica salvo apenas no navegador local por 12 horas.</p>
+          </section>
 
-  <script type="module" src="/static/app.js"></script>
+          <section class="panel-card">
+            <span class="eyebrow">Privacidade</span>
+            <h2>Preferências</h2>
+            <label class="check-row"><input id="prefer-local" type="checkbox" checked> Preferir providers locais quando disponíveis</label>
+            <label class="check-row"><input id="remember-settings" type="checkbox" checked> Manter minhas preferências neste navegador</label>
+            <label class="check-row"><input id="strict-review" type="checkbox" checked> Exigir checklist antes de gerar</label>
+          </section>
+
+          <section class="panel-card">
+            <span class="eyebrow">Status</span>
+            <h2>Backend e modelos</h2>
+            <dl class="status-list">
+              <div><dt>Provider padrão</dt><dd id="settings-provider">--</dd></div>
+              <div><dt>Modelo padrão</dt><dd id="settings-model">--</dd></div>
+              <div><dt>Providers permitidos</dt><dd id="settings-allowed">--</dd></div>
+            </dl>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="message-template">
+    <article class="message">
+      <div class="message-avatar"></div>
+      <div class="message-body"></div>
+    </article>
+  </template>
+
+  <script type="module" src="/static/app.js?v=lexdoc-app-v13"></script>
 </body>
 </html>

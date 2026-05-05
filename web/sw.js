@@ -1,12 +1,9 @@
-const CACHE_NAME = "sistema-peticoes-static-v1";
+const CACHE_NAME = "sistema-peticoes-app-v3";
 const STATIC_ASSETS = [
   "/",
   "/static/styles.css",
   "/static/app.js",
-  "/static/api.js",
-  "/static/ui.js",
-  "/static/render.js",
-  "/static/state/store.js",
+  "/static/sw.js",
 ];
 
 function isSensitiveRequest(request) {
@@ -33,22 +30,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (isSensitiveRequest(event.request)) return;
-
   const url = new URL(event.request.url);
-  if (url.pathname === "/") {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request)),
-    );
-    return;
-  }
-
-  if (STATIC_ASSETS.includes(url.pathname)) {
-    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
-  }
+  if (!STATIC_ASSETS.includes(url.pathname)) return;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request)),
+  );
 });
