@@ -140,6 +140,8 @@ async def local_rate_limit(request: Request, call_next):
         "/api/v1/setup",
         "/api/v1/documents",
         "/api/v1/documents/upload",
+        "/api/v1/chat",
+        "/api/v1/chat/upload",
     }:
         client = request.client.host if request.client else "local"
         now = monotonic()
