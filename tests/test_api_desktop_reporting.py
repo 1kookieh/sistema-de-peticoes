@@ -57,7 +57,7 @@ def test_api_limits_exposes_runtime_limits():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["max_text_chars"] == 500_000
+    assert payload["max_text_chars"] == 80_000
     assert payload["max_upload_files"] == 20
     assert payload["max_docx_bytes"] > 0
     assert "anthropic" in payload["llm_allowed_providers"]
@@ -408,16 +408,17 @@ def test_history_lists_reports(tmp_path):
 
     reports = list_reports(tmp_path)
 
-    assert reports == [
-        {
-            "name": "demo.json",
-            "html_name": "demo.html",
-            "generated_at": "2026-04-24T18:00:00-03:00",
-            "profile": "judicial-inicial-jef",
-            "summary": {"total": 1, "validos": 1},
-            "first_docx": "peticao.docx",
-        }
-    ]
+    assert len(reports) == 1
+    entry = reports[0]
+    assert entry["name"] == "demo.json"
+    assert entry["html_name"] == "demo.html"
+    assert entry["generated_at"] == "2026-04-24T18:00:00-03:00"
+    assert entry["profile"] == "judicial-inicial-jef"
+    assert entry["summary"] == {"total": 1, "validos": 1}
+    assert entry["first_docx"] == "peticao.docx"
+    assert entry["first_status"] is None
+    assert entry["first_llm"] == {}
+    assert entry["metadata"] == {}
 
 
 def test_html_report_escapes_content():
@@ -459,18 +460,16 @@ def test_frontend_uses_only_api_v1_routes():
 def test_frontend_focuses_on_ai_document_creation():
     web_dir = Path(__file__).resolve().parents[1] / "web"
     html = (web_dir / "index.html").read_text(encoding="utf-8")
-    ui_js = (web_dir / "ui.js").read_text(encoding="utf-8")
+    app_js = (web_dir / "app.js").read_text(encoding="utf-8")
 
-    assert 'id="generate"' in html
+    assert 'id="chat-input"' in html
+    assert 'id="chat-thread"' in html
     assert 'id="validate"' not in html
-    assert 'id="llm-provider"' in html
     assert 'value="none"' not in html
     assert 'id="card-history"' not in html
-    assert "Criar documento com IA" in html
     assert "Validar texto" not in html
     assert "Gerar e validar DOCX" not in html
-    assert 'generateFromText("triagem")' not in ui_js
-    assert 'generateFromUpload(uploads, "triagem")' not in ui_js
+    assert '"triagem"' not in app_js
 
 
 def test_service_worker_does_not_cache_sensitive_routes():
