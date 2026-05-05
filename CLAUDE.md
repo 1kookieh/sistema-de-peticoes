@@ -1,206 +1,66 @@
-﻿# CLAUDE.md — Integração Supervisionada com Claude
+# Project Snapshot
+- Sistema de Petições: AI-first pipeline that drafts, validates and renders Brazilian legal petitions as `.docx`.
+- Goal: structured-JSON LLM output -> validated DOCX via python-docx, with audit reports.
+- Users: lawyers/paralegals; every output requires human attorney review before filing.
+- Constraints: `LLM_REQUIRED=true`; providers from backend allowlist (`mock`, `ollama`, `openai`, `anthropic`); external providers need explicit per-request consent; partial PII redaction (CPF/CNPJ/NIT/NB/RG/CEP/phone/email) — not full anonymization.
 
-Este arquivo orienta o uso do Claude ou de agentes Claude com o **Sistema de Petições**. O projeto **cria, valida e renderiza** documentos jurídicos `.docx` em ambiente local. O fluxo principal é AI-first: `LLM_REQUIRED=true` e o provider vem da configuração/allowlist do backend (`mock` para desenvolvimento/testes, `ollama` para IA local e `openai`/`anthropic` para uso externo controlado).
+# Stack & Commands
+- Python 3 + FastAPI/Uvicorn, python-docx, pytest, ruff, mypy (gradual), bandit, pip-audit.
+- Setup: `python -m venv .venv` then `.\.venv\Scripts\Activate.ps1` then `pip install -r requirements.txt` then `python -m src --setup`.
+- Run API: `uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload` (serves `http://127.0.0.1:8000`).
+- Compile: `python -m compileall config.py src tests`.
+- Tests: `pytest -q`. Lint: `ruff check .`. Types (scoped): `mypy config.py src/infra/llm`.
+- Security: `pip-audit -r requirements.txt --strict` and `bandit -q -r src`.
+- Pipeline demo: `python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json`.
 
-Quando IA estiver ativada, `prompt_peticao.md` e `prompt_formatacao_word.md` compõem o prompt final, a resposta deve ser JSON estruturado e o DOCX é renderizado a partir dessa estrutura validada. A revisão humana por advogado responsável continua obrigatória antes de qualquer protocolo.
+# Structure Rules
+- `src/core/` domain, piece types, profiles, prompts, validations.
+- `src/adapters/` inbox/outbox + file extraction.
+- `src/infra/` DOCX, LLM, locks, logging, local state.
+- `src/interfaces/` API, CLI, desktop.
+- `src/orchestration/` pipeline, reports, retention, setup.
+- Versioned prompts live in `prompts/` (`prompt_peticao.md`, `prompt_formatacao_word.md`) — single source for LLM guidance.
+- Fixtures only in `examples/` and `tests/`. No business logic in `interfaces/` beyond glue.
 
-## Princípios obrigatórios
+# Agent Workflow
+- Think Before Coding: read README/CLAUDE.md and target file; check `git status`; state assumptions; surface ambiguity before editing.
+- Simplicity First: smallest change that satisfies the request; no speculative abstractions, flags or configurability.
+- Surgical Changes: touch only required files; match existing style; no drive-by refactor or formatting churn; remove only dead code your change creates.
+- Goal-Driven Execution: define success criteria; reproduce bugs with a focused test when practical; run validation or report why it was skipped.
 
-- Não inventar fatos, documentos, datas, números de benefício, OAB, valores ou jurisprudência.
-- Não afirmar que uma peça está pronta para protocolo.
-- Não substituir análise jurídica de mérito.
-- Sinalizar lacunas, inconsistências e pontos que exigem revisão humana.
-- Preservar dados sensíveis e evitar expor conteúdo de peças, relatórios e filas locais.
-- Usar os prompts versionados do repositório como fonte principal de orientação.
+# Testing & Validation
+- After code changes run `python -m compileall config.py src tests` then `pytest -q`.
+- Touching prompts/LLM/DOCX: add or update fixtures and unit tests in `tests/`.
+- UI changes: open `http://127.0.0.1:8000` and verify console + basic flow.
+- Default `LLM_PROVIDER=mock` for tests/dev. Never call external providers with real client data.
 
-## Prompts oficiais
+# Security Rules
+- NEVER commit `.env`, `output/*.docx`, `reports/*.json|*.html`, `mcp_inbox.json`, `mcp_outbox.json`, `mcp_status.json`, or real client documents.
+- NEVER log full prompts, petition bodies or PII; reports store prompt SHA-256, not prompt text.
+- NEVER call external LLM providers without `consent_external_provider=true` (request/upload/CLI flag).
+- NEVER weaken `API_REQUIRE_TOKEN`; in Docker set `API_TOKEN` and require `X-API-Token` for sensitive routes.
+- NEVER claim full anonymization — redaction is pattern-based and partial.
+- Keep `/api/v1` as the API contract.
 
-| Arquivo | Função |
-|---|---|
-| `prompts/prompt_peticao.md` | Orienta a estrutura jurídica, limites, catálogo de peças, tom e cautelas de geração. |
-| `prompts/prompt_formatacao_word.md` | Orienta o padrão formal esperado para Word/DOCX. |
+# Sensitive Areas
+- `prompts/prompt_peticao.md`, `prompts/prompt_formatacao_word.md` (changes shift LLM behavior; audit hashes in reports).
+- `src/infra/llm/` (provider allowlist, redaction, consent gating).
+- `src/infra/` DOCX renderer (formatting contract).
+- `config.py`, `Dockerfile`, API token handling.
+- `requirements.txt` (pip-audit gate).
+- Inbox/outbox/state files at repo root [INFERENCE — CONFIRM paths in code].
 
-O pipeline Python carrega e audita esses dois prompts. O relatório registra `prompt_usage` com nome, caminho e hash SHA-256. Em modo IA, o relatório também registra `llm` com provedor, modelo, hash do prompt final e flags de mock/fallback, sem salvar o prompt completo por padrão.
+# Known Pitfalls
+- DO NOT invent facts, OAB, NB, dates, monetary values or jurisprudence — mark gaps as `[REVISAR]`.
+- DO NOT state a petition is ready to file; human attorney review is mandatory.
+- Prefer plain text output for DOCX targets; avoid heavy Markdown in generated content.
+- `mypy` is gradual — only `config.py` and `src/infra/llm` are CI-enforced.
 
-## Redaction e consentimento de IA externa
-
-Providers externos, como `openai` e `anthropic`, exigem consentimento explícito por requisição (`llm.consent_external_provider=true`, campo de upload `llm_consent_external_provider=true` ou flag CLI `--llm-consent-external`). Sem isso, o pipeline retorna `llm_error` e não chama a API externa. `ollama` é tratado como provider local e não exige chave externa.
-
-Antes de chamar um provider externo, o backend aplica mascaramento textual em padrões como CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail. Isso reduz exposição acidental, mas não remove nomes próprios nem todos os fatos sensíveis. Agentes não devem afirmar anonimização completa.
-
-## Fluxo recomendado com Claude
-
-```text
-Entrada do usuário ou arquivo
-  -> provider LLM configurado no backend gera JSON estruturado usando os prompts versionados
-  -> Sistema detecta tipo de peça e perfil formal
-  -> Sistema valida texto antes de renderizar
-  -> Sistema aplica prompt_formatacao_word.md como contrato de formatação
-  -> Sistema gera DOCX com python-docx
-  -> Sistema valida DOCX e gera relatório
-  -> Advogado revisa antes de qualquer uso real
-```
-
-## Como rodar o projeto
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m src --setup
-uvicorn src.interfaces.api:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Acesse `http://127.0.0.1:8000`.
-
-## Comandos de validação
-
-```bash
-python -m compileall config.py src tests
-pytest -q
-ruff check .
-mypy config.py src/infra/llm
-pip-audit -r requirements.txt --strict
-bandit -q -r src
-python -m src --inbox examples/inbox_valid.json --profile judicial-inicial-jef --strict --no-outbox --report reports/demo_report.json
-```
-
-O `mypy` ainda é gradual; o escopo validado no CI é `config.py` e `src/infra/llm`.
-
-## Docker e token da API
-
-O `Dockerfile` define `API_REQUIRE_TOKEN=1`. Ao rodar em container, defina `API_TOKEN` e use o mesmo valor no header `X-API-Token` para rotas sensíveis. Não rode container sem token fora de `127.0.0.1` ou demonstração local isolada.
-
-## Arquitetura atual
-
-```text
-src/
-  core/            domínio, tipos de peça, perfis, prompts e validações
-  adapters/        leitura de inbox, escrita de outbox e extração de arquivos
-  infra/           DOCX, LLM, locks, logging e estado local
-  interfaces/      API, CLI e desktop
-  orchestration/   pipeline, relatórios, retenção e setup
-```
-
-## Diretrizes comportamentais para agentes
-
-Estas diretrizes reduzem erros comuns de agentes LLM. Elas priorizam cautela sobre velocidade; para tarefas triviais, use julgamento.
-
-### 1. Pense antes de codar
-
-Nao assuma, nao esconda confusao e explicite tradeoffs antes de implementar:
-
-- Declare suposicoes explicitamente. Se estiver incerto, pergunte.
-- Se houver multiplas interpretacoes, apresente-as em vez de escolher silenciosamente.
-- Se existir uma abordagem mais simples, diga. Conteste quando fizer sentido.
-- Se algo estiver confuso, pare, nomeie a duvida e pergunte.
-
-### 2. Simplicidade primeiro
-
-Use o minimo de codigo que resolve o problema. Nada especulativo.
-
-- Nao adicione funcionalidades alem do pedido.
-- Nao crie abstracoes para codigo de uso unico.
-- Nao adicione flexibilidade ou configurabilidade que nao foi solicitada.
-- Nao escreva tratamento de erro para cenarios impossiveis.
-- Se uma mudanca ficar muito maior do que precisa, simplifique antes de continuar.
-
-Pergunte: um engenheiro senior acharia isto overengineering? Se sim, reduza.
-
-### 3. Mudancas cirurgicas
-
-Toque somente no necessario e limpe apenas a sujeira criada pela propria mudanca.
-
-- Nao melhore codigo, comentarios ou formatacao adjacente sem relacao com o pedido.
-- Nao refatore codigo nao relacionado.
-- Siga o estilo existente, mesmo que voce fizesse diferente.
-- Se notar codigo morto nao relacionado, mencione em vez de apagar.
-- Remova imports, variaveis, funcoes e arquivos que suas proprias mudancas tornaram inutilizados.
-
-Cada linha alterada deve apontar diretamente para o pedido do usuario.
-
-### 4. Execucao orientada por objetivo
-
-Transforme tarefas em metas verificaveis e itere ate validar.
-
-- "Adicionar validacao" significa criar ou ajustar testes para entradas invalidas e faze-los passar.
-- "Corrigir bug" significa reproduzir com teste ou checagem direcionada e depois validar a correcao.
-- "Refatorar X" significa preservar comportamento e rodar os testes relevantes antes de finalizar.
-
-Para tarefas em varias etapas, declare um plano curto com verificacao:
-
-```text
-1. [Etapa] -> verificar: [checagem]
-2. [Etapa] -> verificar: [checagem]
-3. [Etapa] -> verificar: [checagem]
-```
-
-Estas diretrizes estao funcionando quando os diffs ficam menores, reescritas sao menos frequentes e perguntas de esclarecimento acontecem antes de erros de implementacao.
-
-## Regras para agentes Claude
-
-Antes de alterar código:
-
-1. Ler `README.md`, `CLAUDE.md` e o arquivo afetado.
-2. Rodar ou consultar `git status`.
-3. Entender se a mudança afeta geração, validação, API, front-end, prompts ou documentação.
-4. Fazer alterações pequenas e verificáveis.
-
-Depois de alterar código:
-
-1. Rodar `python -m compileall config.py src tests`.
-2. Rodar `pytest -q`.
-3. Se mexer na interface, abrir `http://127.0.0.1:8000` e verificar console/fluxo básico.
-4. Informar limitações e pendências humanas.
-
-## Segurança e dados sensíveis
-
-Nunca versionar:
-
-- `.env`
-- `output/*.docx`
-- `reports/*.json`
-- `reports/*.html`
-- `mcp_inbox.json`
-- `mcp_outbox.json`
-- `mcp_status.json`
-- documentos reais de clientes
-
-Use apenas fixtures fictícias em `examples/` e `tests/`.
-
-Em testes e desenvolvimento, prefira `LLM_PROVIDER=mock`. Não envie dados reais para providers externos. Redaction é parcial e não deve ser descrita como anonimização completa.
-
-## Limites jurídicos
-
-O sistema pode validar forma, estrutura e riscos evidentes. Ele não decide:
-
-- competência;
-- prazo;
-- tese jurídica correta;
-- cálculo final;
-- suficiência de prova;
-- estratégia processual;
-- viabilidade de protocolo.
-
-Esses pontos exigem advogado responsável.
-
-## Boas práticas de prompt engineering
-
-Ao usar Claude para gerar uma minuta:
-
-- delimite o tipo de peça, partes, fatos, documentos e objetivo;
-- destaque lacunas explicitamente;
-- peça saída em texto limpo, sem Markdown excessivo, quando o destino for DOCX;
-- evite inventar citações ou jurisprudência;
-- peça checklist de revisão separado da peça;
-- peça que dúvidas sejam marcadas como `[REVISAR]`.
-
-## Checklist final para agentes
-
-- [ ] Não inventei dados.
-- [ ] Preservei revisão humana obrigatória.
-- [ ] Não expus secrets nem arquivos sensíveis.
-- [ ] Mantive `/api/v1` como contrato da API.
-- [ ] Mantive prompts versionados como fonte de orientação.
-- [ ] Rodei compile/testes ou expliquei por que não rodei.
-- [ ] Atualizei documentação quando o comportamento mudou.
+# Final Checklist
+- [ ] No invented data or jurisprudence.
+- [ ] Human review preserved as mandatory.
+- [ ] No secrets, sensitive files or real client data added.
+- [ ] `/api/v1` contract intact; versioned prompts respected.
+- [ ] `compileall` + `pytest -q` ran (or limitation reported).
+- [ ] Docs updated only if behavior changed.
+- [ ] Assumptions and `[INFERENCE — CONFIRM]` items called out.
