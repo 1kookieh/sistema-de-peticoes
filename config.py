@@ -64,7 +64,7 @@ class Settings(BaseSettings):
         alias="API_ALLOWED_ORIGINS",
     )
     max_docx_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_DOCX_BYTES")
-    max_text_chars: int = Field(default=500_000, alias="MAX_TEXT_CHARS")
+    max_text_chars: int = Field(default=80_000, alias="MAX_TEXT_CHARS")
     rate_limit_window_seconds: int = Field(default=60, alias="RATE_LIMIT_WINDOW_SECONDS")
     rate_limit_max_mutations: int = Field(default=20, alias="RATE_LIMIT_MAX_MUTATIONS")
     remetentes_autorizados: tuple[str, ...] = Field(default=(), alias="REMETENTES_AUTORIZADOS")
