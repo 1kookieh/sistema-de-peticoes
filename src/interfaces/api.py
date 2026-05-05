@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from collections import Counter
 from datetime import datetime
 import json
+import logging
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -12,6 +13,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
@@ -528,9 +531,14 @@ def _ollama_chat(text: str, *, model: str | None = None) -> str:
         with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:  # nosec B310
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:300]
-        raise HTTPException(status_code=502, detail=f"falha Ollama HTTP {exc.code}: {detail}") from exc
+        try:
+            body_preview = exc.read().decode("utf-8", errors="replace")[:300]
+        except Exception:  # noqa: BLE001
+            body_preview = ""
+        logger.warning("ollama_http_error", extra={"status": exc.code, "body": body_preview})
+        raise HTTPException(status_code=502, detail=f"falha ao conversar com Ollama (HTTP {exc.code})") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
+        logger.warning("ollama_unreachable", extra={"error": exc.__class__.__name__})
         raise HTTPException(status_code=502, detail="falha ao conversar com Ollama local") from exc
     message = payload.get("message") if isinstance(payload, dict) else None
     content = message.get("content") if isinstance(message, dict) else None
