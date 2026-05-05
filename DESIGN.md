@@ -142,7 +142,7 @@ components:
 
 ## Overview
 - Product: local-first workspace to draft, validate, and render Brazilian legal petitions as `.docx`.
-- Visual direction: "judicial paper" — warm parchment background, near-black ink, restrained gold accent. [DESIGN DECISION]
+- Visual direction: "judicial paper" — warm parchment background, near-black ink, restrained gold accent.
 - Personality: serious, document-grade, calm, archival; never playful or marketing-bright.
 - Density: comfortable for long-form legal text; generous line-height; firm hierarchy.
 - The UI must never feel like a SaaS dashboard, fintech app, or AI chatbot wrapper.
@@ -225,13 +225,14 @@ components:
 - Don't redesign existing screens unless explicitly requested or required for accessibility.
 
 ## Design Debt & Open Questions
-- [OFFICIAL LOGO REQUIRED] — current `.brand-mark` is a typographic placeholder.
-- [OFFICIAL BRAND GUIDELINE REQUIRED] — gold tone (`#a36b21`) chosen by inference; confirm with stakeholder.
+- Brand mark: serif "P" monogram on ink fill (`.brand-mark`) — current typographic mark is the official identity until replaced.
+- Brand wordmark: "Sistema de Petições" set in Georgia 700; tagline `PETIÇÕES · MINUTAS · DOCX` in Inter 900 uppercase, 0.14em tracking.
+- Brand gold: `#a36b21` (light) / `#d8a354` (dark) is the canonical accent.
 - Legacy files in `web/` (`ui.js`, `api.js`, `render.js`, `state/store.js`) predate the workspace refactor — pending cleanup.
-- Charts use inline SVG without a shared theme module — consider extracting tokens.
-- Service worker (`web/sw.js`) caches static assets; bump version when shipping visual changes.
+- Charts use inline SVG without a shared theme module — extract a `chart-tokens` map next iteration.
+- Service worker (`web/sw.js`) caches static assets; bump cache version when shipping visual changes.
 - Two stale tests reference the old generation form — adjust before broad UI work.
-- [INFERENCE — CONFIRM] Sidebar tab forced `#111111` overrides theme variables; intentional for contrast but worth tokenizing.
+- Sidebar active tab is intentionally hard-coded to `#111111` / `#fffefa` for maximum contrast against either theme; tokenize as `--tab-active-bg` / `--tab-active-fg` next iteration.
 
 ## Agent Usage Rules
 - Read `DESIGN.md` before creating or changing UI, CSS, components, or theme.
