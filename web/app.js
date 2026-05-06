@@ -73,11 +73,10 @@ function loadSettings() {
     return {
       theme: "light",
       remember: true,
-      strictReview: true,
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"),
     };
   } catch {
-    return { theme: "light", remember: true, strictReview: true };
+    return { theme: "light", remember: true };
   }
 }
 
@@ -414,6 +413,7 @@ function renderGeneratedMessage(piece, payload) {
   return `
     <p><strong>${escapeHTML(piece.type)}</strong> ${statusChip(piece.status)}</p>
     <p>Resultado registrado a partir da conversa.</p>
+    <p><strong>Revisão obrigatória:</strong> esta é uma minuta e deve ser conferida por advogado responsável antes de qualquer uso profissional.</p>
     ${problems}
     <div class="message-actions">
       ${piece.downloadUrl ? `<button class="mini-action" type="button" data-download="${escapeHTML(piece.downloadUrl)}">${icon("i-download")}Baixar DOCX</button>` : ""}
@@ -841,10 +841,6 @@ function bindEvents() {
     state.settings.remember = event.target.checked;
     saveSettings();
   });
-  $("#strict-review").addEventListener("change", (event) => {
-    state.settings.strictReview = event.target.checked;
-    saveSettings();
-  });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (state.settings.theme === "system") applyTheme("system");
   });
@@ -863,7 +859,6 @@ async function registerServiceWorker() {
 function initSettings() {
   $("#api-token").value = loadStoredToken();
   $("#remember-settings").checked = state.settings.remember;
-  $("#strict-review").checked = state.settings.strictReview;
   applyTheme(state.settings.theme);
 }
 
