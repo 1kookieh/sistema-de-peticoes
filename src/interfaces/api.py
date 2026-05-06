@@ -7,7 +7,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -299,6 +299,11 @@ def _resolve_piece_and_profile(
 _chat_response = chat_response
 
 
+def _paginate(items: list[Any], *, limit: int, offset: int) -> tuple[list[Any], int]:
+    total = len(items)
+    return items[offset : offset + limit], total
+
+
 def _generate_from_text(
     *,
     text: str,
@@ -439,9 +444,19 @@ def _piece_from_report(report: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/api/v1/pieces", dependencies=[Depends(require_api_token)])
-def pieces() -> dict[str, Any]:
+def pieces(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
     """Lista simplificada para o novo workspace web."""
-    return {"items": [_piece_from_report(report) for report in _generated_report_items()]}
+    reports_payload = _generated_report_items()
+    page, total = _paginate(reports_payload, limit=limit, offset=offset)
+    return {
+        "items": [_piece_from_report(report) for report in page],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @app.get("/api/v1/dashboard", dependencies=[Depends(require_api_token)])
@@ -464,8 +479,19 @@ def dashboard() -> dict[str, Any]:
 
 
 @app.get("/api/v1/reports", dependencies=[Depends(require_api_token)])
-def reports() -> dict[str, Any]:
-    return {"reports": list_reports(REPORTS_DIR), "status_items": list_status_items()}
+def reports(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    report_items = list_reports(REPORTS_DIR)
+    page, total = _paginate(report_items, limit=limit, offset=offset)
+    return {
+        "reports": page,
+        "status_items": list_status_items(),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @app.get("/api/v1/reports/{filename}", dependencies=[Depends(require_api_token)])

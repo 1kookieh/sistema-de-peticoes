@@ -117,6 +117,39 @@ def test_api_token_protects_sensitive_routes(monkeypatch):
     assert authorized.status_code == 200
 
 
+def test_api_paginates_pieces(monkeypatch):
+    reports = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
+    monkeypatch.setattr(api, "_generated_report_items", lambda: reports)
+    monkeypatch.setattr(api, "_piece_from_report", lambda report: {"id": report["id"]})
+    client = TestClient(api.app)
+
+    response = client.get("/api/v1/pieces?limit=1&offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"] == [{"id": "b"}]
+    assert payload["total"] == 3
+    assert payload["limit"] == 1
+    assert payload["offset"] == 1
+
+
+def test_api_paginates_reports(monkeypatch):
+    report_items = [{"name": "a.json"}, {"name": "b.json"}, {"name": "c.json"}]
+    monkeypatch.setattr(api, "list_reports", lambda reports_dir: report_items)
+    monkeypatch.setattr(api, "list_status_items", lambda: [])
+    client = TestClient(api.app)
+
+    response = client.get("/api/v1/reports?limit=2&offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["reports"] == [{"name": "b.json"}, {"name": "c.json"}]
+    assert payload["status_items"] == []
+    assert payload["total"] == 3
+    assert payload["limit"] == 2
+    assert payload["offset"] == 1
+
+
 def test_api_invalid_profile_returns_422(tmp_path, monkeypatch):
     _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)

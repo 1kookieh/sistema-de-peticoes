@@ -44,7 +44,8 @@ curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
 | `POST` | `/api/v1/documents` | Cria DOCX com IA a partir de texto |
 | `POST` | `/api/v1/documents/upload` | Extrai texto de arquivos e cria DOCX com IA |
 | `GET` | `/api/v1/documents/{filename}/download` | Baixa DOCX gerado |
-| `GET` | `/api/v1/reports` | Lista relatórios locais, mantido para API/operador |
+| `GET` | `/api/v1/pieces` | Lista peças geradas para o workspace web, com paginação |
+| `GET` | `/api/v1/reports` | Lista relatórios locais com paginação, mantido para API/operador |
 | `GET` | `/api/v1/reports/{filename}` | Abre relatório JSON ou HTML |
 
 ## Criar Documento por Texto
@@ -142,6 +143,15 @@ Exemplo resumido:
 ```
 
 O prompt completo e chaves de API não são retornados.
+
+## Paginação
+
+`GET /api/v1/pieces` e `GET /api/v1/reports` aceitam:
+
+- `limit`: quantidade por página, de 1 a 200, padrão 50.
+- `offset`: deslocamento inicial, padrão 0.
+
+As respostas preservam os campos históricos (`items` em `/pieces` e `reports` em `/reports`) e adicionam `total`, `limit` e `offset`.
 
 ## Erros Comuns
 
