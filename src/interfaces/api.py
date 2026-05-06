@@ -4,14 +4,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from collections import Counter
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 from time import monotonic
 from typing import Any
-import urllib.error
-import urllib.parse
-import urllib.request
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -30,15 +26,11 @@ from config import (
     FRONTEND_DIR,
     LLM_ALLOW_CLIENT_PROVIDER,
     LLM_CLIENT_ALLOWED_PROVIDERS,
-    LLM_MAX_OUTPUT_TOKENS,
     LLM_MODEL,
     LLM_PROVIDER,
     LLM_REQUIRED,
-    LLM_TEMPERATURE,
-    LLM_TIMEOUT_SECONDS,
     MAX_DOCX_BYTES,
     MAX_TEXT_CHARS,
-    OLLAMA_BASE_URL,
     OUTPUT_DIR,
     RATE_LIMIT_MAX_MUTATIONS,
     RATE_LIMIT_WINDOW_SECONDS,
@@ -46,6 +38,7 @@ from config import (
 )
 from src.adapters.files.file_extractors import FileExtractionError, extract_text_from_uploads
 from src.adapters.inbox.gmail_reader import Email
+from src.infra.llm.free_chat import chat_response
 from src.orchestration.history import list_reports, list_status_items
 from src.infra.logging import configure_logging
 from src.orchestration.reporting import build_run_report, write_html_report, write_json_report
@@ -474,95 +467,8 @@ def _resolve_piece_and_profile(
     return piece_type, profile, piece_type_inferred, profile_inferred
 
 
-def _resolve_chat_provider(provider: str | None) -> str:
-    resolved = (provider or LLM_PROVIDER or "mock").strip().lower()
-    if not resolved:
-        resolved = "mock"
-    if resolved not in LLM_CLIENT_ALLOWED_PROVIDERS:
-        raise HTTPException(status_code=422, detail=f"provider não permitido: {resolved}")
-    return resolved
-
-
-def _mock_chat_response(text: str) -> str:
-    lowered = text.lower()
-    if any(term in lowered for term in ("prazo", "competência", "competencia", "valor da causa")):
-        return (
-            "Posso ajudar a organizar esses pontos. Para revisão humana, confira competência, "
-            "prazo, valor da causa, legitimidade das partes, procuração e documentos essenciais. "
-            "Se quiser, peça: \"gere uma minuta com esses dados\"."
-        )
-    return (
-        "Entendi. Posso conversar sobre estratégia, estruturar fatos, listar documentos, revisar "
-        "argumentos ou preparar um roteiro da peça. Para gerar DOCX, peça explicitamente para "
-        "gerar uma minuta ou peça processual."
-    )
-
-
-def _ollama_chat(text: str, *, model: str | None = None) -> str:
-    endpoint = urllib.parse.urljoin(f"{OLLAMA_BASE_URL.rstrip('/')}/", "api/chat")
-    body = {
-        "model": model or LLM_MODEL or "llama3.1:8b",
-        "stream": False,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Você é um assistente jurídico brasileiro dentro de um sistema de peças "
-                    "processuais. Converse de forma objetiva, ajude a organizar fatos, teses, "
-                    "riscos e próximos passos. Não afirme que protocolou nada e não diga que "
-                    "gerou DOCX; a geração de documento é feita por outro fluxo quando o usuário "
-                    "pede explicitamente."
-                ),
-            },
-            {"role": "user", "content": text},
-        ],
-        "options": {
-            "temperature": LLM_TEMPERATURE,
-            "num_predict": min(LLM_MAX_OUTPUT_TOKENS, 1200),
-        },
-    }
-    request = urllib.request.Request(
-        endpoint,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=LLM_TIMEOUT_SECONDS) as response:  # nosec B310
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        try:
-            body_preview = exc.read().decode("utf-8", errors="replace")[:300]
-        except Exception:  # noqa: BLE001
-            body_preview = ""
-        logger.warning("ollama_http_error", extra={"status": exc.code, "body": body_preview})
-        raise HTTPException(status_code=502, detail=f"falha ao conversar com Ollama (HTTP {exc.code})") from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        logger.warning("ollama_unreachable", extra={"error": exc.__class__.__name__})
-        raise HTTPException(status_code=502, detail="falha ao conversar com Ollama local") from exc
-    message = payload.get("message") if isinstance(payload, dict) else None
-    content = message.get("content") if isinstance(message, dict) else None
-    if not content:
-        raise HTTPException(status_code=502, detail="Ollama retornou resposta vazia")
-    return str(content).strip()
-
-
-def _chat_response(text: str, *, provider: str | None, model: str | None, consent: bool) -> dict[str, Any]:
-    resolved = _resolve_chat_provider(provider)
-    if resolved in {"openai", "anthropic", "gemini", "openrouter"} and not consent:
-        raise HTTPException(status_code=422, detail="provider externo exige consentimento explícito")
-    if resolved == "mock":
-        answer = _mock_chat_response(text)
-        used_model = model or "mock-local"
-    elif resolved == "ollama":
-        answer = _ollama_chat(text, model=model)
-        used_model = model or LLM_MODEL or "llama3.1:8b"
-    else:
-        raise HTTPException(
-            status_code=422,
-            detail="chat direto está disponível para mock e ollama nesta instalação local",
-        )
-    return {"answer": answer, "provider": resolved, "model": used_model}
+# Chat livre vive em src/infra/llm/free_chat.py; re-exportado abaixo.
+_chat_response = chat_response
 
 
 def _generate_from_text(
