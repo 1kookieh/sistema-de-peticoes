@@ -37,6 +37,9 @@ jobs:
       - name: Ruff (erros de sintaxe/nomes)
         run: ruff check .
 
+      - name: Validar JavaScript estatico
+        run: node --check web/app.js
+
       - name: Type check gradual
         run: mypy config.py src/infra/llm
 

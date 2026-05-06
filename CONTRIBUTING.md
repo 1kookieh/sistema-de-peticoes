@@ -46,8 +46,7 @@ O `mypy` é gradual neste momento: valide `config.py` e `src/infra/llm`, que sã
 Se alterar interface web, também valide sintaxe dos módulos JavaScript alterados:
 
 ```bash
-node --check web/ui.js
-node --check web/render.js
+node --check web/app.js
 ```
 
 ## Padrão de Branch e Commit
@@ -55,7 +54,7 @@ node --check web/render.js
 Use nomes descritivos:
 
 ```bash
-git checkout -b feat/llm-provider
+git checkout -b feat/document-flow
 git checkout -b fix/docx-validation
 git checkout -b docs/readme-usage
 ```

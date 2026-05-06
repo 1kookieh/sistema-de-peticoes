@@ -191,8 +191,8 @@ components:
 - `focus` / `focus-dark`: keyboard focus ring and legal gold accent. Must remain visible on every interactive element.
 - `accent` / `accent-dark`: restrained gold accent for brand mark, decorative separators, focus-adjacent emphasis, and audit charts.
 - `success`, `warning`, `danger` and dark counterparts: status only. Always pair with icon or text; never rely on color alone.
-- `provider-local` / `provider-local-dark`: local or mock provider status such as `mock` and `ollama`.
-- `provider-external` / `provider-external-dark`: external provider status such as `openai` and `anthropic`; always pair with consent copy.
+- `provider-local` / `provider-local-dark`: local test provider status such as `mock`.
+- `provider-external` / `provider-external-dark`: external provider status such as `groq`; always pair with consent copy.
 - `review-required` / `review-required-dark`: human legal review required, pending review, or draft-not-final warning.
 - `report-ready` / `report-ready-dark`: report generated, download available, or successful validation output.
 - `llm-error` / `llm-error-dark`: LLM error, missing consent, provider failure, or blocked external call.
@@ -218,7 +218,7 @@ components:
 - Section rhythm: `lg` between related blocks and `xl` between major sections.
 - Minimum touch target: 40×40px; prefer 44×44px when adding new controls.
 - Important actions must stay visually close to the content they affect.
-- IA/chat workspace must keep composer, provider selector, consent controls, and generated output visually connected.
+- IA/chat workspace must keep composer, provider identity, consent controls, and generated output visually connected.
 - Report/download areas must separate `.docx` drafts from JSON/HTML audit reports.
 - Preserve the faint 34px background grid; do not replace it with decorative gradients.
 
@@ -251,7 +251,7 @@ components:
 - Loading state: skeleton blocks tinted from `surface-elevated`; preserve layout dimensions.
 - Charts: use ink, gold, status colors, and neutral surfaces; never use default chart-library palettes.
 - Dashboard charts must feel like audit/reporting visuals: restrained, legible, low-saturation, never decorative analytics.
-- Provider selector: show provider identity clearly and distinguish local providers (`mock`, `ollama`) from external providers (`openai`, `anthropic`).
+- Provider identity: show Groq clearly as the single external provider and distinguish test-only `mock` metadata when it appears in reports.
 - External consent warning: must be visible, textual, and explicit before external provider use; never hide it behind color-only status.
 - Redaction warning: must state that masking is partial; never imply full anonymization.
 - Human review banner: generated drafts must preserve the message that a responsible lawyer must review before real use.
@@ -298,10 +298,8 @@ components:
 - Current identity is the serif “P” monogram plus “Sistema de Petições” Georgia wordmark; treat it as official until replaced.
 - Brand tagline remains `PETIÇÕES · MINUTAS · DOCX` in Inter 900 uppercase with 0.14em tracking.
 - Brand gold is `accent` (`#a36b21`) and `accent-dark` (`#d8a354`).
-- Legacy files in `web/` (`ui.js`, `api.js`, `render.js`, `state/store.js`) predate the workspace refactor; avoid broad UI rewrites until cleanup is scoped.
 - Charts still need a shared `chart-tokens` map; do not introduce chart-library default palettes.
 - Service worker (`web/sw.js`) caches static assets; bump cache version when visual files change.
-- Two stale tests reference the old generation form; adjust before broad UI work if still present.
 - Dark status tokens were added to complete theme parity; verify contrast in actual components before production use.
 - Add or standardize shared visual states for `llm_error`, pending human review, redaction applied, external consent required, report generated, and DOCX download available.
 - Confirm whether provider icons should remain CSS/SVG-only or be mapped through a tiny provider visual registry.

@@ -52,7 +52,7 @@ curl -H "X-API-Token: troque-este-token" http://127.0.0.1:8000/api/v1/reports
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Relato do caso para teste.\",\"output_mode\":\"minuta\"}"
+  -d "{\"text\":\"Relato do caso para teste.\",\"remetente\":\"cliente@example.com\",\"output_mode\":\"minuta\",\"consent_external_provider\":true}"
 ```
 
 Payload principal:
@@ -60,14 +60,16 @@ Payload principal:
 ```json
 {
   "text": "relato do caso",
+  "remetente": "cliente@example.com",
+  "assunto": "Geração de minuta",
   "profile_id": "auto",
   "piece_type_id": "auto",
   "output_mode": "minuta",
-  "consent_external_provider": false,
+  "consent_external_provider": true,
   "llm": {
-    "provider": "mock",
+    "provider": null,
     "model": null,
-    "consent_external_provider": false
+    "consent_external_provider": true
   }
 }
 ```
@@ -75,6 +77,8 @@ Payload principal:
 Campos:
 
 - `text`: dados do caso ou conteúdo base.
+- `remetente`: identificação/e-mail de origem usado no relatório local.
+- `assunto`: assunto registrado no processamento local.
 - `piece_type_id`: ID de `/piece-types` ou `auto`.
 - `profile_id`: ID de `/profiles` ou `auto`.
 - `output_mode`: `minuta` ou `final`.
@@ -113,7 +117,7 @@ A criação é AI-first:
 
 Antes do envio ao Groq, o backend aplica redaction parcial para reduzir exposição de CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados. Isso não garante anonimização completa.
 
-Toda criação exige `consent_external_provider=true` porque Groq é provider externo. Sem consentimento, a API retorna `422`.
+Toda criação exige `consent_external_provider=true` porque Groq é provider externo. Sem consentimento, a criação de documento retorna payload com `status=llm_error`; no chat livre, a API retorna `422`.
 
 ## Resposta
 
@@ -131,8 +135,8 @@ Exemplo resumido:
   "profile_inferred": true,
   "llm": {
     "used": true,
-    "provider": "mock",
-    "mock_used": true
+    "provider": "groq",
+    "mock_used": false
   }
 }
 ```
