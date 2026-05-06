@@ -244,7 +244,7 @@ async def chat_with_upload(
     extracted = ""
     if payloads:
         try:
-            extracted = extract_text_from_uploads(payloads)
+            extracted = await run_in_threadpool(extract_text_from_uploads, payloads)
         except FileExtractionError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
     names = ", ".join(filename for filename, _ in payloads)
@@ -383,7 +383,7 @@ async def generate_document_from_upload(
     for upload in uploads:
         payloads.append((upload.filename or "arquivo", await upload.read()))
     try:
-        extracted_text = extract_text_from_uploads(payloads)
+        extracted_text = await run_in_threadpool(extract_text_from_uploads, payloads)
     except FileExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     source_names = ", ".join(filename for filename, _ in payloads)

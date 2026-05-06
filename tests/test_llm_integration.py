@@ -7,7 +7,9 @@ from src.core.prompts import load_petition_prompt, load_word_formatting_prompt
 from src.infra import pipeline_state
 from src.infra.llm import factory as llm_factory
 from src.infra.llm.base import LLMRequest
+from src.infra.llm.errors import LLMProviderError
 from src.infra.llm.factory import build_llm_provider
+from src.infra.llm import free_chat
 from src.infra.llm.prompting import build_llm_prompt
 from src.infra.llm.rendering import draft_to_petition_text
 from src.infra.llm.schemas import LegalDocumentDraft, LegalDocumentSection
@@ -158,6 +160,53 @@ def test_groq_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
     assert result.destino is None
     assert "GROQ_API_KEY" in result.problemas[0]
     assert "sk-" not in serialized
+
+
+def test_pipeline_sanitizes_provider_error_details(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "groq")
+    monkeypatch.setattr("src.infra.llm.factory.GROQ_API_KEY", "gsk-fake-test")
+
+    def fake_completion(*, api_key, model, messages, response_format=None, max_tokens=None):
+        raise LLMProviderError("provider body with /tmp/internal/path and token-like detail")
+
+    monkeypatch.setattr(
+        "src.infra.llm.groq_provider.groq_chat_completion",
+        fake_completion,
+    )
+
+    result = pipeline.processar_email(
+        _email(_case_text()),
+        profile_id="forense-basico",
+        no_outbox=True,
+        output_mode="minuta",
+        llm_enabled=True,
+        llm_consent_external=True,
+    )
+
+    serialized = json.dumps(result.to_report_item(), ensure_ascii=False)
+    assert result.status == "llm_error"
+    assert result.problemas == ["IA retornou resposta fora do formato esperado; tente novamente"]
+    assert "provider body" not in serialized
+    assert "/tmp/internal/path" not in serialized
+
+
+def test_free_chat_sanitizes_provider_error_details(monkeypatch):
+    monkeypatch.setattr(free_chat, "GROQ_API_KEY", "gsk-fake-test")
+
+    def fake_completion(*, api_key, model, messages, response_format=None, max_tokens=None):
+        raise RuntimeError("raw provider body with /tmp/internal/path")
+
+    monkeypatch.setattr(free_chat, "groq_chat_completion", fake_completion)
+
+    try:
+        free_chat.chat_response("olá", consent=True)
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 502
+        assert getattr(exc, "detail", "") == "falha ao conversar com Groq; tente novamente em instantes"
+        assert "raw provider body" not in getattr(exc, "detail", "")
+    else:
+        raise AssertionError("chat_response deveria falhar com erro sanitizado")
 
 
 def test_groq_provider_blocked_without_consent(tmp_path, monkeypatch):

@@ -1,6 +1,7 @@
 """Chat livre do endpoint `/api/v1/chat` usando o provider padrão Groq."""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import HTTPException
@@ -11,6 +12,8 @@ from src.infra.llm.groq_provider import (
     extract_groq_content,
     groq_chat_completion,
 )
+
+logger = logging.getLogger(__name__)
 
 _GROQ_SYSTEM_PROMPT = (
     "Voce e um assistente juridico brasileiro dentro de um sistema de pecas "
@@ -46,7 +49,10 @@ def chat_response(
         )
         answer = extract_groq_content(payload)
     except Exception as exc:
-        safe_error = str(exc).replace("\n", " ")[:300]
-        raise HTTPException(status_code=502, detail=f"falha ao conversar com Groq: {safe_error}") from exc
+        logger.warning("falha no chat Groq", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail="falha ao conversar com Groq; tente novamente em instantes",
+        ) from exc
 
     return {"answer": answer, "provider": "groq", "model": used_model}

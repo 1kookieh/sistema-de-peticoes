@@ -43,6 +43,7 @@ from src.orchestration.pipeline.validate import (
 from src.orchestration.reporting import build_docx_report
 
 logger = logging.getLogger(__name__)
+PUBLIC_UNEXPECTED_ERROR = "falha interna ao processar item; consulte os logs locais"
 
 _timestamp = timestamp
 _safe_token = safe_token
@@ -377,7 +378,7 @@ def executar_pipeline(
                     email.message_id,
                     thread_id=email.thread_id,
                     status="error",
-                    problemas=[str(e)],
+                    problemas=[PUBLIC_UNEXPECTED_ERROR],
                 )
             except Exception:
                 logger.exception(
@@ -389,7 +390,7 @@ def executar_pipeline(
                 message_id=email.message_id,
                 status="error",
                 destino=None,
-                problemas=[str(e)],
+                problemas=[PUBLIC_UNEXPECTED_ERROR],
                 profile_id=profile.id,
                 mode_requested=normalize_mode(output_mode),
                 mode_delivered=normalize_mode(output_mode),
