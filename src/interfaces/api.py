@@ -6,7 +6,6 @@ from collections import Counter
 from datetime import datetime
 import logging
 from pathlib import Path
-from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import (
@@ -43,6 +42,12 @@ from src.interfaces.api_dependencies import (
     piece_type_or_422,
     profile_or_422,
     safe_file,
+)
+from src.interfaces.api_middleware import (
+    DEFAULT_CSP as _DEFAULT_CSP,
+    REPORT_CSP as _REPORT_CSP,
+    apply_security_headers,
+    rate_limit_response,
 )
 from src.interfaces.api_schemas import (
     DEFAULT_PROFILE_ID,
@@ -105,68 +110,22 @@ app.add_middleware(
 )
 
 
-_DEFAULT_CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; "
-    "frame-ancestors 'none'; frame-src 'none'; form-action 'self'"
-)
-# CSP relaxada apenas para o relatório HTML autocontido (servido com <style>
-# inline via Jinja2). O conteúdo é gerado pelo próprio backend a partir de
-# template versionado e nunca recebe input direto do usuário sem autoescape;
-# habilitamos 'unsafe-inline' restrito a este path para que o estilo carregue
-# quando o relatório é aberto fora do blob URL da SPA.
-_REPORT_CSP = (
-    "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' blob: data:; object-src 'none'; base-uri 'self'; "
-    "frame-ancestors 'none'; frame-src 'none'; form-action 'none'"
-)
-
-
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    is_html_report = (
-        request.url.path.startswith("/api/v1/reports/")
-        and request.url.path.endswith(".html")
-    )
-    response.headers.setdefault(
-        "Content-Security-Policy",
-        _REPORT_CSP if is_html_report else _DEFAULT_CSP,
-    )
-    response.headers.setdefault("Referrer-Policy", "no-referrer")
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
-        response.headers["Cache-Control"] = "no-store, max-age=0"
-    return response
+    return apply_security_headers(request, response)
 
 
 @app.middleware("http")
 async def local_rate_limit(request: Request, call_next):
-    if request.method == "POST" and request.url.path in {
-        "/api/v1/setup",
-        "/api/v1/documents",
-        "/api/v1/documents/upload",
-        "/api/v1/chat",
-        "/api/v1/chat/upload",
-    }:
-        client = request.client.host if request.client else "local"
-        now = monotonic()
-        bucket = [
-            timestamp
-            for timestamp in _RATE_LIMIT_BUCKETS.get(client, [])
-            if now - timestamp < RATE_LIMIT_WINDOW_SECONDS
-        ]
-        if len(bucket) >= RATE_LIMIT_MAX_MUTATIONS:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "limite local de requisições atingido"},
-            )
-        bucket.append(now)
-        if bucket:
-            _RATE_LIMIT_BUCKETS[client] = bucket
-        else:
-            _RATE_LIMIT_BUCKETS.pop(client, None)
+    limited = rate_limit_response(
+        request,
+        buckets=_RATE_LIMIT_BUCKETS,
+        max_mutations=RATE_LIMIT_MAX_MUTATIONS,
+        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if limited is not None:
+        return limited
     return await call_next(request)
 
 
