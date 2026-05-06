@@ -12,23 +12,26 @@ Este roadmap lista melhorias técnicas planejadas. Ele não promete prazo nem su
 - Relatórios JSON/HTML.
 - Retenção configurável.
 - Detector automático de tipos de peça.
-- Modos `minuta`, `final` e `triagem`.
-- Integração LLM opcional com `mock` e `openai`.
+- Modos `minuta` e `final` no fluxo principal.
+- Integração AI-first com Groq como provider externo único.
+- Provider `mock` reservado para testes automatizados.
+- Paginação básica em `/api/v1/pieces` e `/api/v1/reports`.
 - Prompts versionados com hash de auditoria.
 - Testes automatizados para fluxo crítico.
+- Smoke HTTP cobrindo chat, criação de documento, dashboard e peças.
 
 ## Próximas Melhorias
 
 - Melhorar mensagens de validação por seção/parágrafo.
 - Ampliar validações específicas por tipo de peça.
-- Adicionar paginação e busca mais completa em relatórios.
+- Adicionar filtros e busca mais completa em peças e relatórios.
 - Refinar preview visual antes do download.
 - Adicionar screenshots/GIFs reais no README.
 - Melhorar suporte a múltiplos advogados no fechamento.
 
 ## Médio Prazo
 
-- Providers adicionais: Anthropic, Gemini, OpenRouter e Ollama.
+- Migrar estado local JSON para SQLite ou outro armazenamento transacional.
 - Exportação PDF opcional via ferramenta local.
 - Templates por classe processual.
 - Configuração avançada de perfis por tribunal/escritório.

@@ -400,7 +400,7 @@ Improvements aligned with the current state:
 
 - Migrate local JSON state to SQLite or another transactional store.
 - Add real authentication and authorization for multi-user use.
-- Add pagination, filters, and search for pieces and reports.
+- Expand filters and search for pieces and reports.
 - Expand frontend E2E tests.
 - Improve DOCX/PDF visual preview.
 - Improve observability and operational logs.

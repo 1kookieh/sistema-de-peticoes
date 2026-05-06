@@ -400,7 +400,7 @@ Melhorias coerentes com o estado atual:
 
 - Migrar estado local JSON para SQLite ou outro armazenamento transacional.
 - Adicionar autenticação e autorização reais para multiusuário.
-- Adicionar paginação, filtros e busca em peças e relatórios.
+- Ampliar filtros e busca em peças e relatórios.
 - Ampliar testes E2E do frontend.
 - Evoluir preview visual de DOCX/PDF.
 - Melhorar observabilidade e logs operacionais.
