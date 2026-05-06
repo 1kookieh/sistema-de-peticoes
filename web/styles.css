@@ -522,20 +522,20 @@ h2 svg {
 }
 .chart-axis {
   fill: var(--ink);
-  font-family: "Segoe UI", Inter, Arial, sans-serif;
-  font-size: 18px;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 22px;
   font-weight: 900;
   letter-spacing: 0;
   stroke: none;
 }
-.chart-axis.y { fill: var(--ink); font-size: 17px; font-weight: 900; }
+.chart-axis.y { fill: var(--ink); font-size: 21px; font-weight: 900; }
 .chart-axis.y.label {
   fill: var(--ink);
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 900;
   line-height: 1.2;
 }
-.chart-axis.x { fill: var(--ink); font-size: 17px; font-weight: 900; }
+.chart-axis.x { fill: var(--ink); font-size: 20px; font-weight: 900; }
 .chart-legend {
   align-items: center;
   color: var(--ink);
@@ -618,8 +618,8 @@ h2 svg {
 .chart-hover-label,
 .bar-value-label {
   fill: var(--ink);
-  font-family: "Segoe UI", Inter, Arial, sans-serif;
-  font-size: 17px;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 22px;
   font-weight: 900;
   letter-spacing: 0;
   opacity: 0;
@@ -629,7 +629,7 @@ h2 svg {
 }
 .bar-value-label {
   fill: var(--surface);
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 900;
   opacity: 1;
   paint-order: stroke fill;

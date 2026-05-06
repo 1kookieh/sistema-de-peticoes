@@ -540,7 +540,7 @@ function renderMonthlyEvolution(items) {
         ${points.map((point, index) => `
           <g class="chart-hit monthly-hit" tabindex="0" role="listitem" aria-label="${escapeHTML(point.item.label)}: ${Number(point.item.total || 0)} peças">
             <title>${escapeHTML(point.item.label)}: ${Number(point.item.total || 0)} peças geradas</title>
-            <rect x="${point.x - 22}" y="${pad.top}" width="44" height="${usableH}" rx="6"></rect>
+            <rect x="${point.x - 22}" y="${pad.top}" width="44" height="${usableH}" rx="6" fill="transparent" stroke="none"></rect>
             <circle class="monthly-point" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5.5 : 4.5}"></circle>
             <text class="chart-hover-label" x="${point.x}" y="${Math.max(18, point.y - 14)}" text-anchor="middle">${Number(point.item.total || 0)}</text>
           </g>
@@ -568,10 +568,10 @@ function renderTopTypesChart(items) {
     return;
   }
   const maxValue = Math.max(...normalized.map((item) => Number(item.total || 0)), 1);
-  const width = 760;
-  const rowHeight = 74;
-  const height = 120 + normalized.length * rowHeight;
-  const pad = { top: 32, right: 32, bottom: 56, left: 240 };
+  const width = 680;
+  const rowHeight = 88;
+  const height = 116 + normalized.length * rowHeight;
+  const pad = { top: 34, right: 34, bottom: 54, left: 38 };
   const usableW = width - pad.left - pad.right;
   const xTicks = integerTicks(maxValue);
   container.innerHTML = `
@@ -584,10 +584,10 @@ function renderTopTypesChart(items) {
       </g>
       ${normalized.map((item, index) => {
         const total = Number(item.total || 0);
-        const y = pad.top + index * rowHeight + 18;
+        const y = pad.top + index * rowHeight + 32;
         const barWidth = Math.max(8, (total / maxValue) * usableW);
         return `
-          <text class="chart-axis y label" x="${pad.left - 14}" y="${y + 28}" text-anchor="end">${escapeHTML(shortLabel(item.label, 32))}</text>
+          <text class="chart-axis y label" x="${pad.left}" y="${y - 10}" text-anchor="start">${escapeHTML(shortLabel(item.label, 34))}</text>
           <g class="chart-hit bar-hit" tabindex="0" role="listitem" aria-label="${escapeHTML(item.label)}: ${total} peças">
             <title>${escapeHTML(item.label)}: ${total} peças</title>
             <rect class="horizontal-bar" x="${pad.left}" y="${y}" width="${barWidth}" height="44" rx="4"></rect>
