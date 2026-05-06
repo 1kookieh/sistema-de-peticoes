@@ -1,4 +1,4 @@
-# Sistema de Petições — Claude Code Instructions
+# Sistema de Petições — Codex Instructions
 
 # Project Snapshot
 - Local-first system that generates, validates, reviews, and renders Brazilian legal petition drafts as `.docx`.

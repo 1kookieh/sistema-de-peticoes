@@ -47,20 +47,17 @@ A camada LLM fica isolada em `src/infra/llm/`.
 - `base.py`: interface base de provider.
 - `factory.py`: seleção de provider baseada no backend.
 - `mock_provider.py`: provider determinístico para testes/desenvolvimento.
-- `openai_provider.py`: provider real via HTTP.
-- `anthropic_provider.py`: provider real Anthropic/Claude via Messages API.
-- `ollama_provider.py`: provider local via REST API do Ollama.
+- `groq_provider.py`: cliente HTTP do Groq Cloud (Chat Completions OpenAI-compatible).
+- `free_chat.py`: chat livre da aba IA usando Groq.
 - `rendering.py`: conversão de `LegalDocumentDraft` para texto renderizável.
 
 Regras:
 
 - `LLM_REQUIRED=true` torna a IA obrigatória na criação.
-- `LLM_PROVIDER=mock` é o padrão seguro de desenvolvimento/teste.
-- `LLM_PROVIDER=openai` exige `OPENAI_API_KEY`.
-- `LLM_PROVIDER=anthropic` exige `ANTHROPIC_API_KEY`.
-- `LLM_PROVIDER=ollama` usa `OLLAMA_BASE_URL` e nao exige chave externa.
-- `LLM_ALLOW_CLIENT_PROVIDER=true` permite escolher provider/modelo na UI/API dentro da allowlist do backend.
-- Providers externos exigem consentimento explícito por requisição.
+- `LLM_PROVIDER=groq` é o padrão e exige `GROQ_API_KEY`.
+- `LLM_PROVIDER=mock` é reservado para testes automatizados.
+- `LLM_ALLOW_CLIENT_PROVIDER=false`: backend não aceita escolha de provider pelo cliente.
+- Toda chamada ao Groq exige consentimento explícito por requisição.
 - Redaction reduz exposição, mas não garante anonimização completa.
 - O prompt completo não deve ser salvo por padrão.
 

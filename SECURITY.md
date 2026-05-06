@@ -28,16 +28,13 @@ Use `.env.example` como referência e mantenha `.env` fora do Git.
 Nunca versionar:
 
 ```text
-OPENAI_API_KEY
-ANTHROPIC_API_KEY
-GEMINI_API_KEY
-OPENROUTER_API_KEY
+GROQ_API_KEY
 API_TOKEN
 ```
 
 ## IA Externa
 
-Quando `LLM_PROVIDER=openai` ou `LLM_PROVIDER=anthropic`, o texto informado pode ser enviado ao provedor configurado. `LLM_PROVIDER=ollama` usa endpoint local (`OLLAMA_BASE_URL`) e nao exige chave externa, mas ainda deve ser usado somente com modelos e ambientes confiaveis.
+Quando `LLM_PROVIDER=groq` (padrão), o texto informado é enviado para o Groq Cloud. Trate como compartilhamento de dados com terceiro: revise base legal, autorização e necessidade antes de usar com dados reais.
 
 Antes de usar IA externa:
 
@@ -60,7 +57,7 @@ Recomendações:
 - não exponha a API publicamente sem autenticação, TLS, logging controlado e política de retenção;
 - revise `API_ALLOWED_ORIGINS`.
 
-Para testes e desenvolvimento sem envio externo, use `LLM_PROVIDER=mock` com dados fictícios. Para IA local sem chave externa, use `LLM_PROVIDER=ollama` com dados autorizados e revise o ambiente local antes de processar casos reais.
+Para testes e desenvolvimento sem envio externo, use `LLM_PROVIDER=mock` com dados fictícios. Em produção local com dados reais, considere a sensibilidade antes de habilitar o Groq e use retenção curta.
 
 ## Retenção
 

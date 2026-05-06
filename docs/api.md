@@ -78,9 +78,9 @@ Campos:
 - `piece_type_id`: ID de `/piece-types` ou `auto`.
 - `profile_id`: ID de `/profiles` ou `auto`.
 - `output_mode`: `minuta` ou `final`.
-- `consent_external_provider`: obrigatório quando o provider escolhido for externo, como `openai` ou `anthropic`.
-- `llm.provider`: opcional; aceito somente se estiver em `LLM_CLIENT_ALLOWED_PROVIDERS`. Use `mock`, `ollama`, `openai` ou `anthropic`.
-- `llm.model`: opcional; se vazio, o backend usa `LLM_MODEL` ou o padrão do provider.
+- `consent_external_provider`: obrigatório, pois Groq é provider externo e processa dados fora da máquina local.
+- `llm.provider`: legado; o backend usa `groq` por padrão e ignora seleção do cliente.
+- `llm.model`: legado; o backend usa `LLM_MODEL` (`llama-3.3-70b-versatile` por padrão).
 - `llm.enabled`: legado; não desativa IA quando `LLM_REQUIRED=true`.
 
 `triagem` foi desativado no endpoint principal e retorna `422`.
@@ -91,8 +91,7 @@ Campos:
 curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
   -F "files=@relato.pdf" \
   -F "output_mode=minuta" \
-  -F "llm_provider=mock" \
-  -F "llm_consent_external_provider=false"
+  -F "llm_consent_external_provider=true"
 ```
 
 Arquivos suportados:
@@ -107,16 +106,14 @@ Arquivos suportados:
 A criação é AI-first:
 
 - `LLM_REQUIRED=true` faz todo documento passar pela camada LLM.
-- `LLM_PROVIDER=mock` é usado em testes/desenvolvimento.
-- `LLM_PROVIDER=openai` usa provider externo e exige `OPENAI_API_KEY`.
-- `LLM_PROVIDER=anthropic` usa Anthropic/Claude e exige `ANTHROPIC_API_KEY`.
-- `LLM_PROVIDER=ollama` usa IA local via `OLLAMA_BASE_URL` e não exige chave externa.
-- Se `LLM_ALLOW_CLIENT_PROVIDER=true`, o cliente pode escolher apenas providers da allowlist `LLM_CLIENT_ALLOWED_PROVIDERS`.
+- `LLM_PROVIDER=groq` (padrão) usa Groq Cloud com `llama-3.3-70b-versatile` e exige `GROQ_API_KEY`.
+- `LLM_PROVIDER=mock` é reservado para testes automatizados.
+- `LLM_ALLOW_CLIENT_PROVIDER=false` por padrão; o cliente não escolhe provider.
 - Provider, modelo, temperatura e timeout vêm do backend.
 
-Antes do envio a providers externos, o backend aplica redaction parcial para reduzir exposição de CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados. Isso não garante anonimização completa.
+Antes do envio ao Groq, o backend aplica redaction parcial para reduzir exposição de CPF, CNPJ, NIT, NB, RG, CEP, telefone e e-mail quando detectados. Isso não garante anonimização completa.
 
-Quando a escolha de provider estiver habilitada para o cliente, a API ainda valida tudo pelo backend e rejeita providers fora da allowlist; `none` não é caminho válido de criação.
+Toda criação exige `consent_external_provider=true` porque Groq é provider externo. Sem consentimento, a API retorna `422`.
 
 ## Resposta
 

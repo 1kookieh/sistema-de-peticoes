@@ -1,6 +1,6 @@
 # Guia de Uso
 
-Este guia descreve o fluxo atual do sistema: criacao de minutas juridicas DOCX com IA obrigatoria no pipeline principal.
+Este guia descreve o fluxo atual: criacao de minutas juridicas DOCX com IA obrigatoria. Groq e o provider externo unico; `mock` e reservado para testes.
 
 ## 1. Iniciar API e Web
 
@@ -18,74 +18,49 @@ http://127.0.0.1:8000
 
 1. Escolha o tipo de documento ou deixe `Detectar automaticamente`.
 2. Escolha o perfil formal ou deixe automatico.
-3. Escolha o provider liberado pelo backend: `mock`, `ollama`, `openai` ou `anthropic`.
-4. Cole o relato do caso ou envie arquivo.
-5. Se escolher provider externo (`openai` ou `anthropic`), marque o consentimento.
-6. Clique em `Criar documento com IA`.
-7. Baixe o DOCX no card de resultado e revise manualmente.
+3. Cole o relato do caso ou envie arquivo.
+4. Marque o consentimento de envio ao Groq.
+5. Clique em `Criar documento com IA`.
+6. Baixe o DOCX no card de resultado e revise manualmente.
 
 Nao ha mais botao principal de triagem/validacao separada. As validacoes continuam internas ao fluxo de criacao.
 
 ## 3. Configuracao de IA
 
-O backend continua sendo a fonte da verdade para IA. A interface so mostra providers permitidos pela allowlist:
+O backend e a fonte da verdade para IA. A interface mostra somente o provider Groq fixo:
 
 ```env
 LLM_REQUIRED=true
 LLM_ALLOW_MOCK=true
-LLM_ALLOW_CLIENT_PROVIDER=true
-LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
-LLM_PROVIDER=mock
-LLM_MODEL=
+LLM_ALLOW_CLIENT_PROVIDER=false
+LLM_CLIENT_ALLOWED_PROVIDERS=groq
+LLM_MODE=groq
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=sua-chave-local
 ```
 
-Use `mock` em desenvolvimento e testes. Ele nao representa IA real e nao deve ser usado como prova de qualidade juridica.
+Use `mock` apenas em testes automatizados. Ele nao representa IA real.
 
-## 4. Usar Ollama Local
+## 4. Usar Groq
 
-Use `ollama` quando quiser IA local sem chave de API externa. Instale o Ollama, baixe um modelo e mantenha o servico ativo:
+Crie a chave em `https://console.groq.com/keys` e configure no `.env` local:
 
 ```env
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1:8b
-OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=gsk_...
 ```
 
-## 5. Usar OpenAI
-
-No `.env` local/controlado:
-
-```env
-LLM_REQUIRED=true
-LLM_ALLOW_MOCK=false
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4o-mini
-OPENAI_API_KEY=sua-chave-local
-LLM_FALLBACK_ENABLED=false
-```
-
-## 6. Usar Anthropic / Claude
-
-No `.env` local/controlado:
-
-```env
-LLM_REQUIRED=true
-LLM_ALLOW_MOCK=false
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-3-5-haiku-latest
-ANTHROPIC_API_KEY=sua-chave-local
-LLM_FALLBACK_ENABLED=false
-```
-
-Cuidados para providers externos:
+Cuidados:
 
 - nao use chave real em arquivos versionados;
 - nao envie dados reais sem base legal/autorizacao;
-- a interface e a API exigem consentimento explicito antes de enviar dados para provider externo;
+- interface e API exigem consentimento explicito antes de enviar dados ao Groq;
 - redaction e parcial e nao garante anonimizacao completa;
 - revise a minuta antes de qualquer uso profissional.
 
-## 7. Usar CLI
+## 5. Usar CLI
 
 Ajuda:
 
@@ -99,19 +74,13 @@ Processar exemplo com mock e sem outbox:
 python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json
 ```
 
-Processar com Ollama local:
+Processar com Groq exige `GROQ_API_KEY` no `.env` e consentimento:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider ollama --llm-model llama3.1:8b
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm-consent-external
 ```
 
-Processar com Anthropic exige `ANTHROPIC_API_KEY` no `.env` e consentimento:
-
-```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider anthropic --llm-consent-external
-```
-
-## 8. Validar DOCX Gerado
+## 6. Validar DOCX Gerado
 
 ```bash
 python -m src.core.validation.docx output/nome-do-arquivo.docx --profile judicial-inicial-jef
@@ -119,7 +88,7 @@ python -m src.core.validation.docx output/nome-do-arquivo.docx --profile judicia
 
 Essa validacao e auxiliar; a experiencia principal e criacao do documento.
 
-## 9. Rodar Testes
+## 7. Rodar Testes
 
 ```bash
 python -m compileall config.py src tests
