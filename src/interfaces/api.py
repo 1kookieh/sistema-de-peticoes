@@ -12,7 +12,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -37,6 +37,13 @@ from config import (
 )
 from src.adapters.files.file_extractors import FileExtractionError, extract_text_from_uploads
 from src.adapters.inbox.gmail_reader import Email
+from src.interfaces.api_dependencies import (
+    enforce_allowed_origin,
+    enforce_api_token,
+    piece_type_or_422,
+    profile_or_422,
+    safe_file,
+)
 from src.interfaces.api_schemas import (
     DEFAULT_PROFILE_ID,
     ChatRequest,
@@ -51,8 +58,8 @@ from src.orchestration.reporting import build_run_report, write_html_report, wri
 from src.orchestration.setup import setup_runtime
 from src.orchestration.pipeline import processar_email
 from src.core.piece_inference import infer_piece_type_id
-from src.core.piece_types import get_piece_type, list_piece_types
-from src.core.profiles import PROFILES, get_profile, list_profile_ids
+from src.core.piece_types import list_piece_types
+from src.core.profiles import PROFILES, list_profile_ids
 from src.core.validation.modes import (
     normalize_mode,
 )
@@ -168,48 +175,20 @@ if FRONTEND_DIR.exists():
 
 
 def require_api_token(x_api_token: str | None = Header(default=None, alias="X-API-Token")) -> None:
-    """Protege rotas sensíveis quando API_TOKEN estiver configurado."""
-    if API_REQUIRE_TOKEN and not API_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="API_TOKEN obrigatório quando API_REQUIRE_TOKEN=true",
-        )
-    if API_TOKEN and x_api_token != API_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="token de API ausente ou inválido",
-        )
+    enforce_api_token(
+        x_api_token,
+        api_token=API_TOKEN,
+        api_require_token=API_REQUIRE_TOKEN,
+    )
 
 
 def require_allowed_origin(origin: str | None = Header(default=None, alias="Origin")) -> None:
-    """Bloqueia chamadas mutadoras vindas de páginas não autorizadas."""
-    if origin and origin not in API_ALLOWED_ORIGINS:
-        raise HTTPException(status_code=403, detail="origem não autorizada para esta API local")
+    enforce_allowed_origin(origin, API_ALLOWED_ORIGINS)
 
 
-def _profile_or_422(profile_id: str | None):
-    try:
-        return get_profile(profile_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-def _piece_type_or_422(piece_type_id: str | None):
-    try:
-        return get_piece_type(piece_type_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-def _safe_file(base: Path, filename: str, suffixes: set[str]) -> Path:
-    candidate = (base / filename).resolve()
-    try:
-        candidate.relative_to(base.resolve())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="caminho inválido") from exc
-    if candidate.suffix.lower() not in suffixes or not candidate.exists():
-        raise HTTPException(status_code=404, detail="arquivo não encontrado")
-    return candidate
+_profile_or_422 = profile_or_422
+_piece_type_or_422 = piece_type_or_422
+_safe_file = safe_file
 
 
 @app.get("/", include_in_schema=False)
