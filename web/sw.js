@@ -1,4 +1,4 @@
-const CACHE_NAME = "sistema-peticoes-app-v11";
+const CACHE_NAME = "sistema-peticoes-app-v12";
 const STATIC_ASSETS = [
   "/",
   "/static/styles.css",

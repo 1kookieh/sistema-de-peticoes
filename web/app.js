@@ -1,6 +1,8 @@
 const API_BASE = "/api/v1";
-const STORAGE_KEY = "lexdoc.pieces.v2";
-const SETTINGS_KEY = "lexdoc.settings.v2";
+const LEGACY_STORAGE_KEY = "lexdoc.pieces.v2";
+const LEGACY_SETTINGS_KEY = "lexdoc.settings.v2";
+const STORAGE_KEY = "sistemaPeticoes.pieces.v1";
+const SETTINGS_KEY = "sistemaPeticoes.settings.v1";
 const TOKEN_KEY = "sistemaPeticoesApiToken";
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -58,7 +60,8 @@ function providerIcon(provider) {
 
 function loadPieces() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    return JSON.parse(stored || "[]");
   } catch {
     return [];
   }
@@ -66,14 +69,16 @@ function loadPieces() {
 
 function savePieces() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.pieces.slice(0, 80)));
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 function loadSettings() {
   try {
+    const stored = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem(LEGACY_SETTINGS_KEY);
     return {
       theme: "light",
       remember: true,
-      ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"),
+      ...JSON.parse(stored || "{}"),
     };
   } catch {
     return { theme: "light", remember: true };
@@ -83,6 +88,7 @@ function loadSettings() {
 function saveSettings() {
   if (!state.settings.remember) return;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  localStorage.removeItem(LEGACY_SETTINGS_KEY);
 }
 
 function loadStoredToken() {
