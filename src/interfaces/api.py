@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from collections import Counter
 from datetime import datetime
 import logging
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -49,6 +47,13 @@ from src.interfaces.api_middleware import (
     apply_security_headers,
     rate_limit_response,
 )
+from src.interfaces.api_reports import (
+    dashboard_payload,
+    generated_report_items,
+    parse_report_month,
+    piece_from_report,
+    piece_type_label,
+)
 from src.interfaces.api_schemas import (
     DEFAULT_PROFILE_ID,
     ChatRequest,
@@ -78,11 +83,6 @@ PROFILE_LABELS_PT = {
     "instrumento-mandato": "Procuração / Substabelecimento / Declaração",
     "forense-basico": "Forense básico (mínimo formal)",
 }
-
-MONTH_LABELS_PT = [
-    "jan.", "fev.", "mar.", "abr.", "mai.", "jun.",
-    "jul.", "ago.", "set.", "out.", "nov.", "dez.",
-]
 
 _RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
 
@@ -534,60 +534,24 @@ def download_document(filename: str) -> FileResponse:
 
 
 def _piece_type_label(report: dict[str, Any]) -> str:
-    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
-    piece_type = metadata.get("piece_type")
-    if isinstance(piece_type, dict):
-        return str(piece_type.get("nome") or piece_type.get("id") or "Peça processual")
-    profile_id = str(report.get("profile") or "")
-    return PROFILE_LABELS_PT.get(profile_id, profile_id or "Peça processual")
+    return piece_type_label(report, PROFILE_LABELS_PT)
 
 
 def _parse_report_month(value: Any) -> str:
-    if not value:
-        return "Sem data"
-    try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return "Sem data"
-    return f"{MONTH_LABELS_PT[parsed.month - 1]} {parsed.strftime('%y')}"
+    return parse_report_month(value)
 
 
 def _generated_report_items() -> list[dict[str, Any]]:
-    reports_payload = list_reports()
-    generated: list[dict[str, Any]] = []
-    for report in reports_payload:
-        summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
-        falhas = int(summary.get("falhas") or 0)
-        if not report.get("first_docx") or falhas:
-            continue
-        generated.append(report)
-    return generated
+    return generated_report_items(REPORTS_DIR)
 
 
 def _piece_from_report(report: dict[str, Any]) -> dict[str, Any]:
-    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
-    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
-    first_docx = report.get("first_docx")
-    validos = int(summary.get("validos") or 0)
-    bloqueados = int(summary.get("bloqueados") or 0)
-    status_label = "Finalizado" if first_docx and validos and not bloqueados else "Em andamento"
-    llm = report.get("first_llm") if isinstance(report.get("first_llm"), dict) else {}
-    return {
-        "id": Path(str(report.get("name") or uuid4())).stem,
-        "person": metadata.get("person_name") or "Registro local",
-        "process": metadata.get("case_number") or "Não informado",
-        "type": _piece_type_label(report),
-        "status": status_label,
-        "provider": llm.get("provider") or LLM_PROVIDER,
-        "model": llm.get("model") or LLM_MODEL,
-        "location": metadata.get("location") or "Cidade/UF não informada",
-        "created_at": report.get("generated_at"),
-        "document": first_docx,
-        "download_url": f"/api/v1/documents/{first_docx}/download" if first_docx else None,
-        "report_json_url": f"/api/v1/reports/{report.get('name')}" if report.get("name") else None,
-        "report_html_url": f"/api/v1/reports/{report.get('html_name')}" if report.get("html_name") else None,
-        "summary": summary,
-    }
+    return piece_from_report(
+        report,
+        profile_labels=PROFILE_LABELS_PT,
+        default_provider=LLM_PROVIDER,
+        default_model=LLM_MODEL,
+    )
 
 
 @app.get("/api/v1/pieces", dependencies=[Depends(require_api_token)])
@@ -601,59 +565,23 @@ def dashboard() -> dict[str, Any]:
     """Métricas operacionais para a tela inicial do novo workspace."""
     reports_payload = _generated_report_items()
     items = [_piece_from_report(report) for report in reports_payload]
-    total = len(items)
-    finalized = sum(1 for item in items if item["status"] == "Finalizado")
-    in_progress = max(0, total - finalized)
-    by_month: Counter[str] = Counter()
-    month_order: list[str] = []
-    for report in reversed(reports_payload):
-        month_label = _parse_report_month(report.get("generated_at"))
-        if month_label not in by_month:
-            month_order.append(month_label)
-        by_month[month_label] += 1
-    top_piece_types = Counter(_piece_type_label(report) for report in reports_payload)
-    by_location = Counter(
-        str(item.get("location") or "Cidade/UF não informada")
-        for item in items
-    )
-    return {
-        "metrics": {
-            "total": total,
-            "in_progress": in_progress,
-            "finalized": finalized,
-        },
-        "provider": {
+    return dashboard_payload(
+        reports_payload,
+        items,
+        profile_labels=PROFILE_LABELS_PT,
+        provider={
             "default_provider": LLM_PROVIDER,
             "default_model": LLM_MODEL,
             "allowed_providers": list(LLM_CLIENT_ALLOWED_PROVIDERS),
             "allow_client_provider": LLM_ALLOW_CLIENT_PROVIDER,
             "required": LLM_REQUIRED,
         },
-        "recent": items[:5],
-        "monthly_evolution": [
-            {"label": label, "total": total_count}
-            for label in month_order[-6:]
-            for total_count in [by_month[label]]
-        ],
-        "top_piece_types": [
-            {"label": label, "total": total_count}
-            for label, total_count in top_piece_types.most_common(5)
-        ],
-        "by_location": [
-            {"label": label, "total": total_count}
-            for label, total_count in by_location.most_common(5)
-        ],
-        "warnings": [
-            "Revise competência, prazos, OAB, procuração, anexos e valor da causa.",
-            "Use provider externo apenas com consentimento explícito.",
-            "A minuta gerada exige revisão humana antes de qualquer protocolo.",
-        ],
-    }
+    )
 
 
 @app.get("/api/v1/reports", dependencies=[Depends(require_api_token)])
 def reports() -> dict[str, Any]:
-    return {"reports": list_reports(), "status_items": list_status_items()}
+    return {"reports": list_reports(REPORTS_DIR), "status_items": list_status_items()}
 
 
 @app.get("/api/v1/reports/{filename}", dependencies=[Depends(require_api_token)])
