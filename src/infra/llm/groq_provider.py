@@ -88,6 +88,8 @@ def groq_chat_completion(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "sistema-peticoes/1.0 (+https://github.com/1kookieh/sistema-de-peticoes)",
         },
         method="POST",
     )
