@@ -53,9 +53,10 @@ jobs:
         env:
           EMAIL_ADVOGADO: advogado.ci@example.com
           INBOX_MOCK_PATH: ./examples/inbox_smoke.json
+          LLM_PROVIDER: mock
         run: |
           mkdir -p output
-          python -m src
+          python -m src --mock
 
       - name: Validar artefato gerado
         run: |
