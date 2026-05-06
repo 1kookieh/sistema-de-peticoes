@@ -372,9 +372,9 @@ h2 svg {
   width: 42px;
 }
 .metric-icon svg { height: 22px; width: 22px; }
-.metric-icon.amber { background: #fff1d9; color: #a36012; }
-.metric-icon.blue { background: #e7f0ff; color: #2563a8; }
-.metric-icon.green { background: #e4f5e9; color: #1b7a42; }
+.metric-icon.amber { background: var(--accent-soft); color: var(--gold); }
+.metric-icon.blue { background: var(--surface-3); color: var(--ink-2); }
+.metric-icon.green { background: var(--ok-soft); color: var(--ok); }
 .metric-icon.dark { background: color-mix(in srgb, var(--surface) 10%, transparent); color: var(--surface); }
 
 .two-column {
@@ -513,14 +513,20 @@ h2 svg {
   transform-origin: center bottom;
 }
 .chart-axis {
-  fill: var(--muted);
-  font-size: 13px;
-  font-weight: 850;
+  fill: var(--ink);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
+.chart-axis.y { fill: var(--muted); font-weight: 800; }
 .chart-axis.y.label {
-  font-size: 12px;
-  line-height: 1.1;
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
 }
+.chart-axis.x { fill: var(--ink); font-size: 15px; font-weight: 700; }
 .chart-legend {
   align-items: center;
   color: var(--ink);
@@ -601,13 +607,22 @@ h2 svg {
 .chart-hover-label,
 .bar-value-label {
   fill: var(--ink);
-  font-size: 13px;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
   font-weight: 900;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition), transform var(--transition);
 }
-.bar-value-label { font-size: 12px; }
+.bar-value-label {
+  fill: var(--surface);
+  font-size: 15px;
+  font-weight: 900;
+  opacity: 1;
+  paint-order: stroke fill;
+  stroke: color-mix(in srgb, var(--ink) 35%, transparent);
+  stroke-width: 0.5;
+}
 .chart-hit:hover .monthly-point,
 .chart-hit:focus-visible .monthly-point {
   fill: var(--gold);

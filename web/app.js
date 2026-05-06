@@ -153,7 +153,7 @@ function switchTab(tab) {
     }
   });
   const titles = { dashboard: "Início", ai: "IA", pieces: "Peças", settings: "Configurações" };
-  $("#page-title").textContent = titles[tab] || "LexDoc";
+  $("#page-title").textContent = titles[tab] || "Sistema de Petições";
   if (location.hash !== `#${tab}`) history.replaceState(null, "", `#${tab}`);
   if (tab === "pieces") renderPieces();
   if (tab === "dashboard") renderDashboard();
@@ -314,11 +314,34 @@ async function handleGenerate(event) {
     switchTab("ai");
   } catch (error) {
     console.error(error);
-    addMessage("assistant", `<p><strong>Não consegui gerar agora.</strong> ${escapeHTML(error.message)}</p>`);
+    addMessage("assistant", `<p><strong>Não consegui gerar agora.</strong> ${escapeHTML(friendlyChatError(error))}</p>`);
     setGenerationState("Falha", "failed");
   } finally {
     $("#send-button").disabled = false;
   }
+}
+
+function friendlyChatError(error) {
+  const raw = String(error?.message || "").trim();
+  if (!raw) return "Tente novamente em alguns instantes.";
+  if (/413|too large|tokens per minute|tpm/i.test(raw)) {
+    return "Sua mensagem ficou grande demais para o limite gratuito do Groq. Reduza o texto ou aguarde alguns instantes.";
+  }
+  if (/401|unauthorized|invalid api key/i.test(raw)) {
+    return "A chave do Groq foi rejeitada. Confira GROQ_API_KEY no .env.";
+  }
+  if (/429|rate limit/i.test(raw)) {
+    return "Limite de requisições do Groq atingido temporariamente. Aguarde alguns segundos e tente de novo.";
+  }
+  if (/403|cloudflare|1010/i.test(raw)) {
+    return "O Groq bloqueou esta requisição. Verifique chave, rede ou tente novamente.";
+  }
+  if (/consent|consentimento/i.test(raw)) {
+    return "Marque o consentimento de envio ao Groq antes de enviar.";
+  }
+  // default: keep first sentence only, drop URLs/IDs
+  const firstLine = raw.split(/[.\n]/)[0].slice(0, 160);
+  return firstLine + (raw.length > firstLine.length ? "..." : "");
 }
 
 function shouldGenerateDocument(text, files) {
@@ -334,7 +357,7 @@ async function generateWithText(request) {
     text: request.text,
     consent_external_provider: $("#external-consent").checked,
     remetente: "frontend.local@example.com",
-    assunto: "Criação pelo chat LexDoc",
+    assunto: "Criação pelo chat Sistema de Petições",
     llm: {
       consent_external_provider: $("#external-consent").checked,
     },
@@ -346,7 +369,7 @@ async function generateWithUpload(request) {
   for (const file of state.files) body.append("files", file);
   body.append("llm_consent_external_provider", String($("#external-consent").checked));
   body.append("remetente", "frontend.local@example.com");
-  body.append("assunto", "Criação por upload no chat LexDoc");
+  body.append("assunto", "Criação por upload no chat Sistema de Petições");
   return postForm("/documents/upload", body);
 }
 
@@ -534,10 +557,10 @@ function renderTopTypesChart(items) {
     return;
   }
   const maxValue = Math.max(...normalized.map((item) => Number(item.total || 0)), 1);
-  const width = 680;
+  const width = 760;
   const rowHeight = 74;
-  const height = 116 + normalized.length * rowHeight;
-  const pad = { top: 32, right: 32, bottom: 48, left: 150 };
+  const height = 120 + normalized.length * rowHeight;
+  const pad = { top: 32, right: 32, bottom: 56, left: 240 };
   const usableW = width - pad.left - pad.right;
   const xTicks = maxValue === 1 ? [0, 0.25, 0.5, 0.75, 1] : [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
   container.innerHTML = `
@@ -553,7 +576,7 @@ function renderTopTypesChart(items) {
         const y = pad.top + index * rowHeight + 18;
         const barWidth = Math.max(8, (total / maxValue) * usableW);
         return `
-          <text class="chart-axis y label" x="${pad.left - 12}" y="${y + 25}" text-anchor="end">${escapeHTML(shortLabel(item.label, 20))}</text>
+          <text class="chart-axis y label" x="${pad.left - 14}" y="${y + 28}" text-anchor="end">${escapeHTML(shortLabel(item.label, 32))}</text>
           <g class="chart-hit bar-hit" tabindex="0" role="listitem" aria-label="${escapeHTML(item.label)}: ${total} peças">
             <title>${escapeHTML(item.label)}: ${total} peças</title>
             <rect class="horizontal-bar" x="${pad.left}" y="${y}" width="${barWidth}" height="44" rx="4"></rect>
@@ -663,13 +686,12 @@ function shortLabel(value, max = 18) {
 }
 
 function shortLocationLabel(value) {
-  const text = String(value || "--");
-  if (text.toLowerCase().includes("não informada") || text.toLowerCase().includes("nao informada")) {
-    return "S/I";
-  }
+  const text = String(value || "--").trim();
+  if (!text || text === "--") return "Sem dado";
+  if (/n[aã]o informad[ao]/i.test(text)) return "Sem cidade";
   const match = text.match(/([A-Z]{2})$/i);
   if (match) return match[1].toUpperCase();
-  return shortLabel(text, 10).toUpperCase();
+  return shortLabel(text, 14);
 }
 
 function renderPieces() {
