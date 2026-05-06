@@ -3,6 +3,7 @@ import json
 from src.adapters.outbox import gmail_sender
 from src.orchestration import pipeline as main
 from src.infra import pipeline_state
+from src.infra.llm import factory as llm_factory
 
 
 def _email(texto: str):
@@ -21,11 +22,16 @@ def _texto_valido():
     return TEXTO_VALIDO
 
 
-def test_processar_email_ai_first_reescreve_entrada_e_enfileira_docx(tmp_path, monkeypatch):
+def _patch_runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
     monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    monkeypatch.setattr(llm_factory, "LLM_PROVIDER", "mock")
+
+
+def test_processar_email_ai_first_reescreve_entrada_e_enfileira_docx(tmp_path, monkeypatch):
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(
         _email(_texto_valido().replace("OAB/GO 12.345", "OAB/UF 00.000"))
@@ -38,10 +44,7 @@ def test_processar_email_ai_first_reescreve_entrada_e_enfileira_docx(tmp_path, m
 
 
 def test_processar_email_enfileira_apenas_docx_valido(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(_email(_texto_valido()))
 
@@ -53,10 +56,7 @@ def test_processar_email_enfileira_apenas_docx_valido(tmp_path, monkeypatch):
 
 
 def test_processar_email_rejeita_docx_acima_do_limite(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
     monkeypatch.setattr(main, "MAX_DOCX_BYTES", 1)
 
     resultado = main.processar_email(_email(_texto_valido()))
@@ -68,10 +68,7 @@ def test_processar_email_rejeita_docx_acima_do_limite(tmp_path, monkeypatch):
 
 
 def test_processar_email_reusa_relatorio_docx_sem_revalidar(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(_email(_texto_valido()), no_outbox=True)
     item = resultado.to_report_item()
@@ -81,10 +78,7 @@ def test_processar_email_reusa_relatorio_docx_sem_revalidar(tmp_path, monkeypatc
 
 
 def test_processar_email_final_bloqueia_marcador_pendente_no_pipeline(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
     texto = _texto_valido() + "\nDIB: [DADO FALTANTE: confirmar com cliente]"
 
     resultado = main.processar_email(
@@ -101,10 +95,7 @@ def test_processar_email_final_bloqueia_marcador_pendente_no_pipeline(tmp_path, 
 
 
 def test_processar_email_minuta_gera_docx_mesmo_com_alertas_formais(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(
         _email("Cliente relata indeferimento de beneficio por incapacidade. DER 10/01/2026."),
@@ -121,10 +112,7 @@ def test_processar_email_minuta_gera_docx_mesmo_com_alertas_formais(tmp_path, mo
 
 
 def test_processar_email_triagem_nao_renderiza_docx(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(
         _email("Caso incompleto. [DADO FALTANTE: DER]"),
@@ -140,10 +128,7 @@ def test_processar_email_triagem_nao_renderiza_docx(tmp_path, monkeypatch):
 
 
 def test_processar_email_registra_uso_dos_prompts_obrigatorios(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
-    monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    _patch_runtime(tmp_path, monkeypatch)
 
     resultado = main.processar_email(_email(_texto_valido()), no_outbox=True)
     item = resultado.to_report_item()

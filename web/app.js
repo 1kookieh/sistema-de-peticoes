@@ -4,50 +4,26 @@ const SETTINGS_KEY = "lexdoc.settings.v2";
 const TOKEN_KEY = "sistemaPeticoesApiToken";
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
-const externalProviders = new Set(["openai", "anthropic", "gemini", "openrouter"]);
+const DEFAULT_PROVIDER = "groq";
+const externalProviders = new Set([DEFAULT_PROVIDER]);
 const providerLabels = {
-  mock: "Mock local",
-  ollama: "Ollama local",
-  openai: "OpenAI",
-  anthropic: "Claude",
-  gemini: "Gemini",
-  openrouter: "OpenRouter",
+  groq: "Groq",
 };
 
 const providerBrand = {
-  mock: {
-    className: "provider-brand-mock",
-    svg: '<svg viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 17.5v-11Z"/><path d="M8.5 9h7M8.5 15h4.5"/></svg>',
-  },
-  ollama: {
-    className: "provider-brand-ollama",
-    svg: '<svg viewBox="0 0 24 24"><path d="M7.4 10.5c0-3 2.1-5.5 4.6-5.5s4.6 2.5 4.6 5.5v7.2a2 2 0 0 1-2 2H9.4a2 2 0 0 1-2-2v-7.2Z"/><path d="M9.5 8.1 8.4 5.2M14.5 8.1l1.1-2.9"/><path d="M10 12.2h.01M14 12.2h.01M10.4 16h3.2"/></svg>',
-  },
-  openai: {
-    className: "provider-brand-openai",
-    svg: '<svg viewBox="0 0 24 24"><path d="M12 3.2a4.1 4.1 0 0 1 3.6 2.1 4.1 4.1 0 0 1 4.1 6 4.1 4.1 0 0 1-1.5 6.7 4.1 4.1 0 0 1-6.2 2.7 4.1 4.1 0 0 1-6.1-2.1 4.1 4.1 0 0 1-1.5-6.7 4.1 4.1 0 0 1 4-6.7A4.1 4.1 0 0 1 12 3.2Z"/><path d="M8.4 5.2 12 7.3l3.6-2M19.7 11.3 16.1 13.4v4.2M15.6 20.8v-4.2L12 14.5l-3.6 2.1M4.3 12.1l3.6-2.1V5.8M5.9 18.6l3.6-2.1v-4.2M18.1 5.4l-3.6 2.1v4.2L18.1 14"/></svg>',
-  },
-  anthropic: {
-    className: "provider-brand-claude",
-    svg: '<svg viewBox="0 0 24 24"><path d="M12 3.2 14.1 9.9 20.8 12l-6.7 2.1L12 20.8l-2.1-6.7L3.2 12l6.7-2.1L12 3.2Z"/><path d="M12 7.2 13.2 11l3.6 1-3.6 1.2L12 16.8 10.8 13.2 7.2 12l3.6-1L12 7.2Z"/></svg>',
-  },
-  gemini: {
-    className: "provider-brand-gemini",
-    svg: '<svg viewBox="0 0 24 24"><path d="M12 3.5c1.1 4.4 3.1 6.4 7.5 7.5-4.4 1.1-6.4 3.1-7.5 7.5-1.1-4.4-3.1-6.4-7.5-7.5 4.4-1.1 6.4-3.1 7.5-7.5Z"/></svg>',
-  },
-  openrouter: {
-    className: "provider-brand-openrouter",
-    svg: '<svg viewBox="0 0 24 24"><path d="M4 7h9.5l2.2 3H20"/><path d="M4 17h9.5l2.2-3H20"/><path d="M17.5 8.5 20 10l-2.5 1.5M17.5 12.5 20 14l-2.5 1.5"/></svg>',
+  groq: {
+    className: "provider-brand-groq",
+    svg: '<svg viewBox="0 0 24 24"><path d="M6 7.5A4.5 4.5 0 0 1 10.5 3h3A4.5 4.5 0 0 1 18 7.5v9A4.5 4.5 0 0 1 13.5 21h-3A4.5 4.5 0 0 1 6 16.5v-9Z"/><path d="M10.5 8.5h3A3.5 3.5 0 0 1 17 12v0a3.5 3.5 0 0 1-3.5 3.5h-3"/><path d="M10.5 8.5v7"/></svg>',
   },
 };
 
 const state = {
   tab: "dashboard",
   limits: {
-    llm_default_provider: "mock",
-    llm_default_model: "",
-    llm_allowed_providers: ["mock", "ollama", "openai", "anthropic"],
-    llm_allow_client_provider: true,
+    llm_default_provider: DEFAULT_PROVIDER,
+    llm_default_model: "llama-3.3-70b-versatile",
+    llm_allowed_providers: [DEFAULT_PROVIDER],
+    llm_allow_client_provider: false,
   },
   pieces: loadPieces(),
   files: [],
@@ -96,13 +72,12 @@ function loadSettings() {
   try {
     return {
       theme: "light",
-      preferLocal: true,
       remember: true,
       strictReview: true,
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"),
     };
   } catch {
-    return { theme: "light", preferLocal: true, remember: true, strictReview: true };
+    return { theme: "light", remember: true, strictReview: true };
   }
 }
 
@@ -206,50 +181,21 @@ function addWelcomeMessage() {
 }
 
 function renderSelectOptions() {
-  const providerSelect = $("#provider-select");
-  if (!providerSelect) return;
-  const providers = state.limits.llm_allowed_providers?.length ? state.limits.llm_allowed_providers : ["mock"];
-  providerSelect.innerHTML = providers
-    .map((provider) => `<option value="${escapeHTML(provider)}">${escapeHTML(providerLabels[provider] || provider)}</option>`)
-    .join("");
-  providerSelect.value = providers.includes(state.limits.llm_default_provider)
-    ? state.limits.llm_default_provider
-    : providers[0];
-  renderProviderMenu(providers);
   syncProviderUI();
 }
 
-function renderProviderMenu(providers) {
-  const menu = $("#provider-menu");
-  if (!menu) return;
-  menu.innerHTML = providers.map((provider) => `
-    <button type="button" class="provider-option" data-provider-value="${escapeHTML(provider)}">
-      ${providerIcon(provider)}
-      <span>${escapeHTML(providerLabels[provider] || provider)}</span>
-    </button>
-  `).join("");
-}
-
 function syncProviderUI() {
-  const provider = $("#provider-select").value;
-  const external = externalProviders.has(provider);
+  const provider = DEFAULT_PROVIDER;
   const providerIconButton = $("#provider-icon");
   if (providerIconButton) {
     const brand = providerBrand[provider];
     providerIconButton.className = `provider-brand ${brand?.className || "provider-brand-generic"}`;
     providerIconButton.innerHTML = brand?.svg || "IA";
     const label = providerLabels[provider] || provider || "IA";
-    $("#provider-button")?.setAttribute("title", `Selecionar IA: ${label}`);
-    $("#provider-button")?.setAttribute("aria-label", `Selecionar IA: ${label}`);
+    providerIconButton.setAttribute("title", label);
   }
-  $$(".provider-option").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.providerValue === provider);
-  });
-  $("#external-consent-row").hidden = !external;
-  if (!external) $("#external-consent").checked = false;
-  $("#provider-note").textContent = external
-    ? "Provider externo selecionado: confirme autorização antes de enviar dados."
-    : "Provider local/seguro para testes nesta máquina.";
+  $("#external-consent-row").hidden = false;
+  $("#provider-note").textContent = "Groq é a IA padrão: confirme autorização antes de enviar dados do caso para fora desta máquina.";
 }
 
 function renderAttachments() {
@@ -278,7 +224,7 @@ function createLocalPiece(payload, request) {
     process: "Informado no chat",
     type: payload.piece_type?.nome || "Peça processual",
     status: payload.download_url ? "Finalizado" : "Em andamento",
-    provider: payload.llm?.provider || request.provider,
+    provider: DEFAULT_PROVIDER,
     model: payload.llm?.model || state.limits.llm_default_model || "",
     location: "Informado no chat",
     createdAt: new Date().toISOString(),
@@ -301,7 +247,7 @@ function normalizeBackendPiece(item) {
     process: item.process || "Não informado",
     type: item.type || item.document || "Peça processual",
     status: item.status || "Em andamento",
-    provider: item.provider || state.limits.llm_default_provider,
+    provider: item.provider || DEFAULT_PROVIDER,
     model: item.model || state.limits.llm_default_model || "",
     location: item.location || "Cidade/UF não informada",
     createdAt: item.created_at || item.createdAt || new Date().toISOString(),
@@ -326,9 +272,9 @@ async function handleGenerate(event) {
     addMessage("assistant", `<p>Envie uma mensagem ou anexe um arquivo para iniciar a conversa.</p>`);
     return;
   }
-  const provider = $("#provider-select").value;
-  if (externalProviders.has(provider) && !$("#external-consent").checked) {
-    addMessage("assistant", `<p>Provider externo selecionado. Confirme o consentimento antes de enviar dados do caso.</p>`);
+  const provider = DEFAULT_PROVIDER;
+  if (!$("#external-consent").checked) {
+    addMessage("assistant", `<p>Confirme o consentimento antes de enviar dados do caso ao Groq.</p>`);
     return;
   }
 
@@ -393,7 +339,6 @@ async function generateWithText(request) {
     remetente: "frontend.local@example.com",
     assunto: "Criação pelo chat LexDoc",
     llm: {
-      provider: request.provider,
       consent_external_provider: $("#external-consent").checked,
     },
   });
@@ -402,7 +347,6 @@ async function generateWithText(request) {
 async function generateWithUpload(request) {
   const body = new FormData();
   for (const file of state.files) body.append("files", file);
-  body.append("llm_provider", request.provider);
   body.append("llm_consent_external_provider", String($("#external-consent").checked));
   body.append("remetente", "frontend.local@example.com");
   body.append("assunto", "Criação por upload no chat LexDoc");
@@ -412,7 +356,6 @@ async function generateWithUpload(request) {
 async function chatWithText(request) {
   return postJson("/chat", {
     text: request.text,
-    provider: request.provider,
     consent_external_provider: $("#external-consent").checked,
   });
 }
@@ -421,7 +364,6 @@ async function chatWithUpload(request) {
   const body = new FormData();
   for (const file of state.files) body.append("files", file);
   body.append("text", request.text || "");
-  body.append("provider", request.provider);
   body.append("consent_external_provider", String($("#external-consent").checked));
   return postForm("/chat/upload", body);
 }
@@ -467,12 +409,12 @@ function renderDashboard() {
   $("#metric-total").textContent = total;
   $("#metric-progress").textContent = progress;
   $("#metric-final").textContent = final;
-  $("#metric-provider").textContent = providerLabels[state.limits.llm_default_provider] || state.limits.llm_default_provider || "--";
+  $("#metric-provider").textContent = providerLabels[DEFAULT_PROVIDER];
   $("#metric-model").textContent = state.limits.llm_default_model || "Modelo definido pelo backend";
-  $("#side-provider").textContent = `${providerLabels[state.limits.llm_default_provider] || state.limits.llm_default_provider || "Provider"} ativo`;
-  $("#settings-provider").textContent = providerLabels[state.limits.llm_default_provider] || state.limits.llm_default_provider || "--";
+  $("#side-provider").textContent = `${providerLabels[DEFAULT_PROVIDER]} ativo`;
+  $("#settings-provider").textContent = providerLabels[DEFAULT_PROVIDER];
   $("#settings-model").textContent = state.limits.llm_default_model || "--";
-  $("#settings-allowed").textContent = (state.limits.llm_allowed_providers || []).join(", ") || "--";
+  $("#settings-allowed").textContent = state.limits.llm_allow_client_provider ? "Ativada" : "Desativada";
 
   const recent = pieces.slice(0, 5);
   $("#recent-list").innerHTML = recent.length
@@ -826,26 +768,6 @@ function bindEvents() {
       renderAttachments();
       return;
     }
-    const providerButton = event.target.closest("#provider-button");
-    if (providerButton) {
-      const menu = $("#provider-menu");
-      const open = menu.hidden;
-      menu.hidden = !open;
-      providerButton.setAttribute("aria-expanded", String(open));
-      return;
-    }
-    const providerOption = event.target.closest("[data-provider-value]");
-    if (providerOption) {
-      $("#provider-select").value = providerOption.dataset.providerValue;
-      $("#provider-menu").hidden = true;
-      $("#provider-button").setAttribute("aria-expanded", "false");
-      syncProviderUI();
-      return;
-    }
-    if (!event.target.closest(".provider-picker") && $("#provider-menu")) {
-      $("#provider-menu").hidden = true;
-      $("#provider-button")?.setAttribute("aria-expanded", "false");
-    }
     const openButton = event.target.closest("[data-open]");
     if (openButton) await openSecure(openButton.dataset.open, "open");
     const downloadButton = event.target.closest("[data-download]");
@@ -862,7 +784,6 @@ function bindEvents() {
       $("#chat-form").requestSubmit();
     }
   });
-  $("#provider-select").addEventListener("change", syncProviderUI);
   $("#piece-search").addEventListener("input", renderPieces);
   $("#refresh-pieces").addEventListener("click", syncReports);
   $$("[data-theme-choice]").forEach((button) => {
@@ -870,10 +791,6 @@ function bindEvents() {
   });
   $("#api-token").addEventListener("input", () => {
     localStorage.setItem(TOKEN_KEY, JSON.stringify({ value: $("#api-token").value.trim(), savedAt: Date.now() }));
-  });
-  $("#prefer-local").addEventListener("change", (event) => {
-    state.settings.preferLocal = event.target.checked;
-    saveSettings();
   });
   $("#remember-settings").addEventListener("change", (event) => {
     state.settings.remember = event.target.checked;
@@ -900,7 +817,6 @@ async function registerServiceWorker() {
 
 function initSettings() {
   $("#api-token").value = loadStoredToken();
-  $("#prefer-local").checked = state.settings.preferLocal;
   $("#remember-settings").checked = state.settings.remember;
   $("#strict-review").checked = state.settings.strictReview;
   applyTheme(state.settings.theme);

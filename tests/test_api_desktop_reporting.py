@@ -8,6 +8,7 @@ from src.adapters.files import file_extractors
 from src.adapters.outbox import gmail_sender
 from src.orchestration import pipeline as main
 from src.infra import pipeline_state
+from src.infra.llm import factory as llm_factory
 from src.orchestration.history import list_reports
 from src.orchestration.reporting import render_report_html
 
@@ -27,6 +28,7 @@ def _configure_runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", output_dir)
     monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
     monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    monkeypatch.setattr(llm_factory, "LLM_PROVIDER", "mock")
     return output_dir, reports_dir
 
 
@@ -60,8 +62,9 @@ def test_api_limits_exposes_runtime_limits():
     assert payload["max_text_chars"] == 80_000
     assert payload["max_upload_files"] == 20
     assert payload["max_docx_bytes"] > 0
-    assert "anthropic" in payload["llm_allowed_providers"]
-    assert "ollama" in payload["llm_allowed_providers"]
+    assert payload["llm_allowed_providers"] == ["groq"]
+    assert payload["llm_allow_client_provider"] is False
+    assert payload["llm_requires_external_consent"] is True
     assert "none" not in payload["llm_allowed_providers"]
 
 
@@ -470,6 +473,8 @@ def test_frontend_focuses_on_ai_document_creation():
     assert "Validar texto" not in html
     assert "Gerar e validar DOCX" not in html
     assert '"triagem"' not in app_js
+    assert 'id="provider-select"' not in html
+    assert "provider-menu" not in html
 
 
 def test_service_worker_does_not_cache_sensitive_routes():
@@ -480,4 +485,3 @@ def test_service_worker_does_not_cache_sensitive_routes():
     assert 'url.pathname.includes("/documents/")' in content
     assert 'url.pathname.includes("/reports/")' in content
     assert 'request.method !== "GET"' in content
-

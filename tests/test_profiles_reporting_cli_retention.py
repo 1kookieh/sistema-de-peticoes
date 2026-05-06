@@ -9,6 +9,7 @@ from src.adapters.outbox import gmail_sender
 from src.orchestration import pipeline as pipeline_main
 from src.infra import pipeline_state
 from src.orchestration import retention
+from src.infra.llm import factory as llm_factory
 from src.infra.docx_render import renderizar
 from src.core.profiles import get_profile, list_profile_ids
 from src.orchestration.reporting import build_docx_report, extract_docx_structure
@@ -107,6 +108,7 @@ def test_cli_no_outbox_com_report(tmp_path, monkeypatch):
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", output)
     monkeypatch.setattr(gmail_sender, "OUTBOX", outbox)
     monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    monkeypatch.setattr(llm_factory, "LLM_PROVIDER", "mock")
 
     code = cli.main([
         "--inbox",

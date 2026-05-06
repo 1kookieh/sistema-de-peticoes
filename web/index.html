@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LexDoc - IA Jurídica</title>
   <meta name="description" content="Workspace com IA para gerar, revisar e baixar peças processuais em DOCX.">
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -65,7 +66,7 @@
       <section class="side-card">
         <span class="eyebrow">Sessão local</span>
         <strong id="side-provider">Provider carregando</strong>
-        <p>Use Mock para testes, Ollama para IA local e providers externos somente com consentimento.</p>
+        <p>Groq é a IA padrão. Envie dados ao provider externo somente com consentimento e revisão responsável.</p>
       </section>
 
       <section class="side-status">
@@ -142,7 +143,7 @@
             </div>
             <ul class="warning-list">
               <li><svg aria-hidden="true"><use href="#i-warning"></use></svg><span>Conferir competência, prazo, valor da causa e procuração antes de protocolar.</span></li>
-              <li><svg aria-hidden="true"><use href="#i-info"></use></svg><span>Providers externos podem receber dados do caso; use apenas com autorização.</span></li>
+              <li><svg aria-hidden="true"><use href="#i-info"></use></svg><span>Groq recebe dados fora desta máquina; use apenas com autorização.</span></li>
               <li><svg aria-hidden="true"><use href="#i-shield"></use></svg><span>O sistema gera minuta e não substitui revisão profissional.</span></li>
             </ul>
           </section>
@@ -201,12 +202,9 @@
                 <input id="file-input" type="file" multiple accept=".txt,.md,.docx,.pdf,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp">
                 <svg aria-hidden="true"><use href="#i-paperclip"></use></svg>
               </label>
-              <div class="provider-picker">
-                <button class="composer-square provider-tool" id="provider-button" type="button" title="Selecionar IA" aria-label="Selecionar IA" aria-expanded="false">
-                  <span id="provider-icon" class="provider-brand provider-brand-generic" aria-hidden="true">IA</span>
-                </button>
-                <select id="provider-select" class="sr-only" aria-label="Selecionar IA"></select>
-                <div id="provider-menu" class="provider-menu" hidden></div>
+              <div class="provider-fixed" aria-label="IA padrão Groq">
+                <span id="provider-icon" class="provider-brand provider-brand-groq" aria-hidden="true">G</span>
+                <span>Groq</span>
               </div>
               <textarea id="chat-input" rows="2" placeholder="Converse com a IA, peça uma tese, revise um argumento ou solicite uma peça processual..."></textarea>
               <button id="send-button" class="primary-btn icon-btn" type="submit">
@@ -215,9 +213,9 @@
               </button>
             </form>
             <div class="ai-options-strip">
-              <label id="external-consent-row" class="check-row compact-consent" hidden>
+              <label id="external-consent-row" class="check-row compact-consent">
                 <input id="external-consent" type="checkbox">
-                <span>Autorizo envio para provider externo</span>
+                <span>Autorizo envio dos dados desta solicitação ao Groq</span>
               </label>
               <p id="provider-note" class="note">Carregando configuração do backend...</p>
             </div>
@@ -283,7 +281,6 @@
           <section class="panel-card">
             <span class="eyebrow">Privacidade</span>
             <h2>Preferências</h2>
-            <label class="check-row"><input id="prefer-local" type="checkbox" checked> Preferir providers locais quando disponíveis</label>
             <label class="check-row"><input id="remember-settings" type="checkbox" checked> Manter minhas preferências neste navegador</label>
             <label class="check-row"><input id="strict-review" type="checkbox" checked> Exigir checklist antes de gerar</label>
           </section>
@@ -294,7 +291,7 @@
             <dl class="status-list">
               <div><dt>Provider padrão</dt><dd id="settings-provider">--</dd></div>
               <div><dt>Modelo padrão</dt><dd id="settings-model">--</dd></div>
-              <div><dt>Providers permitidos</dt><dd id="settings-allowed">--</dd></div>
+              <div><dt>Escolha de IA</dt><dd id="settings-allowed">Desativada</dd></div>
             </dl>
           </section>
         </div>
@@ -309,6 +306,6 @@
     </article>
   </template>
 
-  <script type="module" src="/static/app.js?v=lexdoc-app-v13"></script>
+  <script type="module" src="/static/app.js?v=lexdoc-app-v14"></script>
 </body>
 </html>

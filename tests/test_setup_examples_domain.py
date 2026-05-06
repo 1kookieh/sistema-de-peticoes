@@ -4,6 +4,7 @@ from src.interfaces import cli
 from src.adapters.outbox import gmail_sender
 from src.orchestration import pipeline as main
 from src.infra import pipeline_state
+from src.infra.llm import factory as llm_factory
 from src.core.domain import ProcessResult
 from src.adapters.inbox.gmail_reader import buscar_emails_pendentes
 
@@ -70,6 +71,7 @@ def test_examples_invalid_json_bloqueado_antes_da_outbox(tmp_path, monkeypatch):
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
     monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    monkeypatch.setattr(llm_factory, "LLM_PROVIDER", "mock")
 
     email = list(buscar_emails_pendentes())[0]
     resultado = main.processar_email(email, no_outbox=False)

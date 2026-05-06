@@ -17,7 +17,6 @@ sys.path.insert(0, str(ROOT))
 
 from config import (
     EMAIL_ADVOGADO,
-    LLM_ALLOW_CLIENT_PROVIDER,
     LLM_REQUIRED,
     MAX_DOCX_BYTES,
     OUTPUT_DIR,
@@ -86,7 +85,7 @@ def _safe_llm_error(error: Exception) -> str:
     return str(error).replace("\n", " ")[:500]
 
 
-_EXTERNAL_PROVIDERS = {"openai", "anthropic", "gemini", "openrouter"}
+_EXTERNAL_PROVIDERS = {"groq"}
 
 
 def _prepare_with_llm(
@@ -104,8 +103,8 @@ def _prepare_with_llm(
     llm_consent_external: bool | None = None,
 ) -> tuple[str | None, dict, list[str]]:
     """Generate petition text through the backend-configured LLM provider."""
-    provider_override = llm_provider if LLM_ALLOW_CLIENT_PROVIDER else None
-    model_override = llm_model if LLM_ALLOW_CLIENT_PROVIDER else None
+    provider_override = llm_provider if llm_provider == "mock" else None
+    model_override = None
     try:
         provider_name = normalize_provider(
             provider_override if LLM_REQUIRED else llm_provider,
@@ -125,7 +124,7 @@ def _prepare_with_llm(
     if provider_name == "none" and not LLM_REQUIRED:
         return raw_text, _llm_metadata_none(), []
 
-    # Consentimento explicito so e exigido para providers externos.
+    # Consentimento explicito e exigido porque Groq recebe dados fora da maquina local.
     if provider_name in _EXTERNAL_PROVIDERS and not llm_consent_external:
         metadata = LLMGenerationMetadata(
             enabled=True,
@@ -136,7 +135,7 @@ def _prepare_with_llm(
             error="consentimento externo nao fornecido",
         ).model_dump()
         return None, metadata, [
-            "provider externo exige consentimento explicito "
+            "Groq exige consentimento explicito "
             "(llm.consent_external_provider=true). O texto seria enviado a um "
             "servidor externo; cancelado para preservar LGPD."
         ]

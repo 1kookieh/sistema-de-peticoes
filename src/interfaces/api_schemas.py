@@ -16,10 +16,8 @@ class LLMRequestOptions(BaseModel):
     consent_external_provider: bool | None = Field(
         default=None,
         description=(
-            "Campo mantido para compatibilidade. A configuração de IA vem do "
-            "backend; quando LLM_ALLOW_CLIENT_PROVIDER=true, o cliente pode "
-            "escolher provider/model dentro da allowlist do servidor. Provider "
-            "externo exige consentimento."
+            "Campo mantido para compatibilidade. A IA padrao e Groq e o cliente "
+            "nao escolhe provider/model. Como o provider e externo, exige consentimento."
         ),
     )
 
@@ -32,8 +30,7 @@ class DeprecatedLLMRequestOptions(BaseModel):
         default=None,
         description=(
             "Consentimento explícito para enviar o texto a um provedor externo "
-            "(ex.: openai/anthropic). Obrigatório quando o provider escolhido "
-            "enviar dados para fora."
+            "(Groq). Obrigatório antes de enviar dados para fora da máquina local."
         ),
     )
 
@@ -69,7 +66,7 @@ class DocumentRequest(BaseModel):
     )
     consent_external_provider: bool | None = Field(
         default=None,
-        description="Consentimento para provider externo configurado no backend.",
+        description="Consentimento para envio ao provider externo Groq.",
     )
     remetente: str = Field(default="demo@example.com", max_length=254)
     assunto: str = Field(default="Geração local", max_length=200)

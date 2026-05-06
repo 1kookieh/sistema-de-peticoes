@@ -277,10 +277,10 @@ def api_limits() -> dict[str, Any]:
         "llm_required": LLM_REQUIRED,
         "llm_allow_client_provider": LLM_ALLOW_CLIENT_PROVIDER,
         "llm_allowed_providers": list(LLM_CLIENT_ALLOWED_PROVIDERS),
-        "llm_external_providers": ["openai", "anthropic", "gemini", "openrouter"],
-        "llm_local_providers": ["mock", "ollama"],
-        "llm_external_provider": LLM_PROVIDER in {"openai", "anthropic", "gemini", "openrouter"},
-        "llm_requires_external_consent": LLM_PROVIDER in {"openai", "anthropic", "gemini", "openrouter"},
+        "llm_external_providers": ["groq"],
+        "llm_local_providers": [],
+        "llm_external_provider": True,
+        "llm_requires_external_consent": True,
     }
 
 

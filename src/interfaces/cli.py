@@ -33,22 +33,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="minuta",
         help="Modo de saida: minuta e o padrao; final aplica bloqueios mais rigidos.",
     )
-    parser.add_argument("--mock", action="store_true", help="Usa provider mock nesta execucao local/teste.")
-    parser.add_argument(
-        "--llm-provider",
-        choices=("mock", "ollama", "openai", "anthropic"),
-        default=None,
-        help="Escolhe provider liberado pelo backend para esta execucao.",
-    )
-    parser.add_argument("--llm-model", default=None, help="Modelo opcional para o provider escolhido.")
+    parser.add_argument("--mock", action="store_true", help="Uso interno de testes: troca Groq por mock.")
+    parser.add_argument("--llm-model", default=None, help="Legado: ignorado; o modelo padrao vem do backend.")
     parser.add_argument("--llm", action="store_true", help="Legado: IA ja e usada por padrao.")
     parser.add_argument("--no-llm", action="store_true", help="Legado: bloqueado quando LLM_REQUIRED=true.")
     parser.add_argument(
         "--llm-consent-external",
         action="store_true",
         help=(
-            "Confirma consentimento explicito para enviar dados ao provider "
-            "externo configurado no backend."
+            "Confirma consentimento explicito para enviar dados ao Groq."
         ),
     )
     parser.add_argument("--setup", action="store_true", help="Cria pastas locais e verifica recursos essenciais.")
@@ -75,8 +68,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [{status}] {check.name}: {check.path}")
         print("\nProximos passos:")
         print("  1. Defina EMAIL_ADVOGADO em variavel de ambiente ou .env local.")
-        print("  2. Rode: python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json")
-        print("  3. Abra o .docx gerado em output/ e revise manualmente antes de qualquer uso real.")
+        print("  2. Defina GROQ_API_KEY para usar a IA padrao Groq.")
+        print("  3. Rode: python -m src --inbox examples/inbox_valid.json --no-outbox --llm-consent-external --report reports/demo_report.json")
+        print("  4. Abra o .docx gerado em output/ e revise manualmente antes de qualquer uso real.")
         return 0 if all(check.ok for check in checks) else 1
 
     if args.inbox:
@@ -92,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     if args.no_llm and LLM_REQUIRED:
-        print("[!] Este projeto usa IA obrigatoria no fluxo principal. Use --mock para teste local.")
+        print("[!] Este projeto usa IA obrigatoria no fluxo principal via Groq.")
         return 2
 
     if not EMAIL_ADVOGADO:
@@ -109,8 +103,8 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
             output_mode=args.output_mode,
             llm_enabled=True,
-            llm_provider="mock" if args.mock else args.llm_provider,
-            llm_model=args.llm_model,
+            llm_provider="mock" if args.mock else None,
+            llm_model=None,
             llm_consent_external=args.llm_consent_external if args.llm_consent_external else None,
         )
     except Exception as exc:

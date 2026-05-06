@@ -35,7 +35,7 @@ O projeto foi desenhado para execução local/controlada. Para uso em rede, prod
 - Dashboard local com métricas, evolução mensal, top tipos de peça e peças por cidade/UF.
 - Lista de peças geradas a partir dos relatórios locais.
 - Inferência automática de tipo de peça e perfil formal.
-- Providers LLM: `mock`, `ollama`, `openai` e `anthropic`.
+- Provider LLM padrão único: Groq (`llama-3.3-70b-versatile`).
 - Redaction parcial antes de envio para providers externos.
 - Prompts versionados em `prompts/`.
 - Validações textuais e estruturais do DOCX.
@@ -47,10 +47,9 @@ O projeto foi desenhado para execução local/controlada. Para uso em rede, prod
 ## Estado Atual Importante
 
 - O fluxo principal de criação de documentos é **AI-first**: por padrão, documentos passam pela camada LLM.
-- O provider `mock` é o caminho mais seguro para testes e desenvolvimento.
-- O provider `ollama` usa IA local via `OLLAMA_BASE_URL`.
-- Providers externos (`openai` e `anthropic`) exigem chave e consentimento explícito.
-- O chat direto da API local está implementado para `mock` e `ollama`. A geração de documentos usa a camada LLM completa.
+- O provider `mock` permanece apenas para testes automatizados.
+- Groq exige chave (`GROQ_API_KEY`) e consentimento explícito antes de enviar dados a um provider externo.
+- O chat direto da API local e a geração de documentos usam o mesmo provider padrão Groq.
 - Não há banco de dados relacional: peças e métricas são derivadas de arquivos locais em `reports/` e `output/`.
 
 ## Tecnologias
@@ -58,7 +57,7 @@ O projeto foi desenhado para execução local/controlada. Para uso em rede, prod
 | Área | Tecnologias |
 |---|---|
 | Backend/API | Python 3.11+, FastAPI, Uvicorn, Pydantic Settings |
-| IA/LLM | Mock local, Ollama, OpenAI, Anthropic/Claude |
+| IA/LLM | Groq como provider padrão único; mock apenas para testes |
 | Documentos | python-docx |
 | Extração | pypdf, Pillow, pytesseract |
 | Front-end | HTML, CSS e JavaScript puro |
@@ -91,9 +90,8 @@ reports/           relatórios JSON/HTML em runtime
 - Python 3.11 ou superior.
 - `pip`.
 - Tesseract OCR instalado somente se for usar OCR em imagens.
-- Ollama opcional, apenas para provider local real.
 - Docker opcional.
-- Chave OpenAI ou Anthropic opcional, apenas para provider externo.
+- Chave Groq (`GROQ_API_KEY`) para usar a IA padrão.
 
 ## Instalação Local
 
@@ -145,11 +143,11 @@ As configurações ficam em `.env`. O arquivo real não deve ser versionado.
 | `RETENTION_OUTPUT_DAYS` | Retenção de arquivos em `output/`. |
 | `RETENTION_REPORTS_DAYS` | Retenção de relatórios em `reports/`. |
 | `LLM_REQUIRED` | Mantém IA obrigatória no fluxo principal. |
-| `LLM_ALLOW_MOCK` | Permite provider mock. |
-| `LLM_ALLOW_CLIENT_PROVIDER` | Permite o cliente escolher provider dentro da allowlist. |
-| `LLM_CLIENT_ALLOWED_PROVIDERS` | Providers permitidos para seleção pelo cliente. |
-| `LLM_PROVIDER` | Provider padrão: `mock`, `ollama`, `openai` ou `anthropic`. |
-| `LLM_MODEL` | Modelo padrão do provider. |
+| `LLM_ALLOW_MOCK` | Permite mock apenas para testes automatizados. |
+| `LLM_ALLOW_CLIENT_PROVIDER` | Deve ficar `false`; a aplicação não oferece escolha de IA. |
+| `LLM_CLIENT_ALLOWED_PROVIDERS` | Deve ficar `groq`. |
+| `LLM_PROVIDER` | Provider padrão único: `groq`. |
+| `LLM_MODEL` | Modelo padrão do Groq. |
 | `LLM_TEMPERATURE` | Temperatura do modelo. |
 | `LLM_MAX_OUTPUT_TOKENS` | Limite de tokens da resposta. |
 | `LLM_TIMEOUT_SECONDS` | Timeout das chamadas LLM. |
@@ -157,27 +155,18 @@ As configurações ficam em `.env`. O arquivo real não deve ser versionado.
 | `LLM_REQUIRE_STRUCTURED_OUTPUT` | Exige saída estruturada para geração. |
 | `LLM_FALLBACK_ENABLED` | Permite fallback para mock quando configurado. |
 | `LLM_LOG_PROMPT` | Controla logging de prompt. Deve ficar `false` para dados sensíveis. |
-| `OPENAI_API_KEY` | Chave da OpenAI. |
-| `ANTHROPIC_API_KEY` | Chave da Anthropic/Claude. |
-| `OLLAMA_BASE_URL` | URL local do Ollama. |
+| `GROQ_API_KEY` | Chave da Groq. |
 
-Exemplo seguro para desenvolvimento:
+Exemplo padrão com Groq:
 
 ```env
 LLM_REQUIRED=true
 LLM_ALLOW_MOCK=true
-LLM_ALLOW_CLIENT_PROVIDER=true
-LLM_CLIENT_ALLOWED_PROVIDERS=mock,ollama,openai,anthropic
-LLM_PROVIDER=mock
-LLM_MODEL=
-```
-
-Exemplo com Ollama local:
-
-```env
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1:8b
-OLLAMA_BASE_URL=http://localhost:11434
+LLM_ALLOW_CLIENT_PROVIDER=false
+LLM_CLIENT_ALLOWED_PROVIDERS=groq
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=coloque-sua-chave
 ```
 
 ## Como Executar
@@ -240,12 +229,12 @@ Endpoints principais:
 | `GET` | `/api/v1/reports` | Lista relatórios locais. |
 | `GET` | `/api/v1/reports/{filename}` | Abre relatório JSON ou HTML. |
 
-Criar documento com provider mock:
+Criar documento com Groq:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/documents \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Cliente relata indeferimento de benefício pelo INSS. Dados fictícios para teste.\",\"output_mode\":\"minuta\",\"llm\":{\"provider\":\"mock\",\"consent_external_provider\":false}}"
+  -d "{\"text\":\"Cliente relata indeferimento de benefício pelo INSS. Dados fictícios para teste.\",\"output_mode\":\"minuta\",\"consent_external_provider\":true}"
 ```
 
 Upload:
@@ -254,8 +243,7 @@ Upload:
 curl -X POST http://127.0.0.1:8000/api/v1/documents/upload \
   -F "files=@relato.pdf" \
   -F "output_mode=minuta" \
-  -F "llm_provider=mock" \
-  -F "llm_consent_external_provider=false"
+  -F "llm_consent_external_provider=true"
 ```
 
 Se `API_TOKEN` estiver configurado, envie:
@@ -272,16 +260,16 @@ Ajuda:
 python -m src --help
 ```
 
-Processar exemplo fictício com mock e sem outbox:
+Processar exemplo fictício com mock e sem outbox (somente testes locais):
 
 ```bash
 python -m src --inbox examples/inbox_valid.json --no-outbox --mock --report reports/demo_report.json
 ```
 
-Processar com Ollama:
+Processar com Groq:
 
 ```bash
-python -m src --inbox examples/inbox_valid.json --no-outbox --llm-provider ollama --llm-model llama3.1:8b
+python -m src --inbox examples/inbox_valid.json --no-outbox --llm-consent-external
 ```
 
 Validar DOCX gerado:
@@ -356,7 +344,7 @@ No Windows, use a venv se necessário:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Observação: a suíte de testes deve rodar em ambiente controlado com provider mock. Se o `.env` local estiver apontando para Ollama ou provider externo, force as variáveis do processo de teste para `LLM_PROVIDER=mock`.
+Observação: a suíte de testes deve rodar em ambiente controlado com provider mock.
 
 ## Segurança E Privacidade
 
@@ -389,8 +377,7 @@ Mais detalhes em [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/l
 - Não há banco de dados relacional ou autenticação multiusuário.
 - A listagem de peças e o dashboard dependem de arquivos locais de relatório.
 - OCR depende de Tesseract configurado no ambiente.
-- Chat direto externo ainda não é o fluxo principal; use providers externos principalmente na geração estruturada e com consentimento.
-- Gemini/OpenRouter aparecem como chaves de configuração futura, mas não são providers completos implementados no pipeline atual.
+- Groq é externo; use apenas com consentimento explícito e dados adequados à política de privacidade do caso.
 
 ## Documentação Complementar
 
@@ -410,7 +397,6 @@ Melhorias futuras coerentes com o estado atual:
 
 - Persistir conversas, peças e métricas em banco de dados.
 - Adicionar autenticação e autorização reais.
-- Melhorar suporte de chat para providers externos.
 - Adicionar paginação, filtros e busca avançada em peças.
 - Ampliar validações jurídicas por tipo de peça.
 - Evoluir preview visual de DOCX/PDF.

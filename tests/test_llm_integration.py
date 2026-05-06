@@ -5,6 +5,7 @@ from docx import Document
 from src.adapters.outbox import gmail_sender
 from src.core.prompts import load_petition_prompt, load_word_formatting_prompt
 from src.infra import pipeline_state
+from src.infra.llm import factory as llm_factory
 from src.infra.llm.base import LLMRequest
 from src.infra.llm.factory import build_llm_provider
 from src.infra.llm.prompting import build_llm_prompt
@@ -35,6 +36,7 @@ def _patch_runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(gmail_sender, "OUTPUT_DIR", tmp_path / "output")
     monkeypatch.setattr(gmail_sender, "OUTBOX", tmp_path / "mcp_outbox.json")
     monkeypatch.setattr(pipeline_state, "STATE_FILE", tmp_path / "mcp_status.json")
+    monkeypatch.setattr(llm_factory, "LLM_PROVIDER", "mock")
 
 
 def test_build_llm_prompt_includes_versioned_prompts_case_text_and_json_schema():
@@ -137,10 +139,10 @@ def test_pipeline_uses_llm_even_when_legacy_payload_disables_it(tmp_path, monkey
     assert result.destino is not None
 
 
-def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
+def test_groq_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
-    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
-    monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "")
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "groq")
+    monkeypatch.setattr("src.infra.llm.factory.GROQ_API_KEY", "")
 
     result = pipeline.processar_email(
         _email(_case_text()),
@@ -148,20 +150,20 @@ def test_openai_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
         no_outbox=True,
         output_mode="minuta",
         llm_enabled=True,
-        llm_provider="openai",
         llm_consent_external=True,
     )
 
     serialized = json.dumps(result.to_report_item(), ensure_ascii=False)
     assert result.status == "llm_error"
     assert result.destino is None
-    assert "OPENAI_API_KEY" in result.problemas[0]
+    assert "GROQ_API_KEY" in result.problemas[0]
     assert "sk-" not in serialized
 
 
-def test_anthropic_provider_without_key_returns_clear_error(tmp_path, monkeypatch):
+def test_groq_provider_blocked_without_consent(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
-    monkeypatch.setattr("src.infra.llm.factory.ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "groq")
+    monkeypatch.setattr("src.infra.llm.factory.GROQ_API_KEY", "gsk-fake-test")
 
     result = pipeline.processar_email(
         _email(_case_text()),
@@ -169,43 +171,46 @@ def test_anthropic_provider_without_key_returns_clear_error(tmp_path, monkeypatc
         no_outbox=True,
         output_mode="minuta",
         llm_enabled=True,
-        llm_provider="anthropic",
-        llm_consent_external=True,
+        # Sem consentimento explicito.
     )
 
-    serialized = json.dumps(result.to_report_item(), ensure_ascii=False)
     assert result.status == "llm_error"
     assert result.destino is None
-    assert "ANTHROPIC_API_KEY" in result.problemas[0]
-    assert "sk-" not in serialized
+    assert any("consentimento" in problema.lower() for problema in result.problemas)
+    assert result.llm_usage["used"] is False
+    assert result.llm_usage["consent_external_provider"] is False
 
 
-def test_anthropic_provider_generates_with_valid_structured_response(tmp_path, monkeypatch):
+def test_groq_provider_generates_with_valid_structured_response(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
-    monkeypatch.setattr("src.infra.llm.factory.ANTHROPIC_API_KEY", "sk-ant-fake-test")
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "groq")
+    monkeypatch.setattr("src.infra.llm.factory.GROQ_API_KEY", "gsk-fake-test")
 
     captured: dict[str, str] = {}
 
-    def fake_call(self, final_prompt):
-        captured["prompt"] = final_prompt
+    def fake_completion(*, api_key, model, messages, response_format=None, max_tokens=None):
+        captured["api_key"] = api_key
+        captured["model"] = model
+        captured["prompt"] = messages[-1]["content"]
         return {
-            "content": [
+            "choices": [
                 {
-                    "type": "text",
-                    "text": (
-                        '{"piece_type":"teste","profile":"forense-basico",'
-                        '"title":"ACAO DE TESTE ANTHROPIC",'
-                        '"facts_summary":["fato gerado pelo Claude"],'
-                        '"requests":["pedido do Claude"]}'
-                    ),
+                    "message": {
+                        "content": (
+                            '{"piece_type":"teste","profile":"forense-basico",'
+                            '"title":"ACAO DE TESTE GROQ",'
+                            '"facts_summary":["fato gerado pelo Groq"],'
+                            '"requests":["pedido do Groq"]}'
+                        )
+                    }
                 }
             ],
-            "usage": {"input_tokens": 11, "output_tokens": 7},
+            "usage": {"prompt_tokens": 11, "completion_tokens": 7},
         }
 
     monkeypatch.setattr(
-        "src.infra.llm.anthropic_provider.AnthropicProvider._call",
-        fake_call,
+        "src.infra.llm.groq_provider.groq_chat_completion",
+        fake_completion,
     )
 
     result = pipeline.processar_email(
@@ -214,89 +219,27 @@ def test_anthropic_provider_generates_with_valid_structured_response(tmp_path, m
         no_outbox=True,
         output_mode="minuta",
         llm_enabled=True,
-        llm_provider="anthropic",
         llm_consent_external=True,
     )
 
     assert result.status in {"ok_no_outbox", "draft_with_warnings"}
     assert result.destino is not None
-    assert result.llm_usage["provider"] == "anthropic"
+    assert result.llm_usage["provider"] == "groq"
     assert result.llm_usage["tokens_input"] == 11
     assert result.llm_usage["tokens_output"] == 7
     assert "123.456.789-09" not in captured["prompt"]
     assert "<CPF#1>" in captured["prompt"]
 
 
-def test_ollama_provider_generates_without_external_consent(tmp_path, monkeypatch):
-    _patch_runtime(tmp_path, monkeypatch)
-
-    def fake_call(self, final_prompt):
-        assert "JSON SCHEMA OBRIGATORIO" in final_prompt
-        return {
-            "response": (
-                '{"piece_type":"teste","profile":"forense-basico",'
-                '"title":"ACAO DE TESTE OLLAMA",'
-                '"facts_summary":["fato local"],'
-                '"requests":["pedido local"]}'
-            ),
-            "prompt_eval_count": 9,
-            "eval_count": 6,
-        }
-
-    monkeypatch.setattr(
-        "src.infra.llm.ollama_provider.OllamaProvider._call",
-        fake_call,
-    )
-
-    result = pipeline.processar_email(
-        _email(_case_text()),
-        profile_id="forense-basico",
-        no_outbox=True,
-        output_mode="minuta",
-        llm_enabled=True,
-        llm_provider="ollama",
-        llm_model="llama3.1:8b",
-    )
-
-    assert result.status in {"ok_no_outbox", "draft_with_warnings"}
-    assert result.destino is not None
-    assert result.llm_usage["provider"] == "ollama"
-    assert result.llm_usage["model"] == "llama3.1:8b"
-    assert result.llm_usage["consent_external_provider"] is False
-    assert result.llm_usage["tokens_input"] == 9
-
-
-def test_openai_provider_blocked_without_consent(tmp_path, monkeypatch):
-    _patch_runtime(tmp_path, monkeypatch)
-    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
-    monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "sk-fake-test")
-
-    result = pipeline.processar_email(
-        _email(_case_text()),
-        profile_id="forense-basico",
-        no_outbox=True,
-        output_mode="minuta",
-        llm_enabled=True,
-        llm_provider="openai",
-        # Sem consentimento explicito.
-    )
-
-    assert result.status == "llm_error"
-    assert result.destino is None
-    assert any("consentimento" in problema.lower() for problema in result.problemas)
-    # Nada foi enviado para a OpenAI: sem latency_ms e sem tokens.
-    assert result.llm_usage["used"] is False
-    assert result.llm_usage["consent_external_provider"] is False
-
-
 def test_redaction_applied_for_external_provider(tmp_path, monkeypatch):
     _patch_runtime(tmp_path, monkeypatch)
-    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "openai")
+    monkeypatch.setattr("src.infra.llm.factory.LLM_PROVIDER", "groq")
+    monkeypatch.setattr("src.infra.llm.factory.GROQ_API_KEY", "gsk-fake-test")
 
     captured: dict[str, str] = {}
 
-    def fake_call(self, final_prompt):
-        captured["prompt"] = final_prompt
+    def fake_completion(*, api_key, model, messages, response_format=None, max_tokens=None):
+        captured["prompt"] = messages[-1]["content"]
         return {
             "choices": [
                 {
@@ -314,10 +257,9 @@ def test_redaction_applied_for_external_provider(tmp_path, monkeypatch):
         }
 
     monkeypatch.setattr(
-        "src.infra.llm.openai_provider.OpenAIProvider._call",
-        fake_call,
+        "src.infra.llm.groq_provider.groq_chat_completion",
+        fake_completion,
     )
-    monkeypatch.setattr("src.infra.llm.factory.OPENAI_API_KEY", "sk-fake-test")
 
     texto = (
         "Cliente CPF 123.456.789-09, NIT 123.45678.90-1, RG 12.345.678-9, "
@@ -330,7 +272,6 @@ def test_redaction_applied_for_external_provider(tmp_path, monkeypatch):
         no_outbox=True,
         output_mode="minuta",
         llm_enabled=True,
-        llm_provider="openai",
         llm_consent_external=True,
     )
 

@@ -787,7 +787,7 @@ h2 svg {
 }
 .conversation-composer {
   align-items: end;
-  grid-template-columns: 52px 52px minmax(0, 1fr) auto;
+  grid-template-columns: 52px auto minmax(0, 1fr) auto;
   padding: 16px;
   flex: 0 0 auto;
 }
@@ -801,55 +801,19 @@ h2 svg {
   position: relative;
   width: 52px;
 }
-.provider-picker {
-  position: relative;
-}
-.provider-tool {
+.provider-fixed {
+  align-items: center;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   color: var(--ink);
-  gap: 0;
-  overflow: hidden;
-  transition: background var(--transition), border-color var(--transition), transform var(--transition);
-}
-.provider-tool:hover,
-.provider-tool[aria-expanded="true"] {
-  background: var(--accent-soft);
-  border-color: var(--gold);
-  transform: translateY(-1px);
-}
-.provider-menu {
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  bottom: calc(100% + 8px);
-  box-shadow: var(--shadow);
-  display: grid;
-  gap: 4px;
-  left: 0;
-  min-width: 190px;
-  padding: 6px;
-  position: absolute;
-  z-index: 20;
-}
-.provider-menu[hidden] {
-  display: none;
-}
-.provider-option {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: var(--ink);
-  display: flex;
+  display: inline-flex;
   gap: 8px;
-  padding: 9px 10px;
-  text-align: left;
-}
-.provider-option:hover,
-.provider-option.is-active {
-  background: var(--accent-soft);
+  font-size: .82rem;
+  font-weight: 850;
+  height: 48px;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 .provider-brand {
   align-items: center;
@@ -875,29 +839,12 @@ h2 svg {
   stroke-width: 1.75;
   width: 18px;
 }
-.provider-tool .provider-brand {
+.provider-fixed .provider-brand {
   height: 31px;
   width: 31px;
 }
-.provider-brand-mock { background: #f2eadc; color: #8a5b19; }
-.provider-brand-ollama { background: #171717; color: #fffdf8; }
-.provider-brand-openai { background: #101010; color: #ffffff; }
-.provider-brand-openai svg { height: 19px; width: 19px; }
-.provider-brand-claude { background: #d97757; color: #fffaf4; }
-.provider-brand-claude svg { fill: color-mix(in srgb, currentColor 20%, transparent); }
-.provider-brand-gemini { background: #2b64d8; color: #fff; }
-.provider-brand-gemini svg,
-.provider-brand-openrouter svg { fill: currentColor; stroke: none; }
-.provider-brand-openrouter { background: #5636a3; color: #fff; }
+.provider-brand-groq { background: var(--primary); color: var(--on-primary); }
 .provider-brand-generic { background: var(--accent-soft); color: var(--ink); font-size: .68rem; }
-.provider-option .provider-brand {
-  height: 24px;
-  width: 24px;
-}
-.provider-option .provider-brand svg {
-  height: 15px;
-  width: 15px;
-}
 .ai-options-strip {
   align-items: center;
   border-top: 1px solid var(--line);
