@@ -5,6 +5,8 @@
   --surface-2: #f7f2e8;
   --surface-3: #e8dfd0;
   --ink: #161616;
+  --primary: #161616;
+  --on-primary: #fffefa;
   --ink-2: #343434;
   --muted: #4f4a43;
   --muted-2: #746b5f;
@@ -23,6 +25,8 @@
   --radius: 10px;
   --radius-sm: 7px;
   --transition: .2s cubic-bezier(.2, .8, .2, 1);
+  --tab-active-bg: #111111;
+  --tab-active-fg: #fffefa;
 }
 
 :root[data-theme="dark"] {
@@ -32,6 +36,8 @@
   --surface-2: #22201c;
   --surface-3: #2c2821;
   --ink: #f6f0e5;
+  --primary: #f6f0e5;
+  --on-primary: #161616;
   --ink-2: #e3d9c8;
   --muted: #b0a796;
   --muted-2: #837a6b;
@@ -47,6 +53,8 @@
   --danger: #ff8a7d;
   --danger-soft: #3b1714;
   --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 18px 54px rgba(0, 0, 0, .34);
+  --tab-active-bg: #f6f0e5;
+  --tab-active-fg: #161616;
 }
 
 * { box-sizing: border-box; }
@@ -176,9 +184,9 @@ svg {
 }
 .tab-button:hover { background: var(--accent-soft); color: var(--ink); transform: translateX(2px); }
 .tab-button.is-active {
-  background: #111111 !important;
-  border-color: var(--ink);
-  color: #fffefa !important;
+  background: var(--tab-active-bg) !important;
+  border-color: var(--tab-active-bg);
+  color: var(--tab-active-fg) !important;
   box-shadow: var(--shadow);
   opacity: 1;
 }
@@ -187,9 +195,9 @@ body[data-active-tab="dashboard"] .tab-button[data-tab-target="dashboard"],
 body[data-active-tab="ai"] .tab-button[data-tab-target="ai"],
 body[data-active-tab="pieces"] .tab-button[data-tab-target="pieces"],
 body[data-active-tab="settings"] .tab-button[data-tab-target="settings"] {
-  background: #111111 !important;
-  border-color: #111111 !important;
-  color: #fffefa !important;
+  background: var(--tab-active-bg) !important;
+  border-color: var(--tab-active-bg) !important;
+  color: var(--tab-active-fg) !important;
   opacity: 1 !important;
 }
 .tab-icon {
@@ -695,6 +703,15 @@ h2 svg {
   margin-right: 8px;
   width: 20px;
 }
+.chart-empty-guidance {
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+  min-height: 244px;
+}
+.chart-empty-guidance span {
+  max-width: 430px;
+}
 
 .ai-conversation-shell {
   height: calc(100vh - 150px);
@@ -760,10 +777,12 @@ h2 svg {
   width: 34px;
 }
 .message-body {
+  align-self: flex-start;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 16px;
   color: var(--ink-2);
+  min-height: 64px;
   padding: 12px 14px;
 }
 .message-body p { margin: 0 0 8px; }
@@ -1026,6 +1045,16 @@ input[type="checkbox"] {
 }
 .pieces-table td { color: var(--ink-2); }
 .pieces-table small { color: var(--muted); }
+.muted-dash {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  display: inline-flex;
+  font-weight: 850;
+  line-height: 1;
+  padding: 5px 8px;
+}
 .actions-col { text-align: right !important; }
 .row-actions {
   display: flex;

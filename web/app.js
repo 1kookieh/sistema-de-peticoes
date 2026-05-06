@@ -164,6 +164,18 @@ function statusChip(status) {
   return `<span class="status-chip ${normalized}">${escapeHTML(status)}</span>`;
 }
 
+function mutedDash() {
+  return '<span class="muted-dash" aria-label="Não informado">--</span>';
+}
+
+function displayValue(value, fallback = mutedDash()) {
+  const text = String(value || "").trim();
+  if (!text || /^(n[aã]o informado|cidade\/uf n[aã]o informada|sem dado)$/i.test(text)) {
+    return fallback;
+  }
+  return escapeHTML(text);
+}
+
 function addMessage(role, html) {
   const template = $("#message-template").content.firstElementChild.cloneNode(true);
   template.classList.add(role);
@@ -600,6 +612,16 @@ function renderLocationChart(items) {
     container.innerHTML = `<div class="chart-empty dark">Nenhuma cidade/UF registrada nas peças geradas.</div>`;
     return;
   }
+  const onlyMissingLocation = normalized.every((item) => /n[aã]o informad|sem cidade|sem dado/i.test(String(item.label || "")));
+  if (onlyMissingLocation) {
+    container.innerHTML = `
+      <div class="chart-empty chart-empty-guidance dark">
+        ${icon("i-map")}
+        <span>Cidade/UF não informada nas peças. Preencha o campo comarca ao gerar nova peça para popular este gráfico.</span>
+      </div>
+    `;
+    return;
+  }
   const maxValue = Math.max(...normalized.map((item) => Number(item.total || 0)), 1);
   const axisMax = maxValue <= 2 ? 2 : Math.ceil(maxValue / 2) * 2;
   const yTicks = axisMax === 2 ? [0, 0.5, 1, 1.5, 2] : [0, axisMax * 0.25, axisMax * 0.5, axisMax * 0.75, axisMax];
@@ -703,11 +725,11 @@ function renderPieces() {
   $("#pieces-table-body").innerHTML = rows.length
     ? rows.map((piece) => `
       <tr>
-        <td><strong>${escapeHTML(piece.person)}</strong><br><small>${new Date(piece.createdAt).toLocaleString("pt-BR")}</small></td>
-        <td>${escapeHTML(piece.process)}</td>
-        <td>${escapeHTML(piece.type)}</td>
+        <td><strong>${displayValue(piece.person)}</strong><br><small>${new Date(piece.createdAt).toLocaleString("pt-BR")}</small></td>
+        <td>${displayValue(piece.process)}</td>
+        <td>${displayValue(piece.type, escapeHTML("Peça processual"))}</td>
         <td>${statusChip(piece.status)}</td>
-        <td>${escapeHTML(providerLabels[piece.provider] || piece.provider || "--")}</td>
+        <td>${displayValue(providerLabels[piece.provider] || piece.provider)}</td>
         <td>
           <div class="row-actions">
             ${piece.reportHtmlUrl ? `<button class="mini-action" type="button" data-open="${escapeHTML(piece.reportHtmlUrl)}">${icon("i-eye")}Visualizar</button>` : `<button class="mini-action" type="button" disabled>${icon("i-eye")}Visualizar</button>`}

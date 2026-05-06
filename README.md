@@ -18,11 +18,11 @@ O projeto transforma relatos de caso e arquivos anexados em documentos Word com 
 A interface web atual é um workspace local com:
 
 - aba **Início**, com métricas operacionais e gráficos;
-- aba **IA**, com conversa, anexos e seleção de provider;
+- aba **IA**, com conversa, anexos e consentimento explícito para o provider externo único;
 - aba **Peças**, com listagem de peças geradas e ações de visualizar/baixar;
 - aba **Configurações**, com preferências locais e dados públicos da configuração do backend.
 
-O projeto foi desenhado para execução local/controlada. Para uso em rede, produção ou multiusuário, ainda são necessárias camadas adicionais de autenticação, autorização, persistência e observabilidade.
+O projeto foi desenhado para execução local/controlada e single-user. O estado atual é local-first, baseado em arquivos JSON/HTML/DOCX no disco; não use em produção multiusuário sem autenticação forte, autorização, banco de dados transacional, observabilidade e política de retenção.
 
 ## Funcionalidades Implementadas
 
@@ -51,6 +51,7 @@ O projeto foi desenhado para execução local/controlada. Para uso em rede, prod
 - Groq exige chave (`GROQ_API_KEY`) e consentimento explícito antes de enviar dados a um provider externo.
 - O chat direto da API local e a geração de documentos usam o mesmo provider padrão Groq.
 - Não há banco de dados relacional: peças e métricas são derivadas de arquivos locais em `reports/` e `output/`.
+- O estado atual é single-user e baseado em arquivos locais JSON/HTML/DOCX.
 
 ## Tecnologias
 
@@ -375,6 +376,7 @@ Mais detalhes em [SECURITY.md](SECURITY.md) e [docs/legal-limitations.md](docs/l
 - Não pesquisa jurisprudência em tempo real.
 - Não garante tese correta nem aceitação por tribunais.
 - Não há banco de dados relacional ou autenticação multiusuário.
+- O estado atual é single-user e baseado em arquivos locais JSON/HTML/DOCX.
 - A listagem de peças e o dashboard dependem de arquivos locais de relatório.
 - OCR depende de Tesseract configurado no ambiente.
 - Groq é externo; use apenas com consentimento explícito e dados adequados à política de privacidade do caso.

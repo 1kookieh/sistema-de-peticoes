@@ -19,6 +19,10 @@ def _texto_valido():
     return TEXTO_VALIDO
 
 
+def _document_json(text: str, **overrides):
+    return {"text": text, "remetente": "cliente@example.com", **overrides}
+
+
 def _configure_runtime(tmp_path, monkeypatch):
     output_dir = tmp_path / "output"
     reports_dir = tmp_path / "reports"
@@ -74,7 +78,7 @@ def test_api_blocks_untrusted_origin(tmp_path, monkeypatch):
 
     response = client.post(
         "/api/v1/documents",
-        json={"text": _texto_valido()},
+        json=_document_json(_texto_valido()),
         headers={"Origin": "http://evil.local"},
     )
 
@@ -119,17 +123,27 @@ def test_api_invalid_profile_returns_422(tmp_path, monkeypatch):
 
     response = client.post(
         "/api/v1/documents",
-        json={"text": _texto_valido(), "profile_id": "perfil-inexistente"},
+        json=_document_json(_texto_valido(), profile_id="perfil-inexistente"),
     )
 
     assert response.status_code == 422
+
+
+def test_api_requires_document_sender(tmp_path, monkeypatch):
+    _configure_runtime(tmp_path, monkeypatch)
+    client = TestClient(api.app)
+
+    response = client.post("/api/v1/documents", json={"text": _texto_valido()})
+
+    assert response.status_code == 422
+    assert any(error["loc"][-1] == "remetente" for error in response.json()["detail"])
 
 
 def test_api_generates_docx_and_html_report(tmp_path, monkeypatch):
     output_dir, reports_dir = _configure_runtime(tmp_path, monkeypatch)
     client = TestClient(api.app)
 
-    response = client.post("/api/v1/documents", json={"text": _texto_valido()})
+    response = client.post("/api/v1/documents", json=_document_json(_texto_valido()))
 
     assert response.status_code == 200
     payload = response.json()
@@ -156,6 +170,7 @@ def test_api_accepts_llm_mock_options_and_returns_metadata(tmp_path, monkeypatch
         "/api/v1/documents",
         json={
             "text": "Cliente relata indeferimento de beneficio por incapacidade.",
+            "remetente": "cliente@example.com",
             "profile_id": "forense-basico",
             "piece_type_id": "auxilio-incapacidade-temporaria",
             "output_mode": "minuta",
@@ -182,7 +197,7 @@ def test_api_output_mode_final_bloqueia_marcador_pendente(tmp_path, monkeypatch)
 
     response = client.post(
         "/api/v1/documents",
-        json={"text": texto, "output_mode": "final"},
+        json=_document_json(texto, output_mode="final"),
     )
 
     assert response.status_code == 200
@@ -205,7 +220,7 @@ def test_api_output_mode_minuta_aceita_marcador_pendente(tmp_path, monkeypatch):
 
     response = client.post(
         "/api/v1/documents",
-        json={"text": texto, "output_mode": "minuta"},
+        json=_document_json(texto, output_mode="minuta"),
     )
 
     assert response.status_code == 200
@@ -225,6 +240,7 @@ def test_api_output_mode_minuta_entrega_docx_com_alertas_formais(tmp_path, monke
         "/api/v1/documents",
         json={
             "text": "Cliente relata indeferimento de beneficio por incapacidade. DER 10/01/2026.",
+            "remetente": "cliente@example.com",
             "output_mode": "minuta",
         },
     )
@@ -245,7 +261,7 @@ def test_api_output_mode_triagem_nao_gera_docx(tmp_path, monkeypatch):
 
     response = client.post(
         "/api/v1/documents",
-        json={"text": "Caso incompleto. [DADO FALTANTE: DER]", "output_mode": "triagem"},
+        json=_document_json("Caso incompleto. [DADO FALTANTE: DER]", output_mode="triagem"),
     )
 
     assert response.status_code == 422
@@ -375,7 +391,7 @@ def test_api_blocks_invalid_text_and_keeps_report(tmp_path, monkeypatch):
     client = TestClient(api.app)
 
     invalid = _texto_valido().replace("OAB/GO 12.345", "OAB/UF 00.000")
-    response = client.post("/api/v1/documents", json={"text": invalid})
+    response = client.post("/api/v1/documents", json=_document_json(invalid))
 
     assert response.status_code == 200
     payload = response.json()

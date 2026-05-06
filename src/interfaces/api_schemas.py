@@ -68,7 +68,11 @@ class DocumentRequest(BaseModel):
         default=None,
         description="Consentimento para envio ao provider externo Groq.",
     )
-    remetente: str = Field(default="demo@example.com", max_length=254)
+    remetente: str = Field(
+        min_length=3,
+        max_length=254,
+        description="Identificacao do remetente responsavel pela solicitacao.",
+    )
     assunto: str = Field(default="Geração local", max_length=200)
     person_name: str | None = Field(default=None, max_length=180)
     case_number: str | None = Field(default=None, max_length=80)
