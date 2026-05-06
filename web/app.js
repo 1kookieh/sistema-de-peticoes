@@ -174,10 +174,7 @@ function addMessage(role, html) {
 }
 
 function addWelcomeMessage() {
-  addMessage("assistant", `
-    <p><strong>Pronto para conversar.</strong> Descreva no chat o tipo de peça, dados do caso, estratégia, comarca, cliente, processo e qualquer detalhe relevante.</p>
-    <p>Quando você pedir uma minuta, eu aciono o backend, gero o DOCX e registro o resultado na aba <strong>Peças</strong>.</p>
-  `);
+  // Conversa inicia em branco; sem mensagem automática da IA.
 }
 
 function renderSelectOptions() {
@@ -492,8 +489,8 @@ function renderMonthlyEvolution(items) {
       <svg class="line-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução mensal de peças">
         <defs>
           <linearGradient id="monthlyFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="#d8a354" stop-opacity=".28"></stop>
-            <stop offset="100%" stop-color="#7fb285" stop-opacity="0"></stop>
+            <stop offset="0%" stop-color="currentColor" stop-opacity=".22"></stop>
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0"></stop>
           </linearGradient>
         </defs>
         <g class="chart-grid dark-grid">

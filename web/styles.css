@@ -457,18 +457,16 @@ h2 svg {
   margin-top: 20px;
 }
 .analytic-card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0)),
-    #1d1b17;
-  border-color: #4a4031;
-  box-shadow: 0 16px 44px rgba(38, 30, 19, .18);
-  color: #fffaf1;
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  color: var(--ink);
   min-height: 384px;
   overflow: hidden;
 }
-.analytic-card .eyebrow { color: #d8a354; }
-.analytic-card h2 { color: #fffaf1; }
-.analytic-card h2 svg { color: #d8a354; }
+.analytic-card .eyebrow { color: var(--muted-2); }
+.analytic-card h2 { color: var(--ink); }
+.analytic-card h2 svg { color: var(--gold); }
 .analytic-card.wide { min-height: 384px; }
 .monthly-chart,
 .bar-list { min-height: 284px; }
@@ -478,18 +476,18 @@ h2 svg {
   padding-top: 6px;
 }
 .line-chart-svg {
-  color: #d8a354;
+  color: var(--gold);
   display: block;
   height: 264px;
   overflow: visible;
   width: 100%;
 }
 .chart-grid path {
-  stroke: rgba(216, 163, 84, .16);
+  stroke: color-mix(in srgb, var(--line-strong) 60%, transparent);
   stroke-dasharray: 5 7;
   stroke-width: 1;
 }
-.dark-grid path { stroke: rgba(216, 163, 84, .16); }
+.dark-grid path { stroke: color-mix(in srgb, var(--line-strong) 60%, transparent); }
 .monthly-area {
   animation: growX .55s cubic-bezier(.2, .8, .2, 1) both;
   fill: url(#monthlyFill);
@@ -504,18 +502,18 @@ h2 svg {
   transform-origin: left center;
 }
 .monthly-line.primary {
-  stroke: #d8a354;
+  stroke: var(--gold);
   stroke-width: 3;
 }
 .monthly-line.secondary {
   opacity: .9;
-  stroke: #7fb285;
+  stroke: color-mix(in srgb, var(--ok) 55%, var(--surface-3));
   stroke-width: 2.5;
   transform: translateY(18px) scaleY(.56);
   transform-origin: center bottom;
 }
 .chart-axis {
-  fill: #eadcc6;
+  fill: var(--muted);
   font-size: 13px;
   font-weight: 850;
 }
@@ -525,7 +523,7 @@ h2 svg {
 }
 .chart-legend {
   align-items: center;
-  color: #f8fbff;
+  color: var(--ink);
   display: flex;
   flex-wrap: wrap;
   font-size: 1rem;
@@ -557,8 +555,8 @@ h2 svg {
 }
 .legend-dot::before { right: 6px; }
 .legend-dot::after { left: 6px; }
-.legend-dot.orange { background: #d8a354; color: #d8a354; }
-.legend-dot.green { background: #7fb285; color: #7fb285; }
+.legend-dot.orange { background: var(--gold); color: var(--gold); }
+.legend-dot.green { background: color-mix(in srgb, var(--ok) 55%, var(--surface-3)); color: color-mix(in srgb, var(--ok) 55%, var(--surface-3)); }
 .ranking-chart-svg,
 .location-chart-svg {
   display: block;
@@ -569,16 +567,16 @@ h2 svg {
 .ranking-chart-svg { height: 306px; }
 .horizontal-bar {
   animation: growX .55s cubic-bezier(.2, .8, .2, 1) both;
-  fill: #b8894f;
-  stroke: rgba(255, 250, 241, .5);
+  fill: var(--gold);
+  stroke: color-mix(in srgb, var(--ink) 18%, transparent);
   stroke-width: 1;
   transform-origin: left center;
   transition: filter var(--transition), opacity var(--transition), transform var(--transition);
 }
 .vertical-bar {
   animation: rise .55s cubic-bezier(.2, .8, .2, 1) both;
-  fill: #8da174;
-  stroke: rgba(255, 250, 241, .52);
+  fill: color-mix(in srgb, var(--ok) 55%, var(--surface-3));
+  stroke: color-mix(in srgb, var(--ink) 18%, transparent);
   stroke-width: 1;
   transform-box: fill-box;
   transform-origin: center bottom;
@@ -593,16 +591,16 @@ h2 svg {
   pointer-events: all;
 }
 .monthly-point {
-  fill: #fffaf1;
-  stroke: #d8a354;
+  fill: var(--surface);
+  stroke: var(--gold);
   stroke-width: 2.4;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .24));
+  filter: drop-shadow(0 2px 6px rgba(18, 18, 18, .14));
   opacity: .88;
   transition: fill var(--transition), r var(--transition), stroke var(--transition);
 }
 .chart-hover-label,
 .bar-value-label {
-  fill: #fffaf1;
+  fill: var(--ink);
   font-size: 13px;
   font-weight: 900;
   opacity: 0;
@@ -612,8 +610,8 @@ h2 svg {
 .bar-value-label { font-size: 12px; }
 .chart-hit:hover .monthly-point,
 .chart-hit:focus-visible .monthly-point {
-  fill: #d8a354;
-  stroke: #fffaf1;
+  fill: var(--gold);
+  stroke: var(--surface);
   r: 7;
 }
 .chart-hit:hover .chart-hover-label,
