@@ -491,11 +491,11 @@ h2 svg {
   width: 100%;
 }
 .chart-grid path {
-  stroke: color-mix(in srgb, var(--line-strong) 60%, transparent);
-  stroke-dasharray: 5 7;
+  stroke: color-mix(in srgb, var(--line-strong) 42%, transparent);
+  stroke-dasharray: 4 8;
   stroke-width: 1;
 }
-.dark-grid path { stroke: color-mix(in srgb, var(--line-strong) 60%, transparent); }
+.dark-grid path { stroke: color-mix(in srgb, var(--line-strong) 42%, transparent); }
 .monthly-area {
   animation: growX .55s cubic-bezier(.2, .8, .2, 1) both;
   fill: url(#monthlyFill);
@@ -522,19 +522,20 @@ h2 svg {
 }
 .chart-axis {
   fill: var(--ink);
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-family: "Segoe UI", Inter, Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0;
+  stroke: none;
 }
-.chart-axis.y { fill: var(--muted); font-weight: 800; }
+.chart-axis.y { fill: var(--ink); font-size: 17px; font-weight: 900; }
 .chart-axis.y.label {
   fill: var(--ink);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 900;
   line-height: 1.2;
 }
-.chart-axis.x { fill: var(--ink); font-size: 15px; font-weight: 700; }
+.chart-axis.x { fill: var(--ink); font-size: 17px; font-weight: 900; }
 .chart-legend {
   align-items: center;
   color: var(--ink);
@@ -603,6 +604,8 @@ h2 svg {
 .monthly-hit > rect {
   fill: transparent;
   pointer-events: all;
+  stroke: none;
+  stroke-width: 0;
 }
 .monthly-point {
   fill: var(--surface);
@@ -615,16 +618,18 @@ h2 svg {
 .chart-hover-label,
 .bar-value-label {
   fill: var(--ink);
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  font-size: 15px;
+  font-family: "Segoe UI", Inter, Arial, sans-serif;
+  font-size: 17px;
   font-weight: 900;
+  letter-spacing: 0;
   opacity: 0;
   pointer-events: none;
+  stroke: none;
   transition: opacity var(--transition), transform var(--transition);
 }
 .bar-value-label {
   fill: var(--surface);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 900;
   opacity: 1;
   paint-order: stroke fill;

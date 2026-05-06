@@ -505,7 +505,7 @@ function renderMonthlyEvolution(items) {
   }
   const maxValue = Math.max(...normalized.map((item) => Number(item.total || 0)), 1);
   const axisMax = maxValue <= 2 ? 2 : Math.ceil(maxValue / 2) * 2;
-  const yTicks = axisMax === 2 ? [0, 0.5, 1, 1.5, 2] : [0, axisMax * 0.25, axisMax * 0.5, axisMax * 0.75, axisMax];
+  const yTicks = integerTicks(axisMax);
   const width = 680;
   const height = 315;
   const pad = { top: 28, right: 30, bottom: 58, left: 58 };
@@ -533,7 +533,6 @@ function renderMonthlyEvolution(items) {
             const y = pad.top + usableH - (tick / axisMax) * usableH;
             return `<path d="M${pad.left} ${y}H${width - pad.right}"></path>`;
           }).join("")}
-          ${points.map((point) => `<path d="M${point.x} ${pad.top}V${baselineY}"></path>`).join("")}
         </g>
         <path class="monthly-area" d="${smoothArea}"></path>
         <path class="monthly-line secondary" d="${smoothPath}"></path>
@@ -574,7 +573,7 @@ function renderTopTypesChart(items) {
   const height = 120 + normalized.length * rowHeight;
   const pad = { top: 32, right: 32, bottom: 56, left: 240 };
   const usableW = width - pad.left - pad.right;
-  const xTicks = maxValue === 1 ? [0, 0.25, 0.5, 0.75, 1] : [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
+  const xTicks = integerTicks(maxValue);
   container.innerHTML = `
     <svg class="ranking-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Top 5 tipos de peça">
       <g class="chart-grid dark-grid">
@@ -624,7 +623,7 @@ function renderLocationChart(items) {
   }
   const maxValue = Math.max(...normalized.map((item) => Number(item.total || 0)), 1);
   const axisMax = maxValue <= 2 ? 2 : Math.ceil(maxValue / 2) * 2;
-  const yTicks = axisMax === 2 ? [0, 0.5, 1, 1.5, 2] : [0, axisMax * 0.25, axisMax * 0.5, axisMax * 0.75, axisMax];
+  const yTicks = integerTicks(axisMax);
   const width = 680;
   const height = 315;
   const pad = { top: 28, right: 28, bottom: 48, left: 58 };
@@ -638,10 +637,6 @@ function renderLocationChart(items) {
         ${yTicks.map((tick) => {
           const y = pad.top + usableH - (tick / axisMax) * usableH;
           return `<path d="M${pad.left} ${y}H${width - pad.right}"></path>`;
-        }).join("")}
-        ${normalized.map((_, index) => {
-          const x = pad.left + index * slot + slot / 2;
-          return `<path d="M${x} ${pad.top}V${pad.top + usableH}"></path>`;
         }).join("")}
       </g>
       ${yTicks.map((tick) => {
@@ -698,8 +693,17 @@ function smoothPathFromPoints(points) {
 }
 
 function formatTick(value) {
-  const rounded = Math.round(value * 100) / 100;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(".", ",");
+  return String(Math.round(Number(value || 0)));
+}
+
+function integerTicks(maxValue) {
+  const max = Math.max(1, Math.ceil(Number(maxValue || 1)));
+  if (max <= 4) return Array.from({ length: max + 1 }, (_, index) => index);
+  const step = Math.max(1, Math.ceil(max / 4));
+  const ticks = [];
+  for (let value = 0; value < max; value += step) ticks.push(value);
+  if (ticks.at(-1) !== max) ticks.push(max);
+  return ticks;
 }
 
 function shortLabel(value, max = 18) {
